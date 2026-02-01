@@ -11,7 +11,8 @@ Thank you for your interest in contributing to SimplePicture3D! We welcome contr
 5. [Coding Standards](#coding-standards)
 6. [Testing Guidelines](#testing-guidelines)
 7. [Pull Request Process](#pull-request-process)
-8. [Community](#community)
+8. [Security & Dependencies](#security--dependencies)
+9. [Community](#community)
 
 ---
 
@@ -30,6 +31,22 @@ We do not tolerate harassment, discrimination, or disrespectful behavior of any 
 ---
 
 ## Getting Started
+
+### Rust onboarding (backend contributors)
+
+To contribute to the Rust backend (mesh, file I/O, Tauri commands), we recommend completing **The Rust Book** chapters 1–5 before your first code change:
+
+| Chapter | Topic | Why it matters here |
+|---------|--------|----------------------|
+| 1 | Getting Started | `cargo`, `rustup`, project layout |
+| 2 | Programming a Guessing Game | `let`, types, crates, `Result` |
+| 3 | Common Programming Concepts | Variables, functions, control flow |
+| 4 | Understanding Ownership | Ownership, borrowing, slices (critical for mesh/bytes) |
+| 5 | Using Structs and Enums | Data modeling, `Option`, `Result` |
+
+**Resource:** [The Rust Programming Language](https://doc.rust-lang.org/book/) (doc.rust-lang.org/book).
+
+After chapters 1–5 you should be able to read and modify code in `src-tauri/src/` (e.g. `lib.rs`, `file_io.rs`) and run `cargo test` and `cargo build`. Later chapters (error handling, generics, traits) are useful as you touch more of the backend.
 
 ### Prerequisites
 
@@ -58,28 +75,33 @@ Before you begin, ensure you have:
 
 ## Development Setup
 
-> **Note**: Detailed setup instructions will be added to `docs/developer-guide.md` as the project structure is finalized.
+Required tools and versions are listed in [README.md](README.md#development-setup): Rust 1.70+, Node.js 18+, npm 9+, Python 3.9+ (when using the Python AI backend), and Git.
 
-**Basic setup (coming soon):**
+**Basic setup:**
 
 ```bash
-# Install Rust dependencies
+# 1. Rust backend
 cd src-tauri
 cargo build
-
-# Install Node dependencies
 cd ..
+
+# 2. Node / frontend
 npm install
 
-# Set up Python environment
+# 3. Python (optional until python/requirements.txt exists)
 cd python
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Windows: venv\Scripts\activate   |   macOS/Linux: source venv/bin/activate
 pip install -r requirements.txt
+cd ..
 
-# Run development server (once available)
+# 4. Run app
 npm run tauri dev
 ```
+
+To verify everything works: from the project root run `cargo build` in `src-tauri`, then `npm run build`, then `npm run tauri dev`. See README for full verification commands.
+
+**Rust logging:** The backend uses `env_logger`. Set `RUST_LOG` (e.g. `RUST_LOG=debug` or `RUST_LOG=simplepicture3d=info`) when running the app; see README.
 
 ---
 
@@ -209,17 +231,42 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 ### Running Tests
 
 ```bash
-# Rust tests
-cd src-tauri
-cargo test
+# Rust tests (from project root)
+cargo test --manifest-path src-tauri/Cargo.toml
 
-# Python tests
-cd python
-pytest
+# Or from src-tauri:
+cd src-tauri && cargo test
 
-# Frontend tests
+# Python tests (when python/ has tests and venv is active)
+cd python && pytest
+
+# Frontend tests (when configured)
 npm test
 ```
+
+See [README](README.md#testing) and [CLAUDE.md](CLAUDE.md) for the canonical list of testing commands.
+
+### Code coverage
+
+Coverage can be generated locally. CI does not yet upload coverage reports.
+
+**Rust (cargo-tarpaulin):**
+
+```bash
+cargo install cargo-tarpaulin
+cargo tarpaulin --manifest-path src-tauri/Cargo.toml --out Stdout
+# Or output to HTML: --out Html --output-dir coverage
+```
+
+**Python (pytest-cov):**
+
+```bash
+pip install pytest-cov
+cd python && pytest --cov=. --cov-report=term-missing
+# Or HTML: --cov-report=html
+```
+
+**Coverage goals (per PRD/todo.md):** Rust >80%, Python >70%, Frontend >60%.
 
 ### Writing Tests
 
@@ -247,6 +294,12 @@ mod tests {
     }
 }
 ```
+
+---
+
+## Security & Dependencies
+
+Before **adding a new dependency** (Rust crate, npm package, or Python package) or before **release**, follow the [Security Checklist](docs/security-checklist.md). It covers license checks, `cargo audit` / `npm audit` / `pip-audit`, and release sign-off steps.
 
 ---
 

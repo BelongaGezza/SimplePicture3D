@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-load-image"
+description = "Enables the load_image command."
+commands.allow = ["load_image"]

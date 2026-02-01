@@ -4,15 +4,17 @@
 
 ## Official Sources
 
-| Crate | crates.io | Docs | Last Checked |
-|-------|-----------|------|--------------|
-| image | https://crates.io/crates/image | https://docs.rs/image | — |
-| stl_io | https://crates.io/crates/stl_io | https://docs.rs/stl_io | — |
-| tokio | https://crates.io/crates/tokio | https://docs.rs/tokio | — |
-| serde | https://crates.io/crates/serde | https://docs.rs/serde | — |
-| anyhow | https://crates.io/crates/anyhow | https://docs.rs/anyhow | — |
+| Crate | Version | crates.io | Docs | Last Checked |
+|-------|---------|-----------|------|--------------|
+| image | 0.25.9 | https://crates.io/crates/image | https://docs.rs/image | 2026-02-01 |
+| stl_io | 0.10.0 | https://crates.io/crates/stl_io | https://docs.rs/stl_io | 2026-02-01 |
+| tokio | 1.49.0 | https://crates.io/crates/tokio | https://docs.rs/tokio | 2026-02-01 |
+| serde | 1.0.228 | https://crates.io/crates/serde | https://docs.rs/serde | 2026-02-01 |
+| anyhow | 1.0.100 | https://crates.io/crates/anyhow | https://docs.rs/anyhow | 2026-02-01 |
+| obj-exporter | 0.2.0 | https://crates.io/crates/obj-exporter | https://docs.rs/obj-exporter | 2026-02-01 |
+| wavefront_obj | (see note) | https://crates.io/crates/wavefront_obj | https://docs.rs/wavefront_obj | 2026-02-01 |
 
-*Researcher: Add `obj` or equivalent OBJ crate; update "Last Checked" when verifying.*
+*Researcher: Crate versions above are as of Last Checked; pin in Cargo.toml and run `cargo update` periodically.*
 
 ---
 
@@ -20,19 +22,43 @@
 
 | Crate | Purpose |
 |-------|---------|
-| image | Load PNG/JPG, validate, downsample, convert to RGB |
-| stl_io | Write binary STL |
-| tokio | Async runtime (Tauri uses it) |
-| serde | Serialize/deserialize (settings, IPC, depth map JSON) |
-| anyhow | Error handling with context |
-| ndarray | Optional: depth map as 2D array |
+| image | Load PNG/JPG, validate, downsample, convert to RGB; supports 8-bit and many formats (AVIF, BMP, GIF, JPEG, PNG, TIFF, WebP, etc.). Use `ImageReader::open()` / `decode()`, `resize()` for downsampling. |
+| stl_io | Read/write STL; **writes binary STL**; reads binary and ASCII. Minimal deps (byteorder, float-cmp). |
+| tokio | Async runtime (Tauri uses it). Use for non-blocking I/O and subprocess handling. |
+| serde | Serialize/deserialize (settings, IPC, depth map JSON). Use with `serde_json` for JSON. |
+| anyhow | Error handling with context (`anyhow::Result`, `.context()`, `?`). Prefer for application code; use `thiserror` for library error types. |
+| obj-exporter | **OBJ export:** Write Wavefront OBJ (e.g. `export_to_file()`). Depends on `wavefront_obj`. Crate is older but functional; alternative is building OBJ text manually from vertex/normal arrays. |
+| wavefront_obj | Parse OBJ; define `ObjSet`/`Object`/`Geometry` for export. Use with obj-exporter or hand-rolled OBJ writer. |
+
+---
+
+## OBJ Export Recommendation
+
+- **Recommended for writing OBJ:** Use **obj-exporter** (0.2.0) to export `ObjSet` to file or stream. Build mesh data (vertices, optional normals) and construct `wavefront_obj` types, then call `obj_exporter::export_to_file()` (or equivalent).
+- **Alternative:** Write ASCII OBJ manually: emit `v x y z` and `f i j k` lines from your vertex/index buffers; no extra crate required, full control over format and .mtl.
+
+---
+
+## Large Buffers and Performance
+
+- **Image/depth:** `image` crate uses `ImageBuffer` (vec of pixels); dimensions are (width, height). For very large images (e.g. 8K), consider downsampling before depth or mesh steps to stay within memory budget (<2GB for 4K per PRD).
+- **Optional:** `ndarray` can represent depth as 2D array for numeric ops; not required if processing with raw `Vec<f32>` or slices.
+
+---
+
+## Deprecations / MSRV
+
+- **image:** Default features include many formats and `rayon`; for libraries, consider `default-features = false` and explicit format features. No major breaking changes noted in 0.25.x.
+- **stl_io:** 2021 edition; stable for read/write STL.
+- **tokio:** MSRV tracked on crates.io; 1.49 is current stable.
+- **serde / anyhow:** Stable; MSRV typically rustc 1.39+ (anyhow), serde 1.x unchanged.
 
 ---
 
 ## Research Tasks (Researcher)
 
-- [ ] `image` crate: 8-bit vs 16-bit support, max dimensions, downsampling APIs
-- [ ] OBJ writing: identify crate (e.g. `obj`, `wavefront_obj`) and format
-- [ ] `stl_io`: binary vs ASCII, triangle/vertex limits
-- [ ] anyhow vs thiserror: when to use which
-- [ ] Version changes, deprecations since knowledge cutoff
+- [x] `image` crate: format support, downsampling (`resize`) — documented above.
+- [x] OBJ writing: **obj-exporter** + **wavefront_obj** or manual OBJ — documented above.
+- [x] `stl_io`: binary write, read binary/ASCII — documented above.
+- [x] anyhow vs thiserror: anyhow for app code, thiserror for library types — documented above.
+- [x] Version and Last checked dates — in table above.

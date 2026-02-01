@@ -44,6 +44,8 @@ The Role Assignment table enables agents to claim roles:
 - **Available** — Any agent can claim by setting Status to "In Progress" and adding their session ID
 - Agents read the Persona File (e.g. `.agents/senior-engineer.md`) and adopt that identity
 - Task ownership flows from the table: each role has explicit "Owned Tasks"
+- Tasks which have Status "In Progress", "Complete" or "Blocked" cannot be claimed
+- Agents should set Status to "Complete" when the task has been completed, or "Blocked" if they are unable to complete the task.
 
 ### 4. Artefact storage
 **All tasking, reporting, verification, and approval artefacts for the sprint MUST be stored in that sprint's folder:**
@@ -80,6 +82,12 @@ The Role Assignment table enables agents to claim roles:
 **Total Estimated Timeline:** 19-25 sprints (38-50 weeks / ~9-12 months)
 
 **Sprint Duration:** 2 weeks (10 working days)
+
+**Architect Phase Validation (2026-02-01):**
+- Phasing is **validated** against `prd.md` §2.3 (Strategic Goals) and §4 (Feature Requirements).
+- Phase 1 (MVP) → Phase 2 (Enhanced UX) → Phase 3 (Cross-Platform) → Phase 4 (Production) aligns with PRD feature groups F1.x, F2.x, F3.x, F4.x.
+- Sprint 1.1 scope (project setup, Tauri + Rust + Python + frontend scaffolding, CI, security baseline) is appropriate as foundation; no reordering recommended.
+- **Pre-Sprint 1.1:** Researcher must refresh RESEARCH/ for knowledge-cutoff → today (see `SPRINTS/Sprint_1_1/RESEARCHER_TASKING.md`). Senior Engineer must produce detailed Sprint 1.1 task assignment (see `SPRINTS/Sprint_1_1/SPRINT_1_1_Task_Assignment.md`).
 
 **Team Composition:**
 - 1× System Architect

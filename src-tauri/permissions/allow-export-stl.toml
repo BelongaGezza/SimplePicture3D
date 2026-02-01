@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-export-stl"
+description = "Enables the export_stl command."
+commands.allow = ["export_stl"]

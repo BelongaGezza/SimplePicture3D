@@ -32,10 +32,10 @@ See `.agents/researcher.md` for full responsibilities.
 | File | Technologies | Last Updated |
 |------|--------------|--------------|
 | [AI_DEVELOPMENT_GUIDE.md](AI_DEVELOPMENT_GUIDE.md) | Multi-agent workflows, coordination | — |
-| [architecture.md](architecture.md) | SimplePicture3D system design | — |
-| [tauri.md](tauri.md) | Tauri framework, IPC | — |
-| [rust-crates.md](rust-crates.md) | image, stl_io, obj, tokio, serde, anyhow | — |
-| [python-ml.md](python-ml.md) | Python, PyTorch, depth estimation | — |
-| [frontend.md](frontend.md) | Svelte/React, TypeScript, TailwindCSS | — |
-| [threejs.md](threejs.md) | Three.js, WebGL | — |
+| [architecture.md](architecture.md) | SimplePicture3D system design | 2026-02-01 |
+| [tauri.md](tauri.md) | Tauri framework, IPC | 2026-02-01 |
+| [rust-crates.md](rust-crates.md) | image, stl_io, obj-exporter, tokio, serde, anyhow | 2026-02-01 |
+| [python-ml.md](python-ml.md) | Python, PyTorch, depth estimation | 2026-02-01 |
+| [frontend.md](frontend.md) | Svelte/React, TypeScript, TailwindCSS | 2026-02-01 |
+| [threejs.md](threejs.md) | Three.js, WebGL | 2026-02-01 |
 | [GOTCHAS.md](GOTCHAS.md) | Debugging gotchas (all agents contribute) | — |

@@ -32,26 +32,111 @@ Tauri desktop app: Rust backend, Svelte/React frontend, Python subprocess for AI
 
 ---
 
-## Directory Structure (prd.md §5.4)
+## Repository Structure (prd.md §5.4)
+
+**Canonical definition.** Aligned with `prd.md` §5.4. Tauri + Python monorepo layout with clear separation of frontend, backend, and AI layers.
 
 ```
 SimplePicture3D/
-├── src-tauri/          # Rust backend
+│
+├── .agents/                # Multi-agent development personas
+│   ├── system-architect.md
+│   ├── senior-engineer.md
+│   ├── junior-engineer-2d.md
+│   ├── junior-engineer-3d.md
+│   ├── researcher.md
+│   ├── security-specialist.md
+│   ├── ui-designer.md
+│   └── documentation-specialist.md
+│
+├── .cursor/                # Cursor IDE configuration
+│   ├── commands/           # Custom commands
+│   └── rules/              # Agent rules (reference .agents/*.md)
+│
+├── RESEARCH/               # Technology guidance & knowledge base
+│   ├── README.md
+│   ├── AI_DEVELOPMENT_GUIDE.md
+│   ├── architecture.md     # This file
+│   ├── GOTCHAS.md
+│   ├── rust-crates.md
+│   ├── python-ml.md
+│   ├── tauri.md
+│   ├── frontend.md
+│   └── threejs.md
+│
+├── SPRINTS/                # Sprint tasking & artefacts
+│   ├── SPRINT_TASKING_TEMPLATE.md
+│   └── Sprint_X_Y/         # Per-sprint folders
+│       ├── SPRINT_X_Y_Task_Assignment.md
+│       ├── PROGRESS_REPORT.md
+│       ├── MANUAL_TEST_REPORT.md
+│       ├── VERIFICATION_CHECKLIST.md
+│       └── GOTCHAS.md      # Merge to RESEARCH/ when done
+│
+├── src-tauri/              # Rust backend (Tauri shell)
 │   ├── src/
-│   │   ├── main.rs
-│   │   ├── commands.rs
+│   │   ├── main.rs         # Tauri app entry point
+│   │   ├── commands.rs     # IPC command handlers
 │   │   ├── image_processing.rs
 │   │   ├── mesh_generator.rs
 │   │   ├── depth_map.rs
-│   │   ├── exporters/  (stl.rs, obj.rs)
+│   │   ├── exporters/
+│   │   │   ├── stl.rs
+│   │   │   └── obj.rs
 │   │   └── python_bridge.rs
-│   └── Cargo.toml
-├── src/                # Frontend (Svelte/React)
-├── python/             # AI backend
+│   ├── Cargo.toml
+│   └── tauri.conf.json
+│
+├── src/                    # Frontend (Svelte/React)
+│   ├── components/
+│   │   ├── ImageImport.svelte
+│   │   ├── DepthControls.svelte
+│   │   ├── Preview3D.svelte
+│   │   └── ExportPanel.svelte
+│   ├── stores/
+│   ├── lib/
+│   └── App.svelte
+│
+├── python/                 # Python AI backend
 │   ├── depth_estimator.py
-│   └── requirements.txt
-└── tests/
+│   ├── models/             # Model loading utilities
+│   ├── requirements.txt
+│   └── setup.py
+│
+├── tests/
+│   ├── rust/
+│   ├── python/
+│   └── integration/
+│
+├── docs/
+│   ├── user-guide.md
+│   ├── developer-guide.md
+│   ├── architecture.md     # User-facing architecture
+│   └── api/
+│
+├── scripts/
+│   ├── build.sh
+│   ├── test.sh
+│   └── package.sh
+│
+├── .github/
+│   └── workflows/
+│       ├── ci.yml
+│       └── release.yml
+│
+├── CLAUDE.md
+├── README.md
+├── LICENSE
+├── CONTRIBUTING.md
+├── prd.md
+├── todo.md
+└── package.json            # Frontend dependencies
 ```
+
+**Key locations:**
+- **Tauri app root:** Repository root; `package.json` and `src-tauri/` sibling
+- **Frontend root:** `src/` (Svelte/React components)
+- **Python backend:** `python/` (depth estimation, model utilities)
 
 ---
 

@@ -115,6 +115,8 @@ SimplePicture3D is built with modern, performant technologies:
 └─────────────────────────────────────────┘
 ```
 
+**Repository structure:** See [RESEARCH/architecture.md](RESEARCH/architecture.md) for the full monorepo layout (src-tauri/, src/, python/, SPRINTS/, RESEARCH/, etc.) per PRD §5.4.
+
 ---
 
 ## 📚 Documentation
@@ -133,19 +135,80 @@ We welcome contributions from the community! SimplePicture3D is built with colla
 
 ### Development Setup
 
-**Prerequisites:**
-- Rust 1.70+ ([rustup](https://rustup.rs/))
-- Node.js 18+ ([nodejs.org](https://nodejs.org/))
-- Python 3.9+ ([python.org](https://www.python.org/))
-- Git ([git-scm.com](https://git-scm.com/))
+**Required tools and versions:**
 
-**Clone the Repository:**
+| Tool | Minimum version | How to install | Notes |
+|------|-----------------|-----------------|-------|
+| Rust (rustc, cargo) | 1.70+ | [rustup](https://rustup.rs/) | Use `rustup default stable` |
+| Node.js | 18+ | [nodejs.org](https://nodejs.org/) | LTS recommended; includes npm |
+| npm | 9+ | Bundled with Node.js | `npm --version` |
+| Python | 3.9+ | [python.org](https://www.python.org/) | Required when `python/` has `requirements.txt` (see CONTRIBUTING) |
+| Git | 2.x | [git-scm.com](https://git-scm.com/) | For clone and contribution |
+
+**Clone the repository:**
 ```bash
 git clone https://github.com/BelongaGezza/SimplePicture3D.git
 cd SimplePicture3D
 ```
 
-**Setup Instructions:**
+**Setup instructions:**
+```bash
+npm install
+# On Windows: generate app icon before first build (see RESEARCH/GOTCHAS.md)
+# npm run tauri icon path/to/1024x1024.png
+npm run tauri dev
+```
+
+**Verifying your setup:** Run these from the project root to confirm all three environments work:
+
+```bash
+# Rust
+rustc --version
+cargo --version
+cd src-tauri && cargo build && cd ..
+
+# Node / frontend
+node --version
+npm --version
+npm run build
+
+# Full app (Tauri + frontend)
+npm run tauri dev
+```
+
+### Testing
+
+Run the test suites before submitting changes:
+
+```bash
+# Rust (from project root)
+cargo test --manifest-path src-tauri/Cargo.toml
+
+# Frontend (when tests are configured)
+npm test
+
+# Python (when python/ has tests; activate venv first)
+cd python && pytest
+```
+
+Coverage (Rust: cargo-tarpaulin; Python: pytest-cov) and more detail are in [CONTRIBUTING.md](CONTRIBUTING.md). The full testing command list is in [CLAUDE.md](CLAUDE.md).
+
+When the Python environment is set up (see `python/requirements.txt` when present), you can also run:
+
+```bash
+cd python
+python -m venv venv
+# Windows: venv\Scripts\activate   |   macOS/Linux: source venv/bin/activate
+pip install -r requirements.txt
+# Run depth script when available, e.g. python -m simplepicture3d.depth ...
+```
+
+**Logging (Rust backend):** Set `RUST_LOG` to control log level (e.g. `RUST_LOG=debug`, `RUST_LOG=simplepicture3d=info`). See [env_logger](https://docs.rs/env_logger). Default is `warn` if unset.
+
+**Development (hot-reload):** `npm run tauri dev` starts the Vite dev server and opens the Tauri window. Frontend changes (Svelte, CSS, TS) hot-reload in the app; Rust changes require a full restart. See [RESEARCH/AI_DEVELOPMENT_GUIDE.md](RESEARCH/AI_DEVELOPMENT_GUIDE.md) for commands.
+
+> **Windows:** If `cargo build` in `src-tauri` fails with RC2176 "old DIB" on `icon.ico`, run `npm run tauri icon path/to/1024x1024.png` to generate compatible icons, then rebuild. See [RESEARCH/GOTCHAS.md](RESEARCH/GOTCHAS.md).
+>
 > Detailed build instructions will be added to `docs/developer-guide.md` as development progresses.
 
 ### How to Contribute

@@ -23,6 +23,7 @@ Copy to `SPRINTS/Sprint_X_Y/SPRINT_X_Y_Task_Assignment.md` and populate.
 | Artefact | Path | Purpose |
 |----------|------|---------|
 | Task Assignment | `SPRINTS/Sprint_X_Y/SPRINT_X_Y_Task_Assignment.md` | This document |
+| Test Plan | `SPRINTS/TEST_PLAN_TEMPLATE.md` → copy to sprint folder as needed | QA test planning (manual + automated) |
 | Progress Report | `SPRINTS/Sprint_X_Y/PROGRESS_REPORT.md` | Weekly/end-of-sprint status |
 | Manual Test Report | `SPRINTS/Sprint_X_Y/MANUAL_TEST_REPORT.md` | QA manual testing results |
 | Verification Checklist | `SPRINTS/Sprint_X_Y/VERIFICATION_CHECKLIST.md` | Sign-off before sprint close |

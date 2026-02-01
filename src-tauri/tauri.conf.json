@@ -1,0 +1,41 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "SimplePicture3D",
+  "version": "0.1.0",
+  "identifier": "com.simplepicture3d.app",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "SimplePicture3D",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/icon.ico"],
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
+    },
+    "longDescription": "Convert 2D images to 2.5D STL/OBJ for laser engraving.",
+    "shortDescription": "2D to 2.5D mesh for laser engraving",
+    "resources": [],
+    "externalBin": [],
+    "copyright": "",
+    "category": "Graphics"
+  },
+  "plugins": {}
+}

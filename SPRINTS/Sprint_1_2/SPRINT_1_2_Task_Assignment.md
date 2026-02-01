@@ -1,0 +1,689 @@
+# Sprint Task Assignment — Sprint 1.2
+
+**Source:** `todo.md` — Sprint 1.2. Populated by System Architect with Senior Engineer and UI Specialist input.  
+**Template:** `SPRINTS/SPRINT_TASKING_TEMPLATE.md`
+
+---
+
+## Sprint 1.1 Status Review (System Architect)
+
+**Context for next sprint:** Sprint 1.1 is **substantially complete**. All roles except **Senior Researcher (AI/ML)** have completed their tasks:
+
+| Phase/Section | Status |
+|---------------|--------|
+| Architecture (ARCH-*) | ✅ Complete |
+| Backend (BACK-*) | ✅ Complete |
+| UI (UI-*), Junior 2D/3D (JR1-*, JR2-*), QA, Security | ✅ Complete |
+| **AI/Research (AI-*)** | ⏳ **Not started** (AI-001–AI-005) |
+
+**Carry-over:** AI-001 through AI-005 (Depth-Anything-V2 research, Python venv, depth script, model download, docs) remain in Sprint 1.1 scope. The Researcher may complete them in parallel with Sprint 1.2 or early in 1.2; they do **not** block Sprint 1.2 (Image Loading & Display), which does not depend on depth estimation.
+
+**Handover to Sprint 1.2:**
+- **Backend:** Placeholder `load_image` and `export_stl` exist (BACK-003). `file_io.rs` (JR2-002) provides temp path safety; use for future Python handoff only. Implement **real** `load_image` in BACK-101 with path validation and magic-byte checks per Security handover.
+- **Frontend:** ImageImport and Preview3D placeholders (UI-003), IPC wired (UI-004), Button and types (JR1-002, JR1-003). Wireframe spec: `SPRINTS/Sprint_1_1/WIREFRAME_SPEC_MAIN_WORKSPACE.md`.
+- **Security:** Path validation and magic-byte validation before decode are required when replacing stubs (docs/threat-model.md §2.3, §2.4; Security Specialist handover in Sprint 1.1 Progress Log).
+
+---
+
+## Sprint 1.2: Image Loading & Display
+
+**Sprint Duration:** 2 weeks (10 working days)  
+**Sprint Goal:** User can load an image file and see it displayed in the UI.  
+**Target Release:** —  
+**Phase:** 1 (MVP)  
+**Source:** `todo.md` — Sprint 1.2  
+**Last Updated:** 2026-02-01
+
+---
+
+## Sprint Folder & Artefacts
+
+| Artefact | Path | Purpose |
+|----------|------|---------|
+| Task Assignment | `SPRINTS/Sprint_1_2/SPRINT_1_2_Task_Assignment.md` | This document |
+| Test Plan | `SPRINTS/Sprint_1_2/TEST_PLAN_1_2.md` (copy from template as needed) | QA test planning |
+| Progress Report | `SPRINTS/Sprint_1_2/PROGRESS_REPORT.md` | Weekly/end-of-sprint status |
+| Manual Test Report | `SPRINTS/Sprint_1_2/MANUAL_TEST_REPORT.md` | QA manual testing results |
+| Verification Checklist | `SPRINTS/Sprint_1_2/VERIFICATION_CHECKLIST.md` | Sign-off before sprint close |
+| Gotchas Log | `SPRINTS/Sprint_1_2/GOTCHAS.md` | Sprint-specific; merge to `RESEARCH/GOTCHAS.md` |
+
+---
+
+## CRITICAL: Role Selection (READ FIRST — STOP HERE UNTIL COMPLETE)
+
+**You are an unassigned agent. You MUST claim a role before proceeding.**
+
+### Step 1: Review Available Roles
+Find a role where Status = `Available` and no agent is assigned.
+
+### Step 2: Claim Your Role
+1. Edit this document: set that role's Status to `In Progress`, add your session ID to Assigned Agent.
+2. Read the Persona File for that role.
+3. Adopt that persona for all remaining work.
+
+### Step 3: Become Your Role
+- Embody the agent's identity and responsibilities.
+- Follow the persona file and project references.
+
+**If all roles show "In Progress" or "Complete", STOP. No work available.**
+
+---
+
+## Role Assignment
+
+| Role | Persona File | Status | Assigned Agent | Owned Tasks | Notes |
+|------|--------------|--------|----------------|-------------|-------|
+| System Architect | `.agents/system-architect.md` | Available | - | — | No tasks in 1.2; available for reviews |
+| Senior Engineer | `.agents/senior-engineer.md` | Available | - | BACK-101–105 | Core load_image implementation |
+| UI Designer | `.agents/ui-designer.md` | Available | - | UI-101–105 | ImageImport, preview, metadata, spinner |
+| Senior Researcher (AI/ML) | `.agents/researcher.md` | Available | - | — | Sprint 1.1 carry-over (AI-001–005) if desired |
+| Junior Engineer 2D | `.agents/junior-engineer-2d.md` | Available | - | JR1-101–104 | File picker style, filters, drag feedback, tests |
+| Junior Engineer 3D | `.agents/junior-engineer-3d.md` | Available | - | JR2-101–104 | Unit tests, path edge cases, downsampling test |
+| Quality Engineer | (see todo.md) | Available | - | QA-101–104 | Test dataset, manual/automated/negative tests |
+| Security Specialist | `.agents/security-specialist.md` | Available | - | SEC-101, SEC-102 | Path traversal, magic-byte validation |
+
+**Status values:** `Available` | `In Progress` | `Complete` | `Blocked`
+
+---
+
+## Canonical References
+
+- **Scope:** `prd.md` — F1.1 Image Import, §5.1 tech stack
+- **Sprint source:** `todo.md` — Sprint 1.2
+- **Architecture:** `docs/architecture.md`, `RESEARCH/architecture.md`
+- **Security:** `docs/threat-model.md` §2.3, §2.4; Security handover in Sprint 1.1 Progress Log
+- **UI:** `SPRINTS/Sprint_1_1/WIREFRAME_SPEC_MAIN_WORKSPACE.md`, `SPRINTS/Sprint_1_1/SVELTE_ONBOARDING_NOTES.md`
+- **Coordination:** `RESEARCH/AI_DEVELOPMENT_GUIDE.md`
+
+---
+
+## Sprint Progress Summary
+
+| Phase/Section | Status | Completion |
+|---------------|--------|------------|
+| Backend (BACK-101–105) | ⏳ Not Started | 0% |
+| UI (UI-101–105) | ⏳ Not Started | 0% |
+| Junior 2D (JR1-101–104) | ⏳ Not Started | 0% |
+| Junior 3D (JR2-101–104) | ⏳ Not Started | 0% |
+| Quality (QA-101–104) | ⏳ Not Started | 0% |
+| Security (SEC-101–102) | ⏳ Not Started | 0% |
+
+**Overall Sprint Progress:** [x] Not Started / [ ] In Progress / [ ] Complete
+
+---
+
+## Task Breakdown
+
+### Senior Engineer
+
+#### Task 1.2: Implement `load_image` Tauri command
+**Assigned Role:** Senior Engineer  
+**Priority:** Critical  
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Task ID:** BACK-101
+
+**Dependencies:**
+- BACK-003 (placeholder exists) — Complete
+- ARCH-003, BACK-002 (structure, image crate) — Complete
+
+**What to Do:**
+- Replace stub `load_image` with full implementation: read file from path, validate format/size/integrity, downsample if >8K, convert to RGB if needed, return dimensions and image data (or path) to frontend.
+- Canonicalize path; ensure path is under user-allowable location; validate image magic bytes before decode (per docs/threat-model.md §2.3, §2.4 and Security handover).
+- Use `image` crate; anyhow for errors; return structured result (dimensions, base64 or URL for preview if agreed with UI).
+
+**Reference Documents:** `prd.md` F1.1, `docs/threat-model.md` §2.3–2.4, `RESEARCH/rust-crates.md`, BACK-003 handover
+
+**Acceptance Criteria:**
+- [ ] Command reads PNG/JPG from validated path and returns success with dimensions (and preview data or path as per API)
+- [ ] Path validation and magic-byte check before full decode
+- [ ] Frontend can invoke and receive typed response (align with JR1-003 / UI-101)
+
+**Completion Record:** *(fill when complete)*
+
+---
+
+#### BACK-102: Image validation (format, size, integrity)
+**Assigned Role:** Senior Engineer  
+**Priority:** Critical  
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Task ID:** BACK-102
+
+**Dependencies:** BACK-101 (same command flow).
+
+**What to Do:** Validate image format (PNG/JPG magic bytes), size (dimensions ≤ 8192×8192 per PRD), and integrity (decode without panic; reject corrupt). Return clear error messages for invalid/corrupt files.
+
+**Reference Documents:** `prd.md` F1.1, SEC-102 (magic bytes)
+
+**Acceptance Criteria:**
+- [ ] Invalid format or corrupt file returns error (no crash)
+- [ ] Dimensions validated against PRD max
+- [ ] User-facing error message for validation failures
+
+**Completion Record:** *(fill when complete)*
+
+---
+
+#### BACK-103: Downsample logic for >8K images
+**Assigned Role:** Senior Engineer  
+**Priority:** High  
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Task ID:** BACK-103
+
+**Dependencies:** BACK-101, BACK-102.
+
+**What to Do:** If image exceeds 8192×8192, downsample to fit within limit (preserve aspect ratio). Notify frontend that downsampling occurred (e.g. flag in response) so UI can show message.
+
+**Reference Documents:** `prd.md` F1.1, `docs/architecture.md` data flow
+
+**Acceptance Criteria:**
+- [ ] Images >8K on either dimension are downsampled to ≤8K
+- [ ] Aspect ratio preserved; frontend can show "Image was downsampled" when applicable
+
+**Completion Record:** *(fill when complete)*
+
+---
+
+#### BACK-104: Convert image to RGB if needed (grayscale/RGBA → RGB)
+**Assigned Role:** Senior Engineer  
+**Priority:** High  
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Task ID:** BACK-104
+
+**Dependencies:** BACK-101.
+
+**What to Do:** Normalize loaded image to RGB (e.g. for consistent preview and future depth pipeline). Grayscale and RGBA converted to RGB; document format passed to frontend (e.g. base64 RGB, or path to temp file).
+
+**Reference Documents:** `prd.md` F1.1, `RESEARCH/rust-crates.md` (image crate)
+
+**Acceptance Criteria:**
+- [ ] Grayscale and RGBA images are converted to RGB
+- [ ] Output format documented for frontend consumption
+
+**Completion Record:** *(fill when complete)*
+
+---
+
+#### BACK-105: Return image dimensions to frontend
+**Assigned Role:** Senior Engineer  
+**Priority:** Critical  
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Task ID:** BACK-105
+
+**Dependencies:** BACK-101.
+
+**What to Do:** Include width and height (and optionally file size, downsampled flag) in `load_image` response. Align with TypeScript types in `src/lib/tauri.ts` (JR1-003; extend LoadImageResult as needed).
+
+**Reference Documents:** `prd.md` F1.1, UI-104 (metadata display), BACK-003
+
+**Acceptance Criteria:**
+- [ ] Response includes width, height; frontend can display dimensions and metadata
+- [ ] TypeScript types updated to match (coordinate with UI/JR1)
+
+**Completion Record:** *(fill when complete)*
+
+---
+
+### UI Designer
+
+#### UI-101: Implement ImageImport component (file picker)
+**Assigned Role:** UI Designer  
+**Priority:** Critical  
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Task ID:** UI-101
+
+**Dependencies:** BACK-101 (real command), UI-001/003 (placeholder exists), JR1-003 (types).
+
+**What to Do:** Implement file picker using Tauri dialog (or equivalent); call `load_image` with selected path. Replace stub in ImageImport; handle success (show preview, metadata) and error (show message). Align with wireframe: Load button, drop zone (UI-102).
+
+**Reference Documents:** `prd.md` F1.1, F1.7, `SPRINTS/Sprint_1_1/WIREFRAME_SPEC_MAIN_WORKSPACE.md`, `RESEARCH/tauri.md`
+
+**Acceptance Criteria:**
+- [ ] User can open file picker and select PNG/JPG; load_image is invoked with path
+- [ ] Success shows image and metadata; error shows user-friendly message
+- [ ] Matches wireframe (Load button, Image zone)
+
+**Completion Record:** *(fill when complete)*
+
+---
+
+#### UI-102: Drag-and-drop support for image files
+**Assigned Role:** UI Designer  
+**Priority:** High  
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Task ID:** UI-102
+
+**Dependencies:** UI-101.
+
+**What to Do:** Add drag-and-drop for image files in ImageImport (drop zone). On drop, pass file path to `load_image`. Support PNG, JPG. Coordinate with JR1-103 for visual feedback.
+
+**Reference Documents:** `prd.md` F1.1, WIREFRAME_SPEC (drop zone)
+
+**Acceptance Criteria:**
+- [ ] Dropping PNG/JPG triggers load_image and updates preview
+- [ ] Visual feedback during drag (JR1-103)
+
+**Completion Record:** *(fill when complete)*
+
+---
+
+#### UI-103: Display loaded image in preview panel
+**Assigned Role:** UI Designer  
+**Priority:** Critical  
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Task ID:** UI-103
+
+**Dependencies:** BACK-101/BACK-105 (response with image data or path), UI-101.
+
+**What to Do:** Display loaded image in center or left preview area (per wireframe). Use image data from load_image response (e.g. base64) or load from path; ensure aspect ratio and scaling for panel.
+
+**Reference Documents:** `prd.md` F1.1, F1.4, WIREFRAME_SPEC (preview)
+
+**Acceptance Criteria:**
+- [ ] Loaded image is visible in preview panel
+- [ ] Layout responsive; no distortion
+
+**Completion Record:** *(fill when complete)*
+
+---
+
+#### UI-104: Show image metadata (dimensions, file size)
+**Assigned Role:** UI Designer  
+**Priority:** High  
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Task ID:** UI-104
+
+**Dependencies:** BACK-105, UI-101.
+
+**What to Do:** Display dimensions (width × height) and file size in UI (e.g. left sidebar or below thumbnail per PRD F1.1).
+
+**Reference Documents:** `prd.md` F1.1 (dimensions, file size)
+
+**Acceptance Criteria:**
+- [ ] Dimensions and file size shown after load
+- [ ] Accessible (e.g. screen reader, tooltip if needed)
+
+**Completion Record:** *(fill when complete)*
+
+---
+
+#### UI-105: Loading spinner during image processing
+**Assigned Role:** UI Designer  
+**Priority:** High  
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Task ID:** UI-105
+
+**Dependencies:** UI-101.
+
+**What to Do:** Show loading spinner (or progress indicator) while load_image is in progress. Disable or dim Load button during load; clear on success or error.
+
+**Reference Documents:** `prd.md` §6.1 (immediate feedback), RESEARCH/frontend.md
+
+**Acceptance Criteria:**
+- [ ] Spinner visible during load
+- [ ] Button state reflects loading; user cannot double-submit
+
+**Completion Record:** *(fill when complete)*
+
+---
+
+### Junior Engineer 2D
+
+#### JR1-101: Style file picker button (Tailwind)
+**Assigned Role:** Junior Engineer 2D  
+**Priority:** Medium  
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Task ID:** JR1-101
+
+**Dependencies:** UI-001, UI-002 (Button, Tailwind).
+
+**What to Do:** Ensure file picker / Load button is styled consistently with design (Tailwind). Align with Button.svelte and wireframe.
+
+**Reference Documents:** `prd.md` F1.7, WIREFRAME_SPEC, SVELTE_ONBOARDING_NOTES
+
+**Acceptance Criteria:**
+- [ ] Load button matches app style and wireframe
+- [ ] Accessible (focus, contrast)
+
+**Completion Record:** *(fill when complete)*
+
+---
+
+#### JR1-102: Add file type filter (PNG, JPG) to picker
+**Assigned Role:** Junior Engineer 2D  
+**Priority:** High  
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Task ID:** JR1-102
+
+**Dependencies:** UI-101.
+
+**What to Do:** Configure file picker to filter for PNG and JPG (and optionally JPEG). Use Tauri dialog filters or frontend filter as appropriate.
+
+**Reference Documents:** `prd.md` F1.1, RESEARCH/tauri.md
+
+**Acceptance Criteria:**
+- [ ] Picker shows only PNG/JPG by default (or clearly filtered)
+- [ ] User cannot accidentally select unsupported format as primary path
+
+**Completion Record:** *(fill when complete)*
+
+---
+
+#### JR1-103: Implement drag-and-drop visual feedback
+**Assigned Role:** Junior Engineer 2D  
+**Priority:** High  
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Task ID:** JR1-103
+
+**Dependencies:** UI-102.
+
+**What to Do:** Add visual feedback when user drags file over drop zone (e.g. highlight border, "Drop here" state). Coordinate with UI-102.
+
+**Reference Documents:** WIREFRAME_SPEC (drop zone), RESEARCH/frontend.md
+
+**Acceptance Criteria:**
+- [ ] Drop zone changes appearance on drag-over
+- [ ] Clear affordance that area accepts drops
+
+**Completion Record:** *(fill when complete)*
+
+---
+
+#### JR1-104: Test on various image sizes (unit tests)
+**Assigned Role:** Junior Engineer 2D  
+**Priority:** Medium  
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Task ID:** JR1-104
+
+**Dependencies:** BACK-101–103, UI-101–103.
+
+**What to Do:** Add frontend or integration tests for loading various image sizes (small, 4K, 8K, >8K for downsampling). May be manual test plan with QA-102 or automated if feasible (e.g. Playwright).
+
+**Reference Documents:** `todo.md` Testing Strategy, QA-101 (test dataset)
+
+**Acceptance Criteria:**
+- [ ] Test coverage for at least two size categories (e.g. normal and >8K)
+- [ ] Documented in test plan or CONTRIBUTING
+
+**Completion Record:** *(fill when complete)*
+
+---
+
+### Junior Engineer 3D
+
+#### JR2-101: Write unit tests for image loading function
+**Assigned Role:** Junior Engineer 3D  
+**Priority:** High  
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Task ID:** JR2-101
+
+**Dependencies:** BACK-101, BACK-102.
+
+**What to Do:** Add Rust unit tests for image loading (valid PNG/JPG returns dimensions; invalid path or corrupt file returns error). Use test images from QA-101 dataset if available.
+
+**Reference Documents:** BACK-005 (test layout), RESEARCH/rust-crates.md
+
+**Acceptance Criteria:**
+- [ ] At least one test for success path and one for error path
+- [ ] `cargo test` passes
+
+**Completion Record:** *(fill when complete)*
+
+---
+
+#### JR2-102: Handle file path edge cases (Unicode, spaces, long paths)
+**Assigned Role:** Junior Engineer 3D  
+**Priority:** High  
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Task ID:** JR2-102
+
+**Dependencies:** BACK-101.
+
+**What to Do:** Ensure load_image handles Unicode filenames, paths with spaces, and long paths (Windows MAX_PATH if applicable). Document behavior; add test cases.
+
+**Reference Documents:** `docs/threat-model.md` §2.3, JR2-002 (file_io patterns)
+
+**Acceptance Criteria:**
+- [ ] Paths with Unicode and spaces work
+- [ ] Long path behavior documented or tested
+- [ ] No path traversal (canonicalize + allowlist per Security)
+
+**Completion Record:** *(fill when complete)*
+
+---
+
+#### JR2-103: Test downsampling logic with 16K test image
+**Assigned Role:** Junior Engineer 3D  
+**Priority:** High  
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Task ID:** JR2-103
+
+**Dependencies:** BACK-103, QA-101 (test image).
+
+**What to Do:** Add test (or manual verification) that image >8K (e.g. 16K) is downsampled correctly; dimensions and aspect ratio verified. Use QA-101 test dataset.
+
+**Reference Documents:** `prd.md` F1.1, BACK-103
+
+**Acceptance Criteria:**
+- [ ] Downsampling verified with at least one >8K image
+- [ ] Result dimensions ≤ 8192 and aspect ratio preserved
+
+**Completion Record:** *(fill when complete)*
+
+---
+
+#### JR2-104: Log image load time (performance monitoring)
+**Assigned Role:** Junior Engineer 3D  
+**Priority:** Medium  
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Task ID:** JR2-104
+
+**Dependencies:** BACK-101, JR2-003 (env_logger).
+
+**What to Do:** Add timing log for load_image (e.g. duration from start to response). Use existing env_logger; avoid logging full paths (PII per threat model).
+
+**Reference Documents:** `prd.md` F4.2, docs/threat-model.md §2.1, JR2-003
+
+**Acceptance Criteria:**
+- [ ] Load duration logged at debug or info level
+- [ ] No user paths or image content in logs
+
+**Completion Record:** *(fill when complete)*
+
+---
+
+### Quality Engineer
+
+#### QA-101: Create test image dataset (various sizes, formats, corrupt files)
+**Assigned Role:** Quality Engineer  
+**Priority:** High  
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Task ID:** QA-101
+
+**Dependencies:** None.
+
+**What to Do:** Create or document test image dataset: valid PNG/JPG (small, 4K, 8K, >8K), invalid format, corrupt file. Store in `tests/fixtures/` or document where to obtain. Use for JR2-101, JR2-103, QA-103, QA-104.
+
+**Reference Documents:** `todo.md` Testing Strategy, BACK-102, BACK-103
+
+**Acceptance Criteria:**
+- [ ] Dataset available (or instructions) for valid and invalid cases
+- [ ] Referenced in test plan and BACK/JR2 tasks
+
+**Completion Record:** *(fill when complete)*
+
+---
+
+#### QA-102: Manual test plan: load images from different sources
+**Assigned Role:** Quality Engineer  
+**Priority:** High  
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Task ID:** QA-102
+
+**Dependencies:** UI-101, UI-102.
+
+**What to Do:** Write manual test plan: load via file picker, load via drag-drop, different drives/folders, network path if applicable. Document in `SPRINTS/Sprint_1_2/TEST_PLAN_1_2.md` or Manual Test Report.
+
+**Reference Documents:** `SPRINTS/TEST_PLAN_TEMPLATE.md`
+
+**Acceptance Criteria:**
+- [ ] Test plan document exists with steps for file picker and drag-drop
+- [ ] At least two sources (e.g. local disk, different folder) covered
+
+**Completion Record:** *(fill when complete)*
+
+---
+
+#### QA-103: Automated test: load valid PNG, verify dimensions
+**Assigned Role:** Quality Engineer  
+**Priority:** High  
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Task ID:** QA-103
+
+**Dependencies:** BACK-101, BACK-105, QA-101.
+
+**What to Do:** Add automated test (Rust integration or E2E): invoke load_image with valid PNG from fixture, assert response contains correct dimensions. Prefer Rust if possible for CI speed.
+
+**Reference Documents:** QA-001 (CI), BACK-105
+
+**Acceptance Criteria:**
+- [ ] Test runs in CI
+- [ ] Loads valid PNG and asserts dimensions in response
+
+**Completion Record:** *(fill when complete)*
+
+---
+
+#### QA-104: Negative test: load invalid file, verify error message
+**Assigned Role:** Quality Engineer  
+**Priority:** High  
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Task ID:** QA-104
+
+**Dependencies:** BACK-102, QA-101.
+
+**What to Do:** Add test: pass invalid or corrupt file to load_image; assert error returned and (if applicable) user-facing message. Use QA-101 corrupt/invalid fixtures.
+
+**Reference Documents:** BACK-102, SEC-102
+
+**Acceptance Criteria:**
+- [ ] Invalid/corrupt file returns error (no panic)
+- [ ] Error message verifiable (e.g. contains "invalid" or "corrupt")
+
+**Completion Record:** *(fill when complete)*
+
+---
+
+### Security Specialist
+
+#### SEC-101: Review image loading for path traversal vulnerabilities
+**Assigned Role:** Security Specialist  
+**Priority:** High  
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Task ID:** SEC-101
+
+**Dependencies:** BACK-101, JR2-102.
+
+**What to Do:** Review load_image implementation: path canonicalization, allowlist/blocklist (user-selectable or allowlisted dirs; block system dirs). Confirm no path traversal; align with docs/threat-model.md §2.3 and Sprint 1.1 Security handover.
+
+**Reference Documents:** `docs/threat-model.md` §2.3, `docs/security-checklist.md`, Sprint 1.1 Progress Log (path validation)
+
+**Acceptance Criteria:**
+- [ ] Review completed; findings documented
+- [ ] Path validation and canonicalization confirmed; no traversal possible
+- [ ] Blocklist/allowlist (or equivalent) documented or implemented
+
+**Completion Record:** *(fill when complete)*
+
+---
+
+#### SEC-102: Validate magic bytes before processing (prevent malicious files)
+**Assigned Role:** Security Specialist  
+**Priority:** High  
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Task ID:** SEC-102
+
+**Dependencies:** BACK-101, BACK-102.
+
+**What to Do:** Confirm image loading validates magic bytes (PNG/JPG signatures) before full decode. Prevents malicious file uploads that might exploit decoder. Document in threat model if not already.
+
+**Reference Documents:** `docs/threat-model.md` §2.4, `prd.md` §8, Sprint 1.1 Security handover
+
+**Acceptance Criteria:**
+- [ ] Magic-byte check performed before decode
+- [ ] Non-image files rejected with clear error
+- [ ] Noted in threat model or security checklist
+
+**Completion Record:** *(fill when complete)*
+
+---
+
+## Subtask Allocation (multi-role)
+
+| Sub-task | Role | Owner | Status |
+|----------|------|-------|--------|
+| load_image API contract (path in, dimensions + preview out) | Senior Engineer + UI Designer | TBD when claimed | [ ] |
+| LoadImageResult type extension (dimensions, fileSize, downsampled?) | Junior Engineer 2D + Senior Engineer | TBD when claimed | [ ] |
+
+---
+
+## Success Criteria for Sprint 1.2
+
+- [ ] All tasks complete per acceptance criteria
+- [ ] Exit criteria from todo.md Sprint 1.2 met:
+  - [ ] User can load PNG/JPG via file picker or drag-and-drop
+  - [ ] Image displays correctly in UI
+  - [ ] Downsampling works for oversized images
+  - [ ] Error handling for corrupt/invalid files
+  - [ ] Automated tests passing (image loading)
+- [ ] No blocking issues
+- [ ] Gotchas recorded in `SPRINTS/Sprint_1_2/GOTCHAS.md` (merge to RESEARCH when done)
+- [ ] Progress report filed
+
+---
+
+## Current Blockers
+
+| Blocker | Owner | Status |
+|---------|-------|--------|
+| *(none)* | — | — |
+
+---
+
+## Quality Metrics
+
+| Metric | Target | Actual |
+|--------|--------|--------|
+| cargo test | PASS | — |
+| cargo clippy | 0 warnings | — |
+| npm run build | PASS | — |
+| New/updated tests (image load) | PASS | — |
+
+---
+
+## Progress Log (Handover Notes)
+
+*Agents add handover notes when completing tasks that others depend on.*
+
+```
+### 2026-02-01 — System Architect (Sprint 1.2 tasking created)
+Sprint 1.1 status reviewed: all roles complete except AI (AI-001–005). Carry-over noted; 1.2 does not depend on AI. Tasking generated from todo.md Sprint 1.2 with Senior Engineer and UI Specialist input: BACK-101–105 (load_image implementation, validation, downsampling, RGB, dimensions); UI-101–105 (file picker, drag-drop, preview, metadata, spinner); JR1-101–104, JR2-101–104, QA-101–104, SEC-101–102. Dependencies and Security handover (path validation, magic bytes) reflected in BACK-101, BACK-102, SEC-101, SEC-102. Wireframe and Svelte notes referenced for UI/JR1. Ready for role claim and implementation.
+```
+
+---
+
+## Required Reading (After Claiming Role)
+
+1. **Your persona file** — From Role Assignment table
+2. **prd.md** — F1.1 Image Import, acceptance criteria
+3. **todo.md** — Sprint 1.2 full context
+4. **RESEARCH/AI_DEVELOPMENT_GUIDE.md** — Coordination
+5. **docs/threat-model.md** — Path and magic-byte requirements (BACK, SEC)
+6. **SPRINTS/Sprint_1_1/WIREFRAME_SPEC_MAIN_WORKSPACE.md** — Layout (UI, JR1)
+7. **RESEARCH/GOTCHAS.md** — Known pitfalls
+
+---
+
+**Document Version:** 1.0  
+**Template:** `SPRINTS/SPRINT_TASKING_TEMPLATE.md`  
+**Prepared by:** System Architect (with Senior Engineer and UI Specialist input)  
+**Status:** Ready for role claim and implementation

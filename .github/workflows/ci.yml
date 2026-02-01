@@ -1,0 +1,62 @@
+# SimplePicture3D — CI (build, test, security audits)
+# QA-001: build + test; SEC-002: cargo audit + npm audit
+# Policy: see docs/threat-model.md § CI dependency audit policy
+
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: npm audit
+        run: npm audit --audit-level=high
+        # Policy: fail on high/critical. See docs/threat-model.md.
+
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Build
+        run: cargo build --manifest-path src-tauri/Cargo.toml
+
+      - name: Test
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: cargo audit
+        run: |
+          cargo install cargo-audit --locked
+          cargo audit --manifest-path src-tauri/Cargo.toml
+        # Policy: fail on any known vulnerability. See docs/threat-model.md.

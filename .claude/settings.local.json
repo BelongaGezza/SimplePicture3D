@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir /s \"C:\\\\Users\\\\gerry\\\\develop\\\\SimplePicture3D\")",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\ndocs: add CLAUDE.md and update prd.md with development infrastructure\n\n- Add CLAUDE.md with guidance for Claude Code AI assistants\n- Update prd.md §5.4 file structure to include .agents/, .cursor/,\n  RESEARCH/, and SPRINTS/ folders\n- Add §5.4.1 documenting multi-agent development workflow\n- Update F4.3 to list development infrastructure already created\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push)"
+    ]
+  }
+}
