@@ -429,8 +429,8 @@ SimplePicture3D is an open-source desktop application that converts 2D images in
 ---
 
 #### F4.3 Comprehensive Documentation
-**Priority:** P0 (Critical for Phase 4)  
-**Description:** User manual and developer docs  
+**Priority:** P0 (Critical for Phase 4)
+**Description:** User manual and developer docs
 **Acceptance Criteria:**
 - User Guide: installation, first conversion, FAQ
 - Developer Guide: build instructions, architecture, contributing
@@ -445,6 +445,14 @@ SimplePicture3D is an open-source desktop application that converts 2D images in
 - `CONTRIBUTING.md`
 - `README.md`
 - Video scripts and screen recordings
+
+**Development Infrastructure (Created):**
+- `CLAUDE.md` — Claude Code guidance for AI assistants
+- `RESEARCH/` — Technology guidance and knowledge base (see §5.4)
+- `.agents/` — Multi-agent development personas
+- `SPRINTS/` — Sprint tasking templates and artefacts
+- `prd.md` — This product requirements document
+- `todo.md` — Sprint planning and task breakdown
 
 ---
 
@@ -637,6 +645,41 @@ SimplePicture3D is an open-source desktop application that converts 2D images in
 
 ```
 SimplePicture3D/
+│
+├── .agents/                # Multi-agent development personas
+│   ├── system-architect.md
+│   ├── senior-engineer.md
+│   ├── junior-engineer-2d.md
+│   ├── junior-engineer-3d.md
+│   ├── researcher.md
+│   ├── security-specialist.md
+│   ├── ui-designer.md
+│   └── documentation-specialist.md
+│
+├── .cursor/                # Cursor IDE configuration
+│   ├── commands/           # Custom commands
+│   └── rules/              # Agent rules (reference .agents/*.md)
+│
+├── RESEARCH/               # Technology guidance & knowledge base
+│   ├── README.md           # Research folder index
+│   ├── AI_DEVELOPMENT_GUIDE.md  # Multi-agent coordination
+│   ├── architecture.md     # System architecture
+│   ├── GOTCHAS.md          # Debugging findings (all agents)
+│   ├── rust-crates.md      # Rust dependency guidance
+│   ├── python-ml.md        # Python/PyTorch/depth models
+│   ├── tauri.md            # Tauri framework
+│   ├── frontend.md         # Svelte/React/TypeScript
+│   └── threejs.md          # Three.js 3D rendering
+│
+├── SPRINTS/                # Sprint tasking & artefacts
+│   ├── SPRINT_TASKING_TEMPLATE.md
+│   └── Sprint_X_Y/         # Per-sprint folders (created during sprints)
+│       ├── SPRINT_X_Y_Task_Assignment.md
+│       ├── PROGRESS_REPORT.md
+│       ├── MANUAL_TEST_REPORT.md
+│       ├── VERIFICATION_CHECKLIST.md
+│       └── GOTCHAS.md      # Sprint-specific (merge to RESEARCH/)
+│
 ├── src-tauri/              # Rust backend
 │   ├── src/
 │   │   ├── main.rs         # Tauri app entry point
@@ -688,11 +731,34 @@ SimplePicture3D/
 │       ├── ci.yml          # CI/CD pipeline
 │       └── release.yml     # Release automation
 │
+├── CLAUDE.md               # Claude Code guidance
 ├── README.md
 ├── LICENSE                 # MIT License
 ├── CONTRIBUTING.md
+├── prd.md                  # This document
+├── todo.md                 # Sprint planning & task breakdown
 └── package.json            # Frontend dependencies
 ```
+
+### 5.4.1 Development Infrastructure
+
+The following folders support the multi-agent development workflow:
+
+| Folder | Purpose | Key Files |
+|--------|---------|-----------|
+| `.agents/` | Agent personas defining roles, responsibilities, and context | `*.md` persona files |
+| `.cursor/rules/` | Cursor IDE rules that activate agent personas | `*.mdc` rule files |
+| `RESEARCH/` | Technology guidance, official sources, debugging gotchas | See `RESEARCH/README.md` |
+| `SPRINTS/` | Sprint tasking, progress reports, verification checklists | Template + per-sprint folders |
+
+**Workflow:**
+1. Agents claim roles from sprint tasking files (`SPRINTS/Sprint_X_Y/`)
+2. Agents read persona files (`.agents/*.md`) for identity and responsibilities
+3. Agents consult `RESEARCH/` for technology guidance before implementation
+4. Agents record debugging gotchas in `RESEARCH/GOTCHAS.md`
+5. Task handover follows `RESEARCH/AI_DEVELOPMENT_GUIDE.md`
+
+See `RESEARCH/AI_DEVELOPMENT_GUIDE.md` for full multi-agent coordination patterns.
 
 ### 5.5 Performance Considerations
 
