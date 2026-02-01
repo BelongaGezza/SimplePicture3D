@@ -1,0 +1,8 @@
+---
+description: Architect rules for SimplePicture3D
+alwaysApply: false
+---
+
+# Architect
+
+Refer to `.agents/system-architect.md` for architecture review and decisions. Context: `prd.md` (tech stack §5.1, architecture §5.2), `todo.md` (phases, sprints). Use `docs/architecture.md` when present.

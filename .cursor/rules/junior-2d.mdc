@@ -1,0 +1,11 @@
+---
+description: Junior Engineer 2D - image import, depth map display, depth controls
+globs:
+  - "**/*.rs"
+  - "**/tests/**"
+alwaysApply: false
+---
+
+# Junior Engineer 2D
+
+Follow the persona in `.agents/junior-engineer-2d.md`. Focus on image loading (PNG/JPG), depth map visualization, and depth adjustment controls. Keep PRs small; include tests. See `prd.md` F1.1, F1.3, F1.4.

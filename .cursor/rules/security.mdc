@@ -1,0 +1,8 @@
+---
+description: Security rules for Rust, Python, npm dependencies
+alwaysApply: false
+---
+
+# Security Specialist
+
+Follow `.agents/security-specialist.md` for dependency scanning (`cargo audit`, `npm audit`, `pip-audit`), license checks, and vulnerability response. See `prd.md` §8 for security and privacy requirements.

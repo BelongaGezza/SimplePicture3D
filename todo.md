@@ -8,16 +8,61 @@
 ---
 
 ## Table of Contents
-1. [Phase Overview](#phase-overview)
-2. [Team Roles & Responsibilities](#team-roles--responsibilities)
-3. [Phase 1: MVP (Minimum Viable Product)](#phase-1-mvp-minimum-viable-product)
-4. [Phase 2: Enhanced UX](#phase-2-enhanced-ux)
-5. [Phase 3: Cross-Platform Parity](#phase-3-cross-platform-parity)
-6. [Phase 4: Production Polish](#phase-4-production-polish)
-7. [Testing Strategy](#testing-strategy)
-8. [CI/CD Pipeline](#cicd-pipeline)
-9. [Release Checklist](#release-checklist)
-10. [Dependencies & Risks](#dependencies--risks)
+1. [Sprint Creation Process](#sprint-creation-process)
+2. [Phase Overview](#phase-overview)
+3. [Team Roles & Responsibilities](#team-roles--responsibilities)
+4. [Phase 1: MVP (Minimum Viable Product)](#phase-1-mvp-minimum-viable-product)
+5. [Phase 2: Enhanced UX](#phase-2-enhanced-ux)
+6. [Phase 3: Cross-Platform Parity](#phase-3-cross-platform-parity)
+7. [Phase 4: Production Polish](#phase-4-production-polish)
+8. [Testing Strategy](#testing-strategy)
+9. [CI/CD Pipeline](#cicd-pipeline)
+10. [Release Checklist](#release-checklist)
+11. [Dependencies & Risks](#dependencies--risks)
+
+---
+
+## Sprint Creation Process
+
+**When an agent is asked to generate a sprint from this todo list, follow this process:**
+
+### 1. Create the sprint folder
+Create a folder for the sprint: `SPRINTS/Sprint_X_Y/`  
+Example: For Sprint 1.1 → `SPRINTS/Sprint_1_1/`
+
+### 2. Use the tasking template
+- **Template:** `SPRINTS/SPRINT_TASKING_TEMPLATE.md`
+- **Output file:** `SPRINTS/Sprint_X_Y/SPRINT_X_Y_Task_Assignment.md`
+- Copy the template and populate it with:
+  - Sprint goal, duration, phase (from the relevant Sprint N.X section below)
+  - Role Assignment table — map each task from the sprint to a role (System Architect, Senior Engineer, UI Designer, Researcher, Junior Engineer 2D, Junior Engineer 3D, Security Specialist, Documentation Specialist)
+  - Task Breakdown — one block per task, with Task ID, Assigned Role, Dependencies, Acceptance Criteria
+  - Auto-allocation: Each task in todo.md has a suggested role (e.g. "Senior Engineer:", "UI Specialist:"); use these to populate the Role Assignment "Owned Tasks" column
+
+### 3. Auto-assignment of agent personas
+The Role Assignment table enables agents to claim roles:
+- **Available** — Any agent can claim by setting Status to "In Progress" and adding their session ID
+- Agents read the Persona File (e.g. `.agents/senior-engineer.md`) and adopt that identity
+- Task ownership flows from the table: each role has explicit "Owned Tasks"
+
+### 4. Artefact storage
+**All tasking, reporting, verification, and approval artefacts for the sprint MUST be stored in that sprint's folder:**
+
+| Artefact | Path |
+|----------|------|
+| Task Assignment | `SPRINTS/Sprint_X_Y/SPRINT_X_Y_Task_Assignment.md` |
+| Progress Report | `SPRINTS/Sprint_X_Y/PROGRESS_REPORT.md` |
+| Manual Test Report | `SPRINTS/Sprint_X_Y/MANUAL_TEST_REPORT.md` |
+| Verification Checklist | `SPRINTS/Sprint_X_Y/VERIFICATION_CHECKLIST.md` |
+| Architect Approval | `SPRINTS/Sprint_X_Y/ARCHITECT_APPROVAL.md` (if phase gate) |
+| Security Sign-off | `SPRINTS/Sprint_X_Y/SECURITY_SIGNOFF.md` (if security review) |
+| Gotchas | `SPRINTS/Sprint_X_Y/GOTCHAS.md` (merge to `RESEARCH/GOTCHAS.md` when done) |
+
+### 5. References
+- **Source of sprint content:** This todo.md — locate the "Sprint N.X" section
+- **Template location:** `SPRINTS/SPRINT_TASKING_TEMPLATE.md`
+- **Persona files:** `.agents/*.md`
+- **Coordination:** `RESEARCH/AI_DEVELOPMENT_GUIDE.md`
 
 ---
 

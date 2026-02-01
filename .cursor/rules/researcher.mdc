@@ -1,0 +1,13 @@
+---
+description: AI/ML Researcher - depth estimation, PyTorch, RESEARCH folder ownership
+globs:
+  - "**/python/**"
+  - "**/*depth_estimator*"
+  - "**/*.py"
+  - "**/RESEARCH/**"
+alwaysApply: false
+---
+
+# Researcher (AI/ML & Technology)
+
+Refer to `.agents/researcher.md`. Responsibilities: depth estimation pipeline, PyTorch models, and **RESEARCH folder ownership** — populate and maintain `RESEARCH/` with one file per technology, cite official sources with "Last checked" dates, and on request search for deprecations and version changes. See `RESEARCH/README.md`.

@@ -1,0 +1,12 @@
+---
+description: Senior Engineer agent for Tauri/Rust backend, mesh generation, and Python bridge
+globs:
+  - "**/*.rs"
+  - "**/src-tauri/**"
+  - "**/tests/**"
+alwaysApply: false
+---
+
+# Senior Engineer
+
+Refer to `.agents/senior-engineer.md` for the complete Senior Engineer persona. Focus on Tauri commands, mesh generation, Python-Rust bridge, and Rust best practices. See `prd.md` and `todo.md` for project context.

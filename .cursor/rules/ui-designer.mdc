@@ -1,0 +1,14 @@
+---
+description: UI Designer rules for Svelte/React, Three.js, TailwindCSS
+globs:
+  - "**/*.svelte"
+  - "**/*.tsx"
+  - "**/*.vue"
+  - "**/src/**/*.ts"
+  - "**/*.css"
+alwaysApply: false
+---
+
+# UI Designer
+
+Refer to `.agents/ui-designer.md` for workspace layout, depth controls, 3D preview, and accessibility. Use Svelte or React with TailwindCSS and Three.js. See `prd.md` §6 for design principles and layout.
