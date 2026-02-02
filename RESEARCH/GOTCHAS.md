@@ -41,6 +41,11 @@ When you hit a debugging gotcha:
 **Cause:** Windows Resource Compiler (rc.exe) rejects ICO files that use PNG-compressed or non-standard DIB format.  
 **Fix:** (1) **In this repo:** run `python scripts/gen_icon_win.py` to generate a BMP-based icon.ico in src-tauri/icons/. (2) Alternatively: `npm run tauri icon path/to/1024x1024.png` (Tauri generates icons in src-tauri/icons/). Or open/save the .ico in GIMP as "Windows Icon" without PNG compression.
 
+### 2026-02-02 — Tauri v2 (macOS) — missing icon.png
+**Symptom:** `cargo build` in src-tauri fails with "failed to open icon ... icon.png: No such file or directory".  
+**Cause:** On macOS, Tauri’s build looks for `src-tauri/icons/icon.png`; the repo may only have `icon.ico` (Windows).  
+**Fix:** Run `npm run tauri icon /path/to/1024x1024.png` to generate all platform icons (including icon.png). Or copy any valid PNG (e.g. 32×32 or larger) to `src-tauri/icons/icon.png`. See [docs/setting_up_your_Mac.md](../docs/setting_up_your_Mac.md).
+
 ### 2026-02-01 — Tauri v2 — App command permissions not found
 **Symptom:** Build fails with "Permission allow-load-image not found" (or "identifiers can only include lowercase ASCII, hyphens...").  
 **Cause:** Tauri v2 does not auto-generate permissions for app commands; capability identifiers must use kebab-case (hyphens), not underscores; app permissions must be defined in `src-tauri/permissions/`.  

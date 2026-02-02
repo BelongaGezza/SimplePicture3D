@@ -124,6 +124,7 @@ SimplePicture3D is built with modern, performant technologies:
 - **[Product Requirements Document (PRD)](prd.md)** - Comprehensive product specification
 - **[Development TODO](todo.md)** - Phased sprint plan with team assignments
 - **[Architecture Guide](docs/architecture.md)** - Technical architecture (coming soon)
+- **[Setting Up Your Mac](docs/setting_up_your_Mac.md)** - Developer tools and setup for macOS (Apple Silicon)
 - **[User Guide](docs/user-guide.md)** - How to use SimplePicture3D (coming soon)
 - **[Developer Guide](docs/developer-guide.md)** - Build and contribution instructions (coming soon)
 
