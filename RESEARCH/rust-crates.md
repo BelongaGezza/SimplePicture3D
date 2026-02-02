@@ -16,6 +16,14 @@
 
 *Researcher: Crate versions above are as of Last Checked; pin in Cargo.toml and run `cargo update` periodically.*
 
+### References / Further reading
+
+| Source | URL | Last Checked |
+|--------|-----|--------------|
+| Rust Optimization (Achieving warp speed with Rust) | https://gist.github.com/jFransham/369a86eff00e5f280ed25121454acec1 | 2026-02-02 |
+
+**Rust Optimization (jFransham gist):** Practical optimization guide for Rust: prefer profiling (e.g. `perf`, clippy) over blind optimization; optimize hot paths, not one-time costs; improve algorithms first. Low-level tips: keep data in cache (flat `Vec` for matrices instead of `Vec<Vec<T>>`, consider `smallvec`/stack-based types); keep data in registers (avoid unnecessary pointer writes); avoid `Box<Trait>` in favour of `&mut Trait` or recursive generics; use `assert!` upfront to help LLVM elide bounds checks; use LTO for release; avoid `#[inline(always)]` unless benchmarked; leverage instruction-level parallelism and autovectorization. Includes a `from_str_radix` case study and links to BurntSushi’s ripgrep post-mortem. Relevant when tuning image/depth/mesh code paths.
+
 ---
 
 ## Crate Usage
