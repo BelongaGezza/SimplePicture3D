@@ -11,6 +11,15 @@
   },
   "app": {
     "withGlobalTauri": true,
+    "security": {
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "**"
+        ]
+      },
+      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost blob: data:"
+    },
     "windows": [
       {
         "title": "SimplePicture3D",
@@ -24,7 +33,9 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "icon": ["icons/icon.ico"],
+    "icon": [
+      "icons/icon.ico"
+    ],
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",

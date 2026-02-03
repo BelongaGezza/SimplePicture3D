@@ -52,7 +52,8 @@ Use this as part of the **Release Checklist** (todo.md) and phase gates.
 - [ ] Threat model (docs/threat-model.md) reviewed; no new unmitigated threats for this release.
 - [ ] No critical/high open security issues in the issue tracker for this release scope.
 - [ ] Tauri IPC: only intended commands exposed; capability config (e.g. capabilities/default.json) reviewed.
-- [ ] File I/O and export paths: path canonicalization and traversal checks in place (see threat model §2.3, §2.4).
+- [ ] File I/O and export paths: path canonicalization and traversal checks in place (see threat model §2.3, §2.4). For `load_image`: canonicalize path; blocklist system dirs; allow only user-chosen file paths (SEC-101).
+- [ ] Image loading: magic-byte validation (PNG/JPEG) before decode; non-image files rejected with clear error (threat model §2.4, SEC-102).
 - [ ] Python subprocess: no user-controlled command-line args; temp file I/O only as designed (see threat model §2.5).
 
 ### 2.3 Sign-off
@@ -82,5 +83,5 @@ CI runs `cargo audit` and `npm audit` on every push/PR (see .github/workflows/ci
 
 ---
 
-**Document Version:** 1.0  
-**Status:** Sprint 1.1, SEC-003
+**Document Version:** 1.1  
+**Status:** Sprint 1.1, SEC-003; image loading (path + magic bytes) items added (Sprint 1.2, SEC-101, SEC-102).

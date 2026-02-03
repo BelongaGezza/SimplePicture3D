@@ -9,11 +9,15 @@ export interface LoadImageArgs {
   path: string;
 }
 
-/** Return type from load_image command (matches backend stub/impl). */
+/** Return type from load_image command (BACK-101, BACK-105). Matches LoadImageOut in Rust. */
 export interface LoadImageResult {
   ok: boolean;
-  message?: string;
-  path?: string;
+  width: number;
+  height: number;
+  fileSizeBytes: number;
+  downsampled: boolean;
+  /** Base64-encoded PNG (RGB) for preview; use as data URL: data:image/png;base64,${previewBase64} */
+  previewBase64: string;
 }
 
 /** Arguments for export_stl command. */

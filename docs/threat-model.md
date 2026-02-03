@@ -42,6 +42,8 @@
 | Malicious path in IPC (e.g. `load_image`, `export_stl`) | **Input validation:** Validate and canonicalize all file paths in Tauri commands; reject path traversal sequences (`..`, symlinks outside allowed tree). |
 | Symlink attacks (e.g. export to symlink pointing to sensitive file) | Resolve symlinks and enforce same canonicalization rules; or disallow overwriting through symlinks. |
 
+**Implementation (load_image path validation, SEC-101):** For `load_image`, the path comes from the user via file picker or drag-and-drop (Tauri dialog or frontend drop). (1) **Canonicalize** the path with `std::path::Path::canonicalize()` (or platform equivalent) so `..` and symlinks are resolved. (2) **Allowlist:** Accept only paths that resolve to a regular file under a user-accessible location; paths from the system file dialog or drop are inherently user-chosen. (3) **Blocklist:** Reject paths that resolve under system-sensitive directories (e.g. Windows: `C:\Windows\System32`, `C:\Program Files`; macOS: `/System`, `/usr/bin`; Linux: `/usr/bin`, `/etc`). Reject if canonicalization fails or path does not exist. Do not read before canonicalization. See `docs/security-checklist.md` §2.2 and Sprint 1.1 Security handover (path validation).
+
 ### 2.4 File I/O and input validation
 
 | Threat | Mitigation |
@@ -49,6 +51,8 @@
 | Non-image files (e.g. executable) passed as “image” | **Validate image magic bytes** before decode; reject executable formats. PRD §8.2: “Validate magic bytes, reject executable formats.” |
 | Malformed or oversized images causing DoS | Enforce max dimensions (e.g. 8K) and size limits; decode in bounded memory; consider timeouts. |
 | User text (filenames, presets) used in shell or file ops | **Sanitize filenames;** escape special characters; avoid passing user-controlled strings to shell. PRD §8.2: “Sanitize filenames, escape special characters.” |
+
+**Implementation (image magic bytes, SEC-102):** Before decoding image data (e.g. with the `image` crate), **validate magic bytes** from the first bytes of the file. Accept only: **PNG** — `89 50 4E 47 0D 0A 1A 0A`; **JPEG** — `FF D8 FF` (SOI). Reject any other signature (including executables, PDF, etc.) with a clear error (e.g. “Unsupported or invalid image format”). Perform this check on the raw file bytes before calling the decoder; do not rely on file extension. Documented in this threat model and `docs/security-checklist.md` §2.2.
 
 ### 2.5 Subprocess (Python) security
 
@@ -107,5 +111,5 @@
 
 ---
 
-**Document Version:** 1.0  
-**Status:** Initial review (Sprint 1.1, SEC-001)
+**Document Version:** 1.1  
+**Status:** Initial review (Sprint 1.1, SEC-001); image loading implementation notes added (Sprint 1.2, SEC-101, SEC-102).

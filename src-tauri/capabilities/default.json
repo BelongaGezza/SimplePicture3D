@@ -1,12 +1,15 @@
 {
-  "$schema": "https://schema.tauri.app/config/2/capability",
-  "identifier": "default",
-  "description": "Default capability for SimplePicture3D",
-  "windows": ["main"],
-  "permissions": [
-    "core:default",
-    "shell:allow-open",
-    "allow-load-image",
-    "allow-export-stl"
-  ]
+    "$schema": "https://schema.tauri.app/config/2/capability",
+    "identifier": "default",
+    "description": "Default capability for SimplePicture3D",
+    "windows": [
+        "main"
+    ],
+    "permissions": [
+        "core:default",
+        "shell:allow-open",
+        "dialog:allow-open",
+        "allow-load-image",
+        "allow-export-stl"
+    ]
 }
