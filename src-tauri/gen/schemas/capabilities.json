@@ -1,1 +1,1 @@
-{"default":{"identifier":"default","description":"Default capability for SimplePicture3D","local":true,"windows":["main"],"permissions":["core:default","shell:allow-open","dialog:allow-open","allow-load-image","allow-export-stl"]}}
+{"default":{"identifier":"default","description":"Default capability for SimplePicture3D","local":true,"windows":["main"],"permissions":["core:default","shell:allow-open","dialog:allow-open","allow-load-image","allow-export-stl","allow-generate-depth-map"]}}

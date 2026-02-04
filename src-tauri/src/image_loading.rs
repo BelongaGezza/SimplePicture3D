@@ -143,20 +143,35 @@ fn to_rgb8(img: DynamicImage) -> image::RgbImage {
     img.to_rgb8()
 }
 
-/// Encode RGB image as PNG base64 for preview.
-fn rgb_to_preview_base64(rgb: &image::RgbImage) -> anyhow::Result<String> {
+/// Encode RGB image as PNG bytes. Used for preview base64 and for Python bridge (temp file).
+pub fn rgb_to_png_bytes(rgb: &image::RgbImage) -> anyhow::Result<Vec<u8>> {
     use std::io::Cursor;
     let mut buf = Cursor::new(Vec::new());
     let encoder = image::codecs::png::PngEncoder::new(&mut buf);
     let (w, h) = rgb.dimensions();
     encoder
         .write_image(rgb.as_raw(), w, h, ExtendedColorType::Rgb8)
-        .context("encode preview PNG")?;
-    let bytes = buf.into_inner();
+        .context("encode PNG")?;
+    Ok(buf.into_inner())
+}
+
+/// Encode RGB image as PNG base64 for preview.
+fn rgb_to_preview_base64(rgb: &image::RgbImage) -> anyhow::Result<String> {
+    let bytes = rgb_to_png_bytes(rgb)?;
     Ok(base64::Engine::encode(
         &base64::engine::general_purpose::STANDARD,
         &bytes,
     ))
+}
+
+/// Reads and validates an image file for depth estimation (BACK-301).
+/// Validates path (SEC-101) and magic bytes (SEC-102); returns raw bytes for Python bridge.
+/// Does not decode or downsample; use when passing image to generate_depth_map.
+pub fn read_image_bytes_for_depth(path: &str) -> anyhow::Result<Vec<u8>> {
+    let canonical = validate_path(path)?;
+    let bytes = fs::read(&canonical).context("read image file")?;
+    validate_magic_bytes(&bytes)?;
+    Ok(bytes)
 }
 
 /// Full load_image implementation: validate path, read, magic-check, decode, downsample, RGB, response.
@@ -226,6 +241,16 @@ mod tests {
     fn invalid_magic_rejected() {
         assert!(validate_magic_bytes(&[0x00, 0x00, 0x00]).is_err());
         assert!(validate_magic_bytes(b"GIF89a----").is_err());
+    }
+
+    #[test]
+    fn rgb_to_png_bytes_produces_valid_png() {
+        let rgb = image::ImageBuffer::from_fn(2, 2, |_, _| image::Rgb([100u8, 150, 200]));
+        let bytes = rgb_to_png_bytes(&rgb).unwrap();
+        assert!(!bytes.is_empty());
+        assert!(bytes.starts_with(PNG_SIGNATURE), "output must be valid PNG");
+        let fmt = validate_magic_bytes(&bytes).unwrap();
+        assert!(matches!(fmt, ImageFormat::Png));
     }
 
     // JR2-101: Unit tests for image loading — success and error paths.

@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-generate-depth-map"
+description = "Enables the generate_depth_map and get_depth_map commands."
+commands.allow = ["generate_depth_map", "get_depth_map"]

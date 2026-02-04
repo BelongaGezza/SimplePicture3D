@@ -194,14 +194,14 @@ cd python && pytest
 
 Coverage (Rust: cargo-tarpaulin; Python: pytest-cov) and more detail are in [CONTRIBUTING.md](CONTRIBUTING.md). The full testing command list is in [CLAUDE.md](CLAUDE.md).
 
-When the Python environment is set up (see `python/requirements.txt` when present), you can also run:
+When the Python environment is set up (see **[python/README.md](python/README.md)** and `python/requirements.txt` when present), you can also run:
 
 ```bash
 cd python
 python -m venv venv
 # Windows: venv\Scripts\activate   |   macOS/Linux: source venv/bin/activate
 pip install -r requirements.txt
-# Run depth script when available, e.g. python -m simplepicture3d.depth ...
+# Run depth estimator: python -m python.depth_estimator --input path/to/image.png
 ```
 
 **Logging (Rust backend):** Set `RUST_LOG` to control log level (e.g. `RUST_LOG=debug`, `RUST_LOG=simplepicture3d=info`). See [env_logger](https://docs.rs/env_logger). Default is `warn` if unset.

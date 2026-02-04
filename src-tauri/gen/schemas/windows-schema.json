@@ -393,6 +393,12 @@
           "markdownDescription": "Enables the export_stl command."
         },
         {
+          "description": "Enables the generate_depth_map and get_depth_map commands.",
+          "type": "string",
+          "const": "allow-generate-depth-map",
+          "markdownDescription": "Enables the generate_depth_map and get_depth_map commands."
+        },
+        {
           "description": "Enables the load_image command.",
           "type": "string",
           "const": "allow-load-image",

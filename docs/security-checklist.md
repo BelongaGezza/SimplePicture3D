@@ -54,7 +54,19 @@ Use this as part of the **Release Checklist** (todo.md) and phase gates.
 - [ ] Tauri IPC: only intended commands exposed; capability config (e.g. capabilities/default.json) reviewed.
 - [ ] File I/O and export paths: path canonicalization and traversal checks in place (see threat model §2.3, §2.4). For `load_image`: canonicalize path; blocklist system dirs; allow only user-chosen file paths (SEC-101).
 - [ ] Image loading: magic-byte validation (PNG/JPEG) before decode; non-image files rejected with clear error (threat model §2.4, SEC-102).
-- [ ] Python subprocess: no user-controlled command-line args; temp file I/O only as designed (see threat model §2.5).
+- [ ] **Python subprocess (SEC-201):** No user-controlled command-line args; temp file I/O only as designed (threat model §2.5). Review: (a) argv built only from fixed strings or validated paths (e.g. from `file_io`); (b) any path passed to subprocess canonicalized and under temp dir or allowlist; (c) no shell invocation with user input; (d) findings documented.
+- [ ] **Model download (SEC-202):** HTTPS only (no redirect to HTTP); SHA256 checksum verified after download; expected hash from trusted source (e.g. repo/RESEARCH), not from download response (threat model §2.2).
+
+#### SEC-201 Review (Sprint 1.3) — Python subprocess
+
+Completed **2026-02-03**. Implementation: `src-tauri/src/python_bridge.rs`.
+
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| (a) No user-controlled argv | ✅ | Command built only from `python_executable()`, fixed args `-m python.depth_estimator`, `--input`, and `input_path` (from `validate_input_path`). Image bytes written by Rust to temp file; path is app-controlled. |
+| (b) Path canonicalized and under temp dir | ✅ | `validate_input_path()` canonicalizes path and enforces `path.starts_with(temp_dir)`. Input path comes from `file_io::write_temp_file` (system temp dir only). |
+| (c) No shell | ✅ | `std::process::Command::new(&python)` — no shell; no `cmd /c` or `sh -c`. |
+| (d) Findings documented | ✅ | No command injection; implementation aligns with threat model §2.5. |
 
 ### 2.3 Sign-off
 
@@ -83,5 +95,5 @@ CI runs `cargo audit` and `npm audit` on every push/PR (see .github/workflows/ci
 
 ---
 
-**Document Version:** 1.1  
-**Status:** Sprint 1.1, SEC-003; image loading (path + magic bytes) items added (Sprint 1.2, SEC-101, SEC-102).
+**Document Version:** 1.2  
+**Status:** Sprint 1.1, SEC-003; image loading (path + magic bytes) items added (Sprint 1.2, SEC-101, SEC-102). Subprocess review criteria (SEC-201) and model download requirements (SEC-202) added (Sprint 1.3).

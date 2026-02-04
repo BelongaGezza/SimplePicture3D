@@ -76,14 +76,10 @@ SimplePicture3D/
 ├── src-tauri/              # Rust backend (Tauri shell)
 │   ├── src/
 │   │   ├── main.rs         # Tauri app entry point
-│   │   ├── commands.rs     # IPC command handlers
-│   │   ├── image_processing.rs
-│   │   ├── mesh_generator.rs
-│   │   ├── depth_map.rs
-│   │   ├── exporters/
-│   │   │   ├── stl.rs
-│   │   │   └── obj.rs
-│   │   └── python_bridge.rs
+│   │   ├── lib.rs          # IPC command handlers (load_image, export_stl), integration tests
+│   │   ├── image_loading.rs # Image load, validate, downsample, RGB, preview (BACK-101–105)
+│   │   ├── file_io.rs       # Temp path utilities (future Python handoff)
+│   │   ├── (future: mesh_generator.rs, depth_map.rs, exporters/, python_bridge.rs)
 │   ├── Cargo.toml
 │   └── tauri.conf.json
 │
@@ -155,6 +151,9 @@ SimplePicture3D/
 ## Key Interfaces
 
 - **Tauri commands:** `load_image`, `generate_depth_map`, `get_mesh_data`, `export_stl`, `export_obj`, `download_model`
-- **Python interface:** stdin or temp file for image; stdout or file for depth map (JSON/binary)
+- **Python interface (Sprint 1.3):** See **docs/architecture.md** § "Rust–Python Bridge (Sprint 1.3)" for the full IPC contract:
+  - **Image input:** Temp file path only (`--input <path>`); path validated, under system temp dir (ARCH-102).
+  - **Depth output:** JSON `{"height", "width", "depth": [f32,...]}` to stdout (or file); 0–1 normalized, row-major.
+  - **Invocation:** Subprocess (no shell); fixed CLI; progress on stderr (ARCH-101, ARCH-103).
 - **Model storage:** `~/.simplepicture3d/models/`
 - **Settings:** `~/.simplepicture3d/` (presets, logs, cache)

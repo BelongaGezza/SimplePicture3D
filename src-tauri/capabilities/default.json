@@ -10,6 +10,7 @@
         "shell:allow-open",
         "dialog:allow-open",
         "allow-load-image",
-        "allow-export-stl"
+        "allow-export-stl",
+        "allow-generate-depth-map"
     ]
 }

@@ -1,9 +1,9 @@
 <script lang="ts">
   import ImageImport from "./components/ImageImport.svelte";
   import Preview3D from "./components/Preview3D.svelte";
+  import DepthMapPreview from "./components/DepthMapPreview.svelte";
   import Button from "./components/Button.svelte";
-  import { exportStl } from "$lib/tauri";
-  import { convertFileSrc } from "@tauri-apps/api/core";
+  import { exportStl, generateDepthMap } from "$lib/tauri";
   import type { LoadImageResult } from "$lib/tauri";
 
   let status = "Ready";
@@ -12,10 +12,17 @@
   let loadError = "";
   let loadedResult: LoadImageResult | null = null;
 
-  /** Preview URL: base64 from backend or converted path for webview. */
-  $: previewUrl =
-    loadedResult?.previewData ||
-    (loadedResult?.path ? convertFileSrc(loadedResult.path) : "");
+  /** Depth map for preview (BACK-303, UI-301/302). */
+  let depthMap: { width: number; height: number; depth: number[] } | null = null;
+  /** True while generate_depth_map is running (UI-304). */
+  let depthEstimating = false;
+  /** Backend error from generate_depth_map (timeout, Python, etc.). */
+  let depthError = "";
+
+  /** Preview URL: base64 from backend (BACK-101, UI-103). */
+  $: previewUrl = loadedResult?.previewBase64
+    ? `data:image/png;base64,${loadedResult.previewBase64}`
+    : "";
 
   function formatFileSize(bytes: number | undefined): string {
     if (bytes == null) return "—";
@@ -40,12 +47,13 @@
     loading = true;
     loadError = "";
     loadedResult = null;
+    depthMap = null;
+    depthError = "";
   }
 
   function handleLoadSuccess(result: LoadImageResult) {
     loading = false;
     loadedResult = result;
-    loadPath = result.path ?? loadPath;
     loadError = "";
     status = result.downsampled ? "Loaded (downsampled)" : "Loaded";
   }
@@ -56,13 +64,32 @@
     loadedResult = null;
     status = "Load error";
   }
+
+  /** UI-303: Generate depth map from current image path. */
+  async function handleGenerateDepth() {
+    if (!loadPath || depthEstimating) return;
+    depthEstimating = true;
+    depthError = "";
+    status = "Estimating depth…";
+    try {
+      const result = await generateDepthMap(loadPath);
+      depthMap = { width: result.width, height: result.height, depth: result.depth };
+      status = "Depth ready";
+    } catch (e) {
+      depthError = String(e);
+      status = "Depth error";
+    } finally {
+      depthEstimating = false;
+    }
+  }
 </script>
 
+<!-- UI-305: Side-by-side layout — original (left) and depth map (right) on same screen; min 1024×768 per prd -->
 <div class="app-layout min-h-screen flex flex-col bg-slate-50 text-slate-800">
-  <main class="flex flex-1 min-h-0">
-    <!-- Left sidebar: image import, preview (UI-101–105) -->
-    <aside class="w-64 shrink-0 border-r border-slate-200 bg-white p-4 flex flex-col gap-4 min-h-0">
-      <h2 class="text-sm font-semibold text-slate-600 uppercase tracking-wide">Image</h2>
+  <main class="flex flex-1 min-h-0" role="region" aria-label="Workspace: original image, 3D preview, and depth map">
+    <!-- Left sidebar: original image (UI-101–105, UI-305 side-by-side) -->
+    <aside class="w-64 shrink-0 border-r border-slate-200 bg-white p-4 flex flex-col gap-4 min-h-0" aria-label="Original image">
+      <h2 class="text-sm font-semibold text-slate-600 uppercase tracking-wide">Original image</h2>
       <ImageImport
         loading={loading}
         errorMessage={loadError}
@@ -87,7 +114,7 @@
               </div>
               <div class="flex justify-between gap-2">
                 <dt class="text-slate-500">Size</dt>
-                <dd>{formatFileSize(loadedResult.fileSize)}</dd>
+                <dd>{formatFileSize(loadedResult.fileSizeBytes)}</dd>
               </div>
               {#if loadedResult.downsampled}
                 <p class="text-amber-600 mt-1" role="status">Image was downsampled to fit 8K limit.</p>
@@ -106,18 +133,57 @@
       </div>
     </section>
 
-    <!-- Right sidebar: depth controls -->
-    <aside class="w-64 shrink-0 border-l border-slate-200 bg-white p-4 flex flex-col gap-4">
-      <h2 class="text-sm font-semibold text-slate-600 uppercase tracking-wide">Depth</h2>
-      <div class="flex-1 min-h-0 rounded border border-slate-200 flex items-center justify-center text-slate-400 text-sm">
-        Controls area
+    <!-- Right sidebar: depth preview + controls (UI-301–305, JR1-301) -->
+    <aside class="w-64 shrink-0 border-l border-slate-200 bg-white p-4 flex flex-col gap-4" aria-label="Depth map and controls">
+      <h2 class="text-sm font-semibold text-slate-600 uppercase tracking-wide">Depth map</h2>
+      <div class="flex-1 min-h-0 flex flex-col gap-2 rounded border border-slate-200 overflow-hidden">
+        <div class="min-h-[200px] flex-1 min-h-0">
+          <DepthMapPreview
+            width={depthMap?.width ?? 0}
+            height={depthMap?.height ?? 0}
+            depth={depthMap?.depth ?? []}
+            estimating={depthEstimating}
+          />
+        </div>
+        <!-- UI-303: Generate Depth Map button; UI-304: progress during inference -->
+        <div class="p-2 border-t border-slate-200 flex flex-col gap-2">
+          <Button
+            variant="primary"
+            title="Run AI depth estimation on the loaded image"
+            disabled={!loadPath || depthEstimating}
+            on:click={handleGenerateDepth}
+          >
+            {depthEstimating ? "Estimating…" : "Generate Depth Map"}
+          </Button>
+          <!-- UI-304: Indeterminate progress bar during estimation (MVP: no % until complete) -->
+          {#if depthEstimating}
+            <div
+              class="progress-wrapper h-2 rounded-full bg-slate-200 overflow-hidden"
+              role="progressbar"
+              aria-label="Depth estimation in progress"
+              aria-valuetext="Estimating"
+            >
+              <div class="progress-bar-indeterminate h-full rounded-full bg-slate-500"></div>
+            </div>
+          {/if}
+          {#if depthError}
+            <p
+              class="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1.5 break-words"
+              role="alert"
+              aria-live="polite"
+              title={depthError}
+            >
+              {depthError}
+            </p>
+          {/if}
+        </div>
       </div>
     </aside>
   </main>
 
-  <!-- Bottom: export button, status bar -->
+  <!-- Bottom: export button, status bar (UI-304: status shows Estimating when in progress) -->
   <footer class="shrink-0 border-t border-slate-200 bg-white px-4 py-2 flex items-center justify-between gap-4">
-    <div class="text-sm text-slate-500">{status}</div>
+    <div class="text-sm text-slate-500" role="status" aria-live="polite" aria-label={status}>{status}</div>
     <Button variant="primary" title="Export mesh as STL" on:click={handleExport}>
       Export
     </Button>
@@ -127,5 +193,18 @@
 <style>
   .app-layout {
     /* PRD: window min 1024×768; layout uses flex/grid */
+  }
+  /* UI-304: indeterminate progress bar during depth estimation */
+  .progress-bar-indeterminate {
+    width: 40%;
+    animation: progress-slide 1.5s ease-in-out infinite;
+  }
+  @keyframes progress-slide {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(350%);
+    }
   }
 </style>

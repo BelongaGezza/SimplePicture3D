@@ -10,6 +10,7 @@
 | PyTorch Docs | https://pytorch.org/docs/stable/index.html | 2026-02-01 |
 | Depth-Anything-V2 (GitHub) | https://github.com/DepthAnything/Depth-Anything-V2 | 2026-02-01 |
 | Depth-Anything-V2 (Hugging Face) | https://huggingface.co/depth-anything/Depth-Anything-V2-Base | 2026-02-01 |
+| Transformers (Depth Anything V2) | https://huggingface.co/docs/transformers/model_doc/depth_anything_v2 | 2026-02-03 |
 | MiDaS (GitHub) | https://github.com/isl-org/MiDaS | 2026-02-01 |
 | Hugging Face | https://huggingface.co/ | 2026-02-01 |
 | ONNX Runtime (Python) | https://onnxruntime.ai/docs/get-started/with-python.html | 2026-02-01 |
@@ -38,9 +39,12 @@
 ## Depth-Anything-V2
 
 - **Repo:** DepthAnything/Depth-Anything-V2 (GitHub).
-- **Hugging Face:** e.g. `depth-anything/Depth-Anything-V2-Base`, `Depth-Anything-V2-Large`; also Transformers-friendly variants (e.g. `Depth-Anything-V2-Large-hf`).
+- **Hugging Face (Transformers):** Use `transformers` pipeline or `AutoImageProcessor` + `AutoModelForDepthEstimation` with model IDs:
+  - `depth-anything/Depth-Anything-V2-Small-hf` (default in app; smaller, faster)
+  - `depth-anything/Depth-Anything-V2-Base-hf`, `depth-anything/Depth-Anything-V2-Large-hf`
 - **Weights license:** **CC-BY-NC-4.0** (non-commercial). Document in app and comply for distribution.
-- **Usage:** Load image → model inference → depth map (normalize to 0–1 as needed). Check repo for any API or dependency changes when integrating.
+- **Usage (Sprint 1.3):** Load image with PIL → `image_processor(images=image, return_tensors="pt")` → `model(**inputs)` → `image_processor.post_process_depth_estimation(outputs, target_sizes=[(H, W)])` → normalize predicted depth to 0–1 (min/max) for ARCH-102. Device: `cuda` / `mps` / `cpu` auto-detected.
+- **Official HF docs:** https://huggingface.co/docs/transformers/model_doc/depth_anything_v2 (Last checked: 2026-02-03).
 
 ---
 
@@ -74,6 +78,41 @@
 - **Framework:** PyTorch for inference.
 - **Models:** Depth-Anything-V2 (recommended) or MiDaS v3.1.
 - **Interface:** Subprocess/sidecar from Rust; image via file or stdin; depth map via file or stdout (JSON/binary).
+
+---
+
+## Benchmarks (AI-303)
+
+**Purpose:** Record wall-clock inference time for representative image sizes; compare stub vs real model; document against prd.md F1.2 target (<30s for 4K on GPU).
+
+**How to run**
+
+- Stub (no model): `python -m python.depth_estimator --input <path> --no-model` or `SP3D_USE_STUB=1 python -m python.depth_estimator --input <path>`. Fast; use for repeatable size-vs-time checks.
+- Real model: `python -m python.depth_estimator --input <path>` (Depth-Anything-V2). First run downloads model; note device (CPU/CUDA/MPS).
+
+**Representative sizes**
+
+| Size (W×H) | Pixels | Use case |
+|------------|--------|----------|
+| 640×480    | 307K   | Small / quick test |
+| 1920×1080  | 2.1M   | 1080p |
+| 3840×2160  | 8.3M   | 4K (prd target) |
+
+**Creating test images**
+
+- ImageMagick: `magick -size 640x480 xc:gray 640x480.png` (and similarly 1920x1080, 3840x2160).
+- Or use fixtures in `tests/fixtures/` for small sizes; generate larger per above.
+
+**Results (fill when run)**
+
+| Size (W×H) | Stub (wall s) | Model CPU (s) | Model GPU (s) | Device / notes |
+|------------|---------------|---------------|---------------|-----------------|
+| 1×1        | <1            | —             | —             | Sanity check (fixture) |
+| 640×480    | —             | —             | —             | —               |
+| 1920×1080  | —             | —             | —             | —               |
+| 3840×2160  | —             | —             | —             | Target: <30s GPU |
+
+**Target (prd.md F1.2):** &lt;30s for 4K on GPU; &lt;120s on CPU (or document actuals and gap).
 
 ---
 

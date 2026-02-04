@@ -30,9 +30,9 @@
 
 | Threat | Mitigation |
 |--------|------------|
-| Tampered model executes malicious code | **Model security (PRD §8.2):** Download from official Hugging Face only; verify **SHA256 checksums** against known-good hashes before use. |
+| Tampered model executes malicious code | **Model security (PRD §8.2):** Download from official Hugging Face only; verify **SHA256 checksums** against known-good hashes before use. **HTTPS only:** Use HTTPS URLs for all model downloads; do not follow redirects to HTTP (SEC-202). |
 | Model run with excessive privileges | **Python subprocess isolation:** Run depth estimator in child process with minimal privileges; no arbitrary filesystem access beyond models directory and designated temp paths. |
-| Supply-chain compromise of model provider | Document source and checksum in RESEARCH; consider pinning to specific release artifacts. |
+| Supply-chain compromise of model provider | Document source and checksum in RESEARCH; consider pinning to specific release artifacts. **Checksum source:** Expected SHA256 hash must come from a trusted source (e.g. documented in repo or RESEARCH), not from the same channel as the download (SEC-202). |
 
 ### 2.3 Path traversal and export path abuse
 
@@ -61,6 +61,10 @@
 | **Command injection** in Python invocation | Do not build command line from unsanitized user input. Pass image via **temp file path** or stdin; use fixed CLI contract (e.g. `--input`, `--output`). RESEARCH/tauri.md: use shell plugin/sidecar with fixed arguments. |
 | Python process reading/writing outside allowed dirs | Restrict subprocess: only allow access to app temp dir, models dir, and explicitly passed input/output paths. No shell; minimal env. |
 | Malicious input (e.g. path) in args to sidecar | Validate and canonicalize any paths passed to the subprocess; use allowlists, not blocklists. |
+
+**Review (SEC-201):** When the Python subprocess spawner is implemented (BACK-201, BACK-202), Security Specialist must review: (1) **No user-controlled argv** — command and arguments are fixed or derived only from validated paths (e.g. temp path from `file_io::write_temp_file`); no frontend or user string in `Command::arg()`. (2) **Path validation** — any path passed to the subprocess (e.g. image temp file) must be canonicalized and restricted to app temp dir or allowlisted locations (same pattern as `file_io::read_file_in_temp_dir`). (3) **No shell** — use `std::process::Command` (or Tauri shell with fixed scope); do not invoke via `cmd /c` or `sh -c` with user input. (4) Document findings in `docs/security-checklist.md` §2.2 and this threat model.
+
+**SEC-201 completed 2026-02-03:** `src-tauri/src/python_bridge.rs` reviewed. No user input in argv; path from `file_io::write_temp_file` and `validate_input_path` (canonicalized, under temp dir); no shell. See `docs/security-checklist.md` §2.2 (SEC-201 Review).
 
 ### 2.6 IPC (Tauri commands) surface
 
@@ -111,5 +115,5 @@
 
 ---
 
-**Document Version:** 1.1  
-**Status:** Initial review (Sprint 1.1, SEC-001); image loading implementation notes added (Sprint 1.2, SEC-101, SEC-102).
+**Document Version:** 1.2  
+**Status:** Initial review (Sprint 1.1, SEC-001); image loading implementation notes added (Sprint 1.2, SEC-101, SEC-102). Subprocess review criteria (SEC-201) and model download HTTPS/checksum (SEC-202) added (Sprint 1.3).

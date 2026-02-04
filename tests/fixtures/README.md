@@ -7,7 +7,7 @@ This directory holds (or references) test images for image loading: valid/invali
 | File | Purpose | Used by |
 |------|---------|--------|
 | `valid_1x1.png` | Minimal valid PNG (1×1); success path, dimension assertion | QA-103, JR2-101 |
-| `valid_small.png` | Second valid PNG (1×1); duplicate for tests that need two valid files | QA-103 |
+| `valid_small.png` | Second valid PNG (1×1); duplicate for tests that need two valid files; Rust→Python integration (JR2-201), manual depth test (QA-204) | QA-103, JR2-201, QA-204 |
 | `invalid_not_an_image.png` | Plain text with .png extension; wrong magic bytes | BACK-102, SEC-102, QA-104 |
 | `corrupt_truncated.png` | Valid PNG signature + truncated content; decode fails | BACK-102, QA-104 |
 
@@ -47,8 +47,13 @@ tests/fixtures/
 
 If you don't check in binaries, document in this README and in `SPRINTS/Sprint_1_2/TEST_PLAN_1_2.md` where to obtain or how to generate each fixture. JR2-103 and manual tests can use locally generated 16K and 4K/8K images per above.
 
+## Sprint 1.3 use
+
+- **JR2-201 (integration test):** Use `valid_small.png` or `valid_1x1.png` for Rust→Python roundtrip (image in → depth out).
+- **QA-204 (manual depth test):** Use fixtures here for end-to-end depth estimation once the pipeline is ready.
+
 ## References
 
 - **Task:** QA-101 (SPRINT_1_2_Task_Assignment.md)
 - **PRD:** prd.md F1.1 (max dimensions 8192×8192, PNG/JPG)
-- **Test plan:** SPRINTS/Sprint_1_2/TEST_PLAN_1_2.md
+- **Test plan:** SPRINTS/Sprint_1_2/TEST_PLAN_1_2.md; Sprint 1.3: SPRINTS/Sprint_1_3/TEST_PLAN_1_3.md
