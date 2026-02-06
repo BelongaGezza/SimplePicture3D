@@ -1,7 +1,7 @@
 # SimplePicture3D - Development TODO & Sprint Planning
 
-**Version:** 1.0  
-**Last Updated:** January 31, 2026  
+**Version:** 1.1  
+**Last Updated:** February 6, 2026  
 **Repository:** https://github.com/[org]/SimplePicture3D  
 **Project Board:** GitHub Projects (Kanban)
 
@@ -147,7 +147,7 @@ The Role Assignment table enables agents to claim roles:
 - **Primary:** Test planning, automated test implementation, manual testing
 - **Secondary:** CI/CD pipeline maintenance, bug triage
 - **Tools:** Cursor IDE, pytest, Cargo test, Playwright (UI tests)
-- **Ownership:** `tests/` directory, test documentation
+- **Ownership:** `tests/` directory, test documentation; **Testing requirements backlog** (see [Testing Strategy](#testing-strategy) — current state, gaps, and CI requirements)
 
 ---
 
@@ -212,10 +212,11 @@ The Role Assignment table enables agents to claim roles:
 - [ ] **JR2-004:** Learn Rust basics (The Rust Book, chapters 1-5)
 
 **Quality Engineer:**
-- [ ] **QA-001:** Set up GitHub Actions CI workflow (build + test)
+- [x] **QA-001:** Set up GitHub Actions CI workflow (build + test) — *Done; add clippy step (see Testing requirements).*
 - [ ] **QA-002:** Create test plan template for sprints
 - [ ] **QA-003:** Configure code coverage reporting (tarpaulin for Rust, coverage.py for Python)
 - [ ] **QA-004:** Document local testing commands (README)
+- [ ] **QA-005:** Add `cargo clippy` to CI backend job (fail on warnings)
 
 **Security Engineer:**
 - [ ] **SEC-001:** Initial threat model review (see PRD §8.1)
@@ -1444,6 +1445,35 @@ The Role Assignment table enables agents to claim roles:
 
 ## Testing Strategy
 
+*Software Quality Lead review (2026-02-06): Current state and requirements below.*
+
+### Current state (as of 2026-02-06)
+
+| Layer | Implemented | Gaps |
+|-------|-------------|------|
+| **Rust** | 27 unit/integration tests (file_io, image_loading, python_bridge, lib); 5 tests `#[ignore]` (Python/env-dependent). `cargo test` in CI. | No `cargo clippy` in CI; no coverage (tarpaulin); Python-dependent tests not run in CI. |
+| **Frontend** | `npm run build` in CI; test fixtures under `tests/fixtures/`. | No test runner (no Vitest/Jest); no `npm test`; no component or E2E tests. |
+| **Python** | `python/depth_estimator.py` used by Rust bridge; stub mode for roundtrip. | No `pytest` suite; no `test_*.py`; no coverage; not run in CI. |
+| **Integration** | Rust tests for load_image, generate_depth_map (path validation, normalization); roundtrip test exists but ignored without Python. | Integration tests requiring Python not automated in CI. |
+| **E2E** | Manual test plans and reports per sprint. | No Playwright (or similar) E2E automation. |
+
+**Local test commands (verified):**
+- Rust: `cargo test --manifest-path src-tauri/Cargo.toml` — 27 passed, 5 ignored.
+- Frontend: `npm run build` — build only; no test script.
+- Lint: `cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings` — not in CI.
+- Audits: `cargo audit`, `npm audit --audit-level=high` — both in CI.
+
+### Testing requirements (Quality Engineer backlog)
+
+These items are required to meet Phase 1 exit criteria and the Test Pyramid below. Assign to Quality Engineer and/or sprint tasking as needed.
+
+1. **CI — Lint:** Add `cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings` to CI (backend job); fix any new warnings on merge.
+2. **Rust — Coverage:** Introduce `cargo tarpaulin` (or equivalent) in CI; report coverage; target >70% for Phase 1, >80% for Phase 4 (core logic).
+3. **Frontend — Test suite:** Add test runner (Vitest or Jest), `npm test` script, and at least smoke/unit tests for critical paths; target >60% coverage by Phase 4.
+4. **Python — Test suite:** Add `pytest` in `python/`, with tests for `depth_estimator` (stub mode, output shape, CLI); run `pytest` in CI; target >70% for Phase 1.
+5. **Integration — Python in CI:** Option A: Run Python-dependent Rust tests in CI when Python 3.10+ and deps are available. Option B: Keep them `#[ignore]` and document running `cargo test -- --ignored` locally or in a separate workflow.
+6. **E2E:** Defer to Sprint 1.11 (QA-1001); document Playwright (or Tauri testing) as requirement for Phase 1 exit.
+
 ### Test Pyramid
 
 ```
@@ -1461,13 +1491,13 @@ The Role Assignment table enables agents to claim roles:
 
 ### Test Coverage Goals
 
-| Component | Target Coverage | Tool |
-|-----------|----------------|------|
-| Rust Backend | >80% | `cargo tarpaulin` |
-| Python AI | >70% | `pytest --cov` |
-| Frontend | >60% | Vitest / Jest |
-| Integration | 100% critical paths | Custom scripts |
-| E2E | Happy path + 5 edge cases | Playwright |
+| Component | Target Coverage | Tool | Status |
+|-----------|----------------|------|--------|
+| Rust Backend | >70% (Phase 1); >80% (Phase 4) | `cargo tarpaulin` | No coverage in CI yet |
+| Python AI | >70% | `pytest --cov` | No pytest suite yet |
+| Frontend | >60% (Phase 4) | Vitest / Jest | No test runner yet |
+| Integration | 100% critical paths | Rust tests + optional Python in CI | Partial (Rust-only in CI) |
+| E2E | Happy path + 5 edge cases | Playwright (Sprint 1.11) | Manual only |
 
 ### Testing Cadence
 
@@ -1518,27 +1548,20 @@ The Role Assignment table enables agents to claim roles:
 
 ### GitHub Actions Workflows
 
-#### 1. **CI Workflow** (`ci.yml`)
-**Trigger:** Every push, pull request
+#### 1. **CI Workflow** (`ci.yml`) — current vs required
 
-**Jobs:**
-- **Lint:**
-  - Rust: `cargo clippy`
-  - Python: `flake8` or `ruff`
-  - TypeScript: `eslint`
-- **Build:**
-  - Rust: `cargo build --release`
-  - Frontend: `npm run build`
-- **Test:**
-  - Rust: `cargo test`
-  - Python: `pytest`
-  - Frontend: `npm test`
-- **Coverage:**
-  - Upload to Codecov or similar
+**Trigger:** Every push, pull request to `main`, `develop`.
 
-**Matrix:**
-- OS: Windows, macOS, Linux
-- Rust version: stable, 1.70+ (MSRV)
+**Current (as of 2026-02-06):**
+- **Frontend job:** `npm ci` → `npm run build` → `npm audit --audit-level=high`.
+- **Backend job:** Rust stable + clippy component; `cargo build` → `cargo test` → `cargo audit` (src-tauri). Single OS: ubuntu-latest.
+
+**Required additions (see Testing requirements above):**
+- **Lint:** Run `cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings` in backend job (fail on warnings).
+- **Frontend test:** Once `npm test` exists, add step: `npm test`.
+- **Python test:** Once `pytest` exists in `python/`, add job or step: `pip install -r python/requirements.txt` (or dev deps) and `pytest python/`.
+- **Coverage:** Add coverage step (e.g. tarpaulin for Rust, pytest-cov for Python) and upload to Codecov or similar when targets are set.
+- **Matrix (later):** Expand to OS matrix (Windows, macOS, Linux) when Phase 3 cross-platform is active.
 
 ---
 
@@ -1575,7 +1598,7 @@ The Role Assignment table enables agents to claim roles:
 ## Release Checklist
 
 ### Pre-Release
-- [ ] All tests passing on all platforms
+- [ ] All tests passing on all platforms (see [Testing Strategy](#testing-strategy): `cargo test`, `npm run build`; once added: `npm test`, `pytest`, `cargo clippy`)
 - [ ] Performance benchmarks meet targets
 - [ ] Security audit complete (no critical vulnerabilities)
 - [ ] Documentation reviewed and up-to-date

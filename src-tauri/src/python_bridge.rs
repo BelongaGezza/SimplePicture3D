@@ -100,7 +100,7 @@ fn validate_input_path(path: &std::path::Path) -> Result<std::path::PathBuf> {
     Ok(canonical)
 }
 
-/// Finds Python: VIRTUAL_ENV/Scripts/python.exe (Windows) or bin/python (Unix), else "python".
+/// Finds Python: VIRTUAL_ENV/Scripts/python.exe (Windows) or bin/python (Unix), else "python3" (Unix) or "python" (Windows).
 fn python_executable() -> std::path::PathBuf {
     if let Ok(venv) = std::env::var("VIRTUAL_ENV") {
         let path = std::path::Path::new(&venv);
@@ -112,7 +112,10 @@ fn python_executable() -> std::path::PathBuf {
             return exe;
         }
     }
-    std::path::PathBuf::from("python")
+    #[cfg(windows)]
+    return std::path::PathBuf::from("python");
+    #[cfg(not(windows))]
+    std::path::PathBuf::from("python3")
 }
 
 /// Deletes temp file when dropped.
