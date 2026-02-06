@@ -55,6 +55,8 @@ Look at the Role Assignment table below. Find a role where:
 
 **If all roles show "In Progress" or "Complete", STOP. No work available.**
 
+### Step 4: Update status
+- While progressing your role, update the status per the Status Values defined below.
 ---
 
 ## Role Assignment

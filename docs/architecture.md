@@ -10,6 +10,8 @@
 
 SimplePicture3D is a Tauri desktop application with a Rust backend, Svelte/React frontend, and a Python subprocess for AI depth estimation. All processing runs locally (100% offline).
 
+**Architecture decisions** are recorded as ADRs in [RESEARCH/architecture.md](../RESEARCH/architecture.md): ADR-001 (Svelte), ADR-002 (Subprocess), ADR-003 (Python distribution), ADR-004 (Depth models).
+
 ---
 
 ## System Architecture Diagram
@@ -92,10 +94,18 @@ SimplePicture3D is a Tauri desktop application with a Rust backend, Svelte/React
 |-------------------|-----------------------|---------------------|
 | `load_image`      | File path             | Image metadata (width, height, fileSizeBytes, downsampled) + base64 preview PNG for UI |
 | `generate_depth_map` | Image path (string) | `{ width, height, depth: number[], progress?, stages? }` or error (see § Sprint 1.4 command contract) |
+| `get_depth_map`   | —                     | Current depth map (adjusted by stored params) or `null` |
+| `set_depth_adjustment_params` | `DepthAdjustmentParams` | — |
+| `get_depth_adjustment_params` | —                  | Current params (brightness, contrast, gamma, invert, depthMinMm, depthMaxMm) |
+| `reset_depth_adjustments` | —                  | — (params set to defaults) |
 | `get_mesh_data`   | —                     | Vertex/normal data  |
 | `export_stl`      | Path, mesh data       | Success/error       |
 | `export_obj`      | Path, mesh data       | Success/error       |
 | `download_model`  | Model ID              | Progress/result     |
+
+### Depth map adjustments (Sprint 1.5)
+
+Adjustments are applied in the backend. Order of operations: **invert → gamma → contrast → brightness**. All operations work on normalized depth [0, 1]; output is clamped to [0, 1]. Formulas: brightness `v' = clamp(v + b)`, contrast `v' = clamp((v - 0.5)*c + 0.5)`, gamma `v' = v^g` (0 stays 0). Original depth is stored unchanged; `get_depth_map` returns the result of applying current params to the original. Range params `depthMinMm`/`depthMaxMm` (e.g. 2–10 mm) are stored for future mesh/export; mapping `z_mm = min_mm + v*(max_mm - min_mm)`.
 
 ### Python Interface (Rust ↔ Python)
 

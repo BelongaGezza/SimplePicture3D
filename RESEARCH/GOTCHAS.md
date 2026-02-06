@@ -21,6 +21,11 @@ When you hit a debugging gotcha:
 
 ## Entries
 
+### 2026-02-06 — Rust — Depth adjustment benchmark (1920×1080) (JR2-403)
+**Symptom:** Need to confirm real-time preview is feasible for 1080p depth.  
+**Cause:** prd §7.1 / UI-404 target: preview update within 100 ms.  
+**Fix:** Benchmark in `src-tauri/benches/depth_adjust.rs`. Run `cargo bench --bench depth_adjust` from src-tauri. Result (release build): **~14 ms** per `apply_adjustments` call for 1920×1080 (2.07M samples). Well under 100 ms; real-time debounced preview is feasible.
+
 ### 2026-02-01 — Tauri v2 — IPC large payloads slow
 **Symptom:** Sending large depth maps or mesh data (e.g. 3MB+) over Tauri IPC can be slow (e.g. 200ms+ for 3MB).  
 **Cause:** Command IPC uses JSON-RPC serialization; Rust → frontend events require serialization.  

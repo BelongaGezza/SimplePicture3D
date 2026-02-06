@@ -51,10 +51,34 @@ export interface DepthMapData {
   depth: number[];
 }
 
+/** Depth adjustment params (BACK-401–405). Matches Rust DepthAdjustmentParams (camelCase). */
+export interface DepthAdjustmentParams {
+  brightness: number;
+  contrast: number;
+  gamma: number;
+  invert: boolean;
+  depthMinMm: number;
+  depthMaxMm: number;
+}
+
 export async function generateDepthMap(path: string): Promise<DepthMapResult> {
   return invoke<DepthMapResult>("generate_depth_map", { path });
 }
 
 export async function getDepthMap(): Promise<DepthMapData | null> {
   return invoke<DepthMapData | null>("get_depth_map");
+}
+
+export async function getDepthAdjustmentParams(): Promise<DepthAdjustmentParams> {
+  return invoke<DepthAdjustmentParams>("get_depth_adjustment_params");
+}
+
+export async function setDepthAdjustmentParams(
+  params: DepthAdjustmentParams
+): Promise<void> {
+  return invoke("set_depth_adjustment_params", { params });
+}
+
+export async function resetDepthAdjustments(): Promise<void> {
+  return invoke("reset_depth_adjustments");
 }

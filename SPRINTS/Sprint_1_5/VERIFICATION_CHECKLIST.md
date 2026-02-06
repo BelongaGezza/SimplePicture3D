@@ -9,10 +9,11 @@
 ## Quality Gates
 
 - [ ] `cargo test --manifest-path src-tauri/Cargo.toml` — PASS
-- [ ] `cargo clippy` — 0 warnings
+- [ ] `cargo clippy` — 0 warnings (QA-405: enforced in CI)
 - [ ] `npm run build` — PASS
 - [ ] Depth adjustment controls functional (sliders, invert, reset)
-- [ ] Manual test cases (QA-401–404) executed and recorded in MANUAL_TEST_REPORT.md
+- [ ] Manual test cases (QA-401–403) executed and recorded in MANUAL_TEST_REPORT.md
+- [ ] Depth controls documented for users (`docs/user-guide.md` § Depth Controls)
 
 ## Success Criteria (todo.md Sprint 1.5)
 
@@ -35,4 +36,4 @@
 
 Sprint 1.5 verification: [ ] Not Started / [ ] In Progress / [ ] Complete
 
-**Last Updated:** 2026-02-04
+**Last Updated:** 2026-02-06

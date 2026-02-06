@@ -61,7 +61,7 @@
 
 ### ADR-003: Python Distribution Strategy
 
-**Status:** Proposed (MVP)
+**Status:** Accepted
 **Date:** 2026-02-06
 **Context:** Need to define how Python + PyTorch + models are distributed to end users.
 
@@ -95,7 +95,7 @@
 
 ### ADR-004: Depth Model Selection
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-02-06
 **Context:** Need to select primary depth estimation model and address licensing concerns.
 

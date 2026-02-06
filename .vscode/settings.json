@@ -29,5 +29,6 @@
     "**/target": true,
     "**/__pycache__": true,
     "**/.venv": true
-  }
+  },
+  "workbench.colorTheme": "Cursor Light"
 }

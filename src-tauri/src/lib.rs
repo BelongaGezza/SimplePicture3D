@@ -1,3 +1,4 @@
+pub mod depth_adjust;
 mod file_io;
 mod image_loading;
 mod python_bridge;
@@ -5,13 +6,19 @@ mod python_bridge;
 use std::sync::Mutex;
 use tauri::State;
 
+use depth_adjust::{apply_adjustments, DepthAdjustmentParams};
+
 // Error handling pattern (BACK-004): use anyhow inside commands for context chain;
 // Tauri IPC requires serializable errors, so we use Result<T, String> and map
 // anyhow::Error via .map_err(|e| e.to_string()) at the boundary.
 
-/// App-managed depth map state (BACK-302). Updated after successful generate_depth_map.
+/// App-managed depth map state (BACK-302, BACK-405). Original depth from generate_depth_map;
+/// adjustment params applied on demand for get_depth_map; original preserved for reset.
 struct AppState {
+    /// Original depth map (unchanged by adjustments).
     depth: Mutex<Option<python_bridge::DepthMapOutput>>,
+    /// Current adjustment params; get_depth_map returns original transformed by these (BACK-402).
+    adjustment_params: Mutex<DepthAdjustmentParams>,
 }
 
 /// Success response for generate_depth_map (BACK-303, BACK-304). Includes depth and progress/stages.
@@ -78,24 +85,63 @@ fn generate_depth_map(
 ) -> Result<GenerateDepthMapResponse, String> {
     let (depth, stderr_lines) = generate_depth_map_impl(&path)?;
     *state.depth.lock().map_err(|e| e.to_string())? = Some(depth.clone());
+    // Leave adjustment_params unchanged (user may have presets); reset is explicit (BACK-405).
+    let params = state.adjustment_params.lock().map_err(|e| e.to_string())?;
+    let adjusted = apply_adjustments(&depth.depth, &params);
     let stages = python_bridge::stages_from_stderr(&stderr_lines);
     Ok(GenerateDepthMapResponse {
         width: depth.width,
         height: depth.height,
-        depth: depth.depth,
+        depth: adjusted,
         progress: 100,
         stages,
     })
 }
 
-/// Returns the current depth map from app state, if any (BACK-302, BACK-303).
+/// Returns the current depth map from app state with adjustments applied (BACK-302, BACK-402).
+/// Original depth is preserved; display = apply_adjustments(original, adjustment_params).
 #[tauri::command]
 fn get_depth_map(state: State<AppState>) -> Result<Option<python_bridge::DepthMapOutput>, String> {
+    let guard = state.depth.lock().map_err(|e| e.to_string())?;
+    let original = match guard.as_ref() {
+        Some(d) => d.clone(),
+        None => return Ok(None),
+    };
+    drop(guard);
+    let params = state.adjustment_params.lock().map_err(|e| e.to_string())?;
+    let adjusted = apply_adjustments(&original.depth, &params);
+    Ok(Some(python_bridge::DepthMapOutput {
+        width: original.width,
+        height: original.height,
+        depth: adjusted,
+    }))
+}
+
+/// Sets depth adjustment parameters (BACK-402). Next get_depth_map returns adjusted view.
+#[tauri::command]
+fn set_depth_adjustment_params(
+    params: DepthAdjustmentParams,
+    state: State<AppState>,
+) -> Result<(), String> {
+    *state.adjustment_params.lock().map_err(|e| e.to_string())? = params;
+    Ok(())
+}
+
+/// Returns current adjustment params for UI sync (e.g. after reset).
+#[tauri::command]
+fn get_depth_adjustment_params(state: State<AppState>) -> Result<DepthAdjustmentParams, String> {
     state
-        .depth
+        .adjustment_params
         .lock()
         .map_err(|e| e.to_string())
         .map(|guard| guard.clone())
+}
+
+/// Resets adjustment params to defaults; original depth unchanged (BACK-405).
+#[tauri::command]
+fn reset_depth_adjustments(state: State<AppState>) -> Result<(), String> {
+    *state.adjustment_params.lock().map_err(|e| e.to_string())? = DepthAdjustmentParams::default();
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -106,12 +152,16 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .manage(AppState {
             depth: Mutex::new(None),
+            adjustment_params: Mutex::new(DepthAdjustmentParams::default()),
         })
         .invoke_handler(tauri::generate_handler![
             load_image,
             export_stl,
             generate_depth_map,
-            get_depth_map
+            get_depth_map,
+            set_depth_adjustment_params,
+            get_depth_adjustment_params,
+            reset_depth_adjustments
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

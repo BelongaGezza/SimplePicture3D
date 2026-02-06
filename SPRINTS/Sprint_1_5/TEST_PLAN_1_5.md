@@ -23,6 +23,7 @@
 | Suite | Command | When |
 |-------|---------|------|
 | Rust | `cargo test --manifest-path src-tauri/Cargo.toml` | Every push/PR |
+| Rust | `cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings` (QA-405) | Every push/PR |
 | Frontend | `npm run build` (lint/test if configured) | Every push/PR |
 
 ### 2.2 New or updated automated tests this sprint
@@ -31,7 +32,7 @@
 |------|----------|---------|
 | Depth adjustment algorithms (JR2-401) | src-tauri or frontend | Unit tests for brightness, contrast, gamma, invert |
 | Boundary conditions (JR2-402) | src-tauri or frontend | Min/max, extreme params |
-| Apply adjustments, check output (QA-404) | src-tauri or frontend | Output in [0, 1], sanity checks |
+| Apply adjustments, check output (QA-404) | src-tauri/src/depth_adjust.rs | Output in [0, 1], pipeline + boundary tests; runs in CI |
 
 ### 2.3 Coverage
 
@@ -59,7 +60,19 @@ Per project defaults; no new coverage target for 1.5.
 - **Case 3 (QA-403):** Reset button restores original depth view.
 - **Case 4 (QA-404):** Automated test only; manual optional (apply adjustments, check output array).
 
-### 3.3 Regression
+### 3.3 Junior 3D — DepthControls UI (JR1-401–404)
+
+*Quick check after loading image and generating depth:*
+
+| Check | Action | Pass |
+|-------|--------|------|
+| Slider styling | Sliders have clear track/thumb; usable at 1024×768 | ☐ |
+| Numeric inputs | Depth min/max, Brightness, Gamma have number box beside slider; typing updates value and stays in bounds | ☐ |
+| Arrow keys | Focus a slider (Tab to it); Arrow Left/Down decrement, Right/Up increment by step; no page scroll | ☐ |
+| Responsiveness | Drag sliders; preview updates within ~100 ms of last change; no freeze or jank | ☐ |
+| Reset | Change several controls → Reset → sliders and preview back to defaults | ☐ |
+
+### 3.4 Regression
 
 - Load image → Generate depth (Sprint 1.4) still works.
 - Depth preview (grayscale, zoom/pan) still works after adding DepthControls.

@@ -31,3 +31,10 @@ tokio = { version = "1", features = ["fs", "io-util"] }
 default = ["custom-protocol", "protocol-asset"]
 custom-protocol = ["tauri/custom-protocol"]
 protocol-asset = ["tauri/protocol-asset"]
+
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "depth_adjust"
+harness = false

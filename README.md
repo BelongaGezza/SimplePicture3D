@@ -143,7 +143,7 @@ We welcome contributions from the community! SimplePicture3D is built with colla
 | Rust (rustc, cargo) | 1.70+ | [rustup](https://rustup.rs/) | Use `rustup default stable` |
 | Node.js | 18+ | [nodejs.org](https://nodejs.org/) | LTS recommended; includes npm |
 | npm | 9+ | Bundled with Node.js | `npm --version` |
-| Python | 3.9+ | [python.org](https://www.python.org/) | Required when `python/` has `requirements.txt` (see CONTRIBUTING) |
+| Python | 3.10+ | [python.org](https://www.python.org/) | Required for AI depth estimation; see [Python environment](#python-environment-ai-backend) below |
 | Git | 2.x | [git-scm.com](https://git-scm.com/) | For clone and contribution |
 
 **Clone the repository:**
@@ -159,6 +159,23 @@ npm install
 # npm run tauri icon path/to/1024x1024.png
 npm run tauri dev
 ```
+
+**Python environment (AI backend):**  
+Depth estimation runs in a Python subprocess. You need Python 3.10+ and a virtual environment. From the project root:
+
+```bash
+# Create venv (recommended; can live in repo root or python/)
+python -m venv venv
+# Windows:   venv\Scripts\activate
+# macOS/Linux:   source venv/bin/activate
+
+# Install dependencies
+pip install -r python/requirements.txt
+```
+
+For **stub mode** (no AI model, for tests/CI), only Pillow is required; set `SP3D_USE_STUB=1` when running pytest. For **real depth inference**, install PyTorch per [pytorch.org](https://pytorch.org/get-started/locally/) (CPU/CUDA/Metal), then install the rest of `python/requirements.txt`. The first run of depth estimation will download the model (Hugging Face); see [python/README.md](python/README.md) for model paths and `--no-model` usage.
+
+**Troubleshooting:** If the app reports "Python not found", ensure `python` (or `python3`) is on your PATH and is 3.10+. On Windows, the Tauri app may not see the same PATH as your terminal—install Python for "all users" or add it to the system PATH. For rationale and alternatives (e.g. future PyInstaller/ONNX), see [RESEARCH/architecture.md](RESEARCH/architecture.md) ADR-003.
 
 **Verifying your setup:** Run these from the project root to confirm all three environments work:
 
@@ -188,11 +205,12 @@ cargo test --manifest-path src-tauri/Cargo.toml
 # Frontend (when tests are configured)
 npm test
 
-# Python (when python/ has tests; activate venv first)
-cd python && pytest
+# Python (depth_estimator; no AI model required in stub mode)
+# From project root (see CLAUDE.md for Windows):
+SP3D_USE_STUB=1 PYTHONPATH=python/python python -m pytest python/ -v
 ```
 
-Coverage (Rust: cargo-tarpaulin; Python: pytest-cov) and more detail are in [CONTRIBUTING.md](CONTRIBUTING.md). The full testing command list is in [CLAUDE.md](CLAUDE.md).
+Python tests use **stub mode** (`SP3D_USE_STUB=1`) so no model download is needed. See [CLAUDE.md](CLAUDE.md) for the full testing command list and stub mode details.
 
 When the Python environment is set up (see **[python/README.md](python/README.md)** and `python/requirements.txt` when present), you can also run:
 

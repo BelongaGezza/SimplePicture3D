@@ -55,8 +55,33 @@ jobs:
       - name: Test
         run: cargo test --manifest-path src-tauri/Cargo.toml
 
+      - name: Clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+        # QA-405: fail on any clippy warning (Consultant Priority 1).
+
       - name: cargo audit
         run: |
           cargo install cargo-audit --locked
           cargo audit --manifest-path src-tauri/Cargo.toml
         # Policy: fail on any known vulnerability. See docs/threat-model.md.
+
+  python:
+    name: Python (depth estimator)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: pip install pytest Pillow
+        # Stub mode only: no torch/model download (SP3D_USE_STUB=1).
+
+      - name: Run pytest (stub mode, no model download)
+        env:
+          SP3D_USE_STUB: "1"
+          PYTHONPATH: python/python
+        run: pytest python/ -v

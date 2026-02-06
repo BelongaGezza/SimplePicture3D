@@ -78,13 +78,17 @@ npm run tauri build
 cargo test              # Rust
 cargo clippy            # Rust lint
 cargo fmt               # Rust format
-pytest                  # Python
+# Python (depth_estimator) — run from repo root; no AI model required in stub mode
+SP3D_USE_STUB=1 PYTHONPATH=python/python python -m pytest python/ -v   # Linux/macOS
+# Windows PowerShell: $env:SP3D_USE_STUB="1"; $env:PYTHONPATH="python\python"; python -m pytest python/ -v
 npm test                # Frontend
 npm run lint            # Frontend lint
 cargo audit             # Security (Rust)
 npm audit               # Security (Node)
 pip-audit               # Security (Python)
 ```
+
+**Python stub mode:** Set `SP3D_USE_STUB=1` (or use `--no-model` when invoking the CLI) to run depth estimation without downloading the AI model. All pytest tests use stub mode by default.
 
 ## Multi-Agent Development Workflow
 

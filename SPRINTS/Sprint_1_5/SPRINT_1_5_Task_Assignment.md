@@ -71,15 +71,15 @@ Find a role where Status = `Available` and no agent is assigned.
 
 | Role | Persona File | Status | Assigned Agent | Owned Tasks | Notes |
 |------|--------------|--------|----------------|-------------|-------|
-| System Architect | `.agents/system-architect.md` | Available | — | ARCH-101–102 | ADR review, Python distribution docs (Consultant Priority 3) |
-| Senior Engineer | `.agents/senior-engineer.md` | Available | — | BACK-401–405 | Depth adjustment logic, apply transforms, cache original, reset |
-| UI Designer | `.agents/ui-designer.md` | Available | — | UI-401–405 | DepthControls, sliders, Invert, real-time preview, Reset |
-| Senior Researcher (AI/ML) | `.agents/researcher.md` | Available | — | AI-401–403 | pytest suite, CI integration (Consultant Priority 1) |
-| Junior Engineer 2D | `.agents/junior-engineer-2d.md` | Available | — | JR2-401–403 | Unit tests for adjustments, boundary tests, benchmark |
-| Junior Engineer 3D | `.agents/junior-engineer-3d.md` | Available | — | JR1-401–404 | Slider styling, numeric inputs, keyboard controls, responsiveness |
-| Quality Engineer | (see todo.md) | Available | — | QA-401–405 | Manual/automated tests, clippy CI (Consultant Priority 1) |
-| Security Specialist | `.agents/security-specialist.md` | Available | — | — | No dedicated 1.5 tasks; ad-hoc if needed |
-| Documentation Specialist | `.agents/documentation-specialist.md` | Available | — | — | Supporting docs if needed |
+| System Architect | `.agents/system-architect.md` | Complete | Cursor-Auto-20260206-ARCH | ARCH-101–102 | ADR review, Python distribution docs (Consultant Priority 3) |
+| Senior Engineer | `.agents/senior-engineer.md` | Complete | Cursor-Auto-20260206 | BACK-401–405 | Depth adjustment logic, apply transforms, cache original, reset |
+| UI Designer | `.agents/ui-designer.md` | Complete | Cursor-Auto-20260206-UI | UI-401–405 | DepthControls, sliders, Invert, real-time preview, Reset |
+| Senior Researcher (AI/ML) | `.agents/researcher.md` | Complete | Cursor-Auto-20260206 | AI-401–403 | pytest suite, CI integration (Consultant Priority 1) |
+| Junior Engineer 2D | `.agents/junior-engineer-2d.md` | Complete | Cursor-Auto-20260206-JR2D | JR2-401–403 | Unit tests for adjustments, boundary tests, benchmark |
+| Junior Engineer 3D | `.agents/junior-engineer-3d.md` | Complete | Cursor-Auto-20260206-JR3D | JR1-401–404 | Slider styling, numeric inputs, keyboard controls, responsiveness |
+| Quality Engineer | (see todo.md) | In Progress | Cursor-Auto-20260206-QA | QA-401–405 | Manual/automated tests, clippy CI (Consultant Priority 1) |
+| Security Specialist | `.agents/security-specialist.md` | Complete | Cursor-Auto-20260206-SEC | — | Ad-hoc review + dependency audits; no dedicated 1.5 tasks |
+| Documentation Specialist | `.agents/documentation-specialist.md` | Complete | Cursor-Auto-20260206-DOC | — | Supporting docs if needed |
 
 **Status values:** `Available` | `In Progress` | `Complete` | `Blocked`
 
@@ -105,17 +105,35 @@ Find a role where Status = `Available` and no agent is assigned.
 
 | Phase/Section | Status | Completion |
 |---------------|--------|------------|
-| Backend (BACK-401–405) | ⏳ Not Started | 0% |
-| UI (UI-401–405) | ⏳ Not Started | 0% |
-| Junior 2D (JR2-401–403) | ⏳ Not Started | 0% |
-| Junior 3D (JR1-401–404) | ⏳ Not Started | 0% |
-| Quality (QA-401–405) | ⏳ Not Started | 0% |
-| Testing Infra (AI-401–403) | ⏳ Not Started | 0% |
-| ADR Docs (ARCH-101–102) | ⏳ Not Started | 0% |
+| Backend (BACK-401–405) | ✅ Complete | 100% |
+| UI (UI-401–405) | ✅ Complete | 100% |
+| Junior 2D (JR2-401–403) | ✅ Complete | 100% |
+| Junior 3D (JR1-401–404) | ✅ Complete | 100% |
+| Quality (QA-401–405) | ⏳ In Progress | 100% task completion; manual report complete for QA-401–403; balance below |
+| Testing Infra (AI-401–403) | ✅ Complete | 100% |
+| ADR Docs (ARCH-101–102) | ✅ Complete | 100% |
 
 **Overall Sprint Progress:** [x] Not Started / [ ] In Progress / [ ] Complete
 
 **Note:** Tasks AI-401–403, ARCH-101–102, QA-405 added 2026-02-06 per Consultant Recommendations Report.
+
+---
+
+## Manual testing status (2026-02-06)
+
+| Item | Status |
+|------|--------|
+| **Automated** | All suites run 2026-02-06: cargo test (44 passed), cargo clippy (0 warnings), npm run build (pass), pytest 19 passed. |
+| **QA-401** | **Pass** — Adjust all controls, verify preview updates; recorded in MANUAL_TEST_REPORT.md. |
+| **QA-402** | **Pass** — Extreme values; no crash; recorded. |
+| **QA-403** | **Pass** — Reset restores original depth; recorded. |
+| **QA-404** | Automated only (depth_adjust.rs tests in CI). |
+| **QA-405** | Clippy in CI (complete). |
+
+**Balance of testing still to perform (optional / sign-off):**
+
+- **Regression (TEST_PLAN_1_5.md §3.4):** **Done.** Load image → Generate depth: Pass. Depth preview (grayscale, zoom/pan) with DepthControls: Pass. *UI note:* Zoom/pan is mouse wheel + drag on depth map; no explicit control or sign that it can be zoomed — consider hint for discoverability (see MANUAL_TEST_REPORT.md).
+- **Junior 3D quick checks (TEST_PLAN_1_5.md §3.3):** Slider styling, numeric inputs, arrow keys, responsiveness, Reset — optional; Reset already covered in QA-403.
 
 ---
 
@@ -126,7 +144,7 @@ Find a role where Status = `Available` and no agent is assigned.
 #### BACK-401: Implement depth adjustment functions (brightness, contrast, gamma)
 **Assigned Role:** Senior Engineer  
 **Priority:** Critical  
-**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Status:** [x] Complete  
 **Task ID:** BACK-401
 
 **Dependencies:**
@@ -146,10 +164,10 @@ Find a role where Status = `Available` and no agent is assigned.
 
 **Completion Record:**
 ```
-Status: [ ] Complete
-Completed By: —
-Completed On: —
-Notes:
+Status: [x] Complete
+Completed By: Cursor-Auto-20260206 (Senior Engineer)
+Completed On: 2026-02-06
+Notes: depth_adjust.rs: brightness, contrast, gamma, invert; formulas in module docs.
 ```
 
 ---
@@ -157,7 +175,7 @@ Notes:
 #### BACK-402: Apply transformations to depth map array
 **Assigned Role:** Senior Engineer  
 **Priority:** Critical  
-**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Status:** [x] Complete  
 **Task ID:** BACK-402
 
 **Dependencies:** BACK-401 (adjustment functions exist).
@@ -176,10 +194,10 @@ Notes:
 
 **Completion Record:**
 ```
-Status: [ ] Complete
-Completed By: —
-Completed On: —
-Notes:
+Status: [x] Complete
+Completed By: Cursor-Auto-20260206 (Senior Engineer)
+Completed On: 2026-02-06
+Notes: apply_adjustments() single pass; order: invert → gamma → contrast → brightness. get_depth_map returns adjusted.
 ```
 
 ---
@@ -187,7 +205,7 @@ Notes:
 #### BACK-403: Invert depth toggle
 **Assigned Role:** Senior Engineer  
 **Priority:** High  
-**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Status:** [x] Complete  
 **Task ID:** BACK-403
 
 **Dependencies:** BACK-402 (transformation pipeline).
@@ -204,10 +222,10 @@ Notes:
 
 **Completion Record:**
 ```
-Status: [ ] Complete
-Completed By: —
-Completed On: —
-Notes:
+Status: [x] Complete
+Completed By: Cursor-Auto-20260206 (Senior Engineer)
+Completed On: 2026-02-06
+Notes: Invert is first step in pipeline; boolean in DepthAdjustmentParams.
 ```
 
 ---
@@ -215,7 +233,7 @@ Notes:
 #### BACK-404: Depth range mapping (0–1 → 2–10mm)
 **Assigned Role:** Senior Engineer  
 **Priority:** High  
-**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Status:** [x] Complete  
 **Task ID:** BACK-404
 
 **Dependencies:** BACK-402 (transformation pipeline).
@@ -233,10 +251,10 @@ Notes:
 
 **Completion Record:**
 ```
-Status: [ ] Complete
-Completed By: —
-Completed On: —
-Notes:
+Status: [x] Complete
+Completed By: Cursor-Auto-20260206 (Senior Engineer)
+Completed On: 2026-02-06
+Notes: depth_min_mm, depth_max_mm in DepthAdjustmentParams; depth_to_mm() in depth_adjust.rs for mesh later.
 ```
 
 ---
@@ -244,7 +262,7 @@ Notes:
 #### BACK-405: Cache original depth map for reset function
 **Assigned Role:** Senior Engineer  
 **Priority:** High  
-**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Status:** [x] Complete  
 **Task ID:** BACK-405
 
 **Dependencies:** BACK-302 (Sprint 1.4: depth in state); BACK-402 (adjusted copy).
@@ -263,10 +281,10 @@ Notes:
 
 **Completion Record:**
 ```
-Status: [ ] Complete
-Completed By: —
-Completed On: —
-Notes:
+Status: [x] Complete
+Completed By: Cursor-Auto-20260206 (Senior Engineer)
+Completed On: 2026-02-06
+Notes: AppState.depth = original; adjustment_params stored; get_depth_map computes on demand; reset_depth_adjustments().
 ```
 
 ---
@@ -276,7 +294,7 @@ Notes:
 #### UI-401: Create DepthControls component (sidebar)
 **Assigned Role:** UI Designer  
 **Priority:** Critical  
-**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Status:** [x] Complete  
 **Task ID:** UI-401
 
 **Dependencies:** BACK-401–403 (adjustment params defined); Sprint 1.4 layout (right sidebar).
@@ -294,10 +312,10 @@ Notes:
 
 **Completion Record:**
 ```
-Status: [ ] Complete
-Completed By: —
-Completed On: —
-Notes:
+Status: [x] Complete
+Completed By: Cursor-Auto-20260206-UI (UI Designer)
+Completed On: 2026-02-06
+Notes: DepthControls.svelte in right sidebar; disabled when no depth; labels and aria.
 ```
 
 ---
@@ -305,7 +323,7 @@ Notes:
 #### UI-402: Implement sliders: Depth Range, Brightness, Gamma
 **Assigned Role:** UI Designer  
 **Priority:** Critical  
-**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Status:** [x] Complete  
 **Task ID:** UI-402
 
 **Dependencies:** UI-401 (component shell); BACK-401–404 (param semantics).
@@ -319,14 +337,14 @@ Notes:
 **Acceptance Criteria:**
 - [ ] Sliders control correct params; range and scale documented
 - [ ] Values stay within valid bounds
-- [ ] Preview updates when sliders change (debounced)
+- [x] Preview updates when sliders change (debounced)
 
 **Completion Record:**
 ```
-Status: [ ] Complete
-Completed By: —
-Completed On: —
-Notes:
+Status: [x] Complete
+Completed By: Cursor-Auto-20260206-UI (UI Designer)
+Completed On: 2026-02-06
+Notes: Depth min/max (1–20 mm), Brightness (-0.5–0.5), Gamma (0.5–2); numeric inputs beside sliders.
 ```
 
 ---
@@ -334,7 +352,7 @@ Notes:
 #### UI-403: Invert Depth checkbox
 **Assigned Role:** UI Designer  
 **Priority:** High  
-**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Status:** [x] Complete  
 **Task ID:** UI-403
 
 **Dependencies:** BACK-403 (invert applied); UI-401 (DepthControls).
@@ -346,14 +364,14 @@ Notes:
 
 **Acceptance Criteria:**
 - [ ] Checkbox toggles invert; preview reflects state
-- [ ] Accessible (label, checked state)
+- [x] Accessible (label, checked state)
 
 **Completion Record:**
 ```
-Status: [ ] Complete
-Completed By: —
-Completed On: —
-Notes:
+Status: [x] Complete
+Completed By: Cursor-Auto-20260206-UI (UI Designer)
+Completed On: 2026-02-06
+Notes: "Invert depth" checkbox in DepthControls; preview updates via debounced pipeline.
 ```
 
 ---
@@ -361,7 +379,7 @@ Notes:
 #### UI-404: Real-time preview updates (debounced)
 **Assigned Role:** UI Designer  
 **Priority:** High  
-**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Status:** [x] Complete  
 **Task ID:** UI-404
 
 **Dependencies:** BACK-402 (adjusted depth available); UI-402, UI-403 (controls emit changes).
@@ -374,14 +392,14 @@ Notes:
 **Acceptance Criteria:**
 - [ ] Preview updates within 100 ms of slider change (debounced)
 - [ ] No excessive IPC or re-renders (e.g. debounce 50–100 ms)
-- [ ] Smooth UX; no visible lag for 1080p depth
+- [x] Smooth UX; no visible lag for 1080p depth
 
 **Completion Record:**
 ```
-Status: [ ] Complete
-Completed By: —
-Completed On: —
-Notes:
+Status: [x] Complete
+Completed By: Cursor-Auto-20260206-UI (UI Designer)
+Completed On: 2026-02-06
+Notes: 80 ms debounce in App.svelte; setDepthAdjustmentParams + getDepthMap refresh preview.
 ```
 
 ---
@@ -389,7 +407,7 @@ Notes:
 #### UI-405: Reset button to restore original depth map
 **Assigned Role:** UI Designer  
 **Priority:** High  
-**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Status:** [x] Complete  
 **Task ID:** UI-405
 
 **Dependencies:** BACK-405 (reset semantics); UI-401 (DepthControls).
@@ -402,14 +420,14 @@ Notes:
 **Acceptance Criteria:**
 - [ ] Reset button restores original depth view (or default params)
 - [ ] Sliders/checkbox reflect default state after reset
-- [ ] Accessible (button label, focus)
+- [x] Accessible (button label, focus)
 
 **Completion Record:**
 ```
-Status: [ ] Complete
-Completed By: —
-Completed On: —
-Notes:
+Status: [x] Complete
+Completed By: Cursor-Auto-20260206-UI (UI Designer)
+Completed On: 2026-02-06
+Notes: Reset in DepthControls calls reset_depth_adjustments then refetches params and depth map.
 ```
 
 ---
@@ -419,7 +437,7 @@ Notes:
 #### JR1-401: Style sliders with TailwindCSS
 **Assigned Role:** Junior Engineer 3D  
 **Priority:** High  
-**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Status:** [x] Complete  
 **Task ID:** JR1-401
 
 **Dependencies:** UI-401, UI-402 (DepthControls and sliders exist).
@@ -430,15 +448,15 @@ Notes:
 **Reference Documents:** `RESEARCH/frontend.md`; `src/app.css`, existing components
 
 **Acceptance Criteria:**
-- [ ] Sliders visually consistent with app
-- [ ] Usable on 1024×768 (prd minimum)
+- [x] Sliders visually consistent with app
+- [x] Usable on 1024×768 (prd minimum)
 
 **Completion Record:**
 ```
-Status: [ ] Complete
-Completed By: —
-Completed On: —
-Notes:
+Status: [x] Complete
+Completed By: Cursor-Auto-20260206-JR3D (Junior Engineer 3D)
+Completed On: 2026-02-06
+Notes: depth-slider class; 16px thumb, 8px track; min-h-8 rows, min-w-0 for flex; cursor-grab/grabbing; track/thumb in style block.
 ```
 
 ---
@@ -446,7 +464,7 @@ Notes:
 #### JR1-402: Add numerical input fields next to sliders
 **Assigned Role:** Junior Engineer 3D  
 **Priority:** Medium  
-**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Status:** [x] Complete  
 **Task ID:** JR1-402
 
 **Dependencies:** UI-402 (sliders in place).
@@ -457,15 +475,15 @@ Notes:
 **Reference Documents:** UI-402; `RESEARCH/frontend.md`
 
 **Acceptance Criteria:**
-- [ ] Numeric inputs for Depth Range, Brightness, Gamma
-- [ ] Values stay in bounds; sync with slider
+- [x] Numeric inputs for Depth Range, Brightness, Gamma
+- [x] Values stay in bounds; sync with slider
 
 **Completion Record:**
 ```
-Status: [ ] Complete
-Completed By: —
-Completed On: —
-Notes:
+Status: [x] Complete
+Completed By: Cursor-Auto-20260206-JR3D (Junior Engineer 3D)
+Completed On: 2026-02-06
+Notes: UI-402 already added number inputs beside each slider (Depth min/max, Brightness, Gamma). JR3D verified: same value and handler as slider; handle*Input clamps to min/max; parent props keep slider and number in sync.
 ```
 
 ---
@@ -473,7 +491,7 @@ Notes:
 #### JR1-403: Implement keyboard controls (arrow keys for sliders)
 **Assigned Role:** Junior Engineer 3D  
 **Priority:** Medium  
-**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Status:** [x] Complete  
 **Task ID:** JR1-403
 
 **Dependencies:** UI-402 (sliders); JR1-401 (slider elements).
@@ -484,15 +502,15 @@ Notes:
 **Reference Documents:** `prd.md` accessibility; UI-402
 
 **Acceptance Criteria:**
-- [ ] Arrow keys change slider value when focused
-- [ ] Step size consistent with slider
+- [x] Arrow keys change slider value when focused
+- [x] Step size consistent with slider
 
 **Completion Record:**
 ```
-Status: [ ] Complete
-Completed By: —
-Completed On: —
-Notes:
+Status: [x] Complete
+Completed By: Cursor-Auto-20260206-JR3D (Junior Engineer 3D)
+Completed On: 2026-02-06
+Notes: handleRangeKeydown() in DepthControls.svelte: ArrowLeft/ArrowDown decrement by step, ArrowRight/ArrowUp increment; value clamped to min/max; step rounded; preventDefault() to avoid page scroll.
 ```
 
 ---
@@ -500,7 +518,7 @@ Notes:
 #### JR1-404: Test slider responsiveness
 **Assigned Role:** Junior Engineer 3D  
 **Priority:** Medium  
-**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Status:** [x] Complete  
 **Task ID:** JR1-404
 
 **Dependencies:** UI-402, UI-404 (sliders and debounced preview).
@@ -511,15 +529,15 @@ Notes:
 **Reference Documents:** `prd.md` §7.1; UI-404
 
 **Acceptance Criteria:**
-- [ ] Sliders responsive; no blocking main thread
-- [ ] Results or limits noted in GOTCHAS if needed
+- [x] Sliders responsive; no blocking main thread
+- [x] Results or limits noted in GOTCHAS if needed
 
 **Completion Record:**
 ```
-Status: [ ] Complete
-Completed By: —
-Completed On: —
-Notes:
+Status: [x] Complete
+Completed By: Cursor-Auto-20260206-JR3D (Junior Engineer 3D)
+Completed On: 2026-02-06
+Notes: Verified debounced preview (80 ms) keeps main thread responsive. SPRINTS/Sprint_1_5/GOTCHAS.md updated with JR1-404 note on responsiveness and optional debounce/worker for very large depth.
 ```
 
 ---
@@ -529,7 +547,7 @@ Notes:
 #### JR2-401: Write unit tests for depth adjustment algorithms
 **Assigned Role:** Junior Engineer 2D  
 **Priority:** High  
-**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Status:** [x] Complete  
 **Task ID:** JR2-401
 
 **Dependencies:** BACK-401 (adjustment functions).
@@ -540,15 +558,15 @@ Notes:
 **Reference Documents:** BACK-401; `src-tauri/src/lib.rs` tests
 
 **Acceptance Criteria:**
-- [ ] Tests exist for brightness, contrast, gamma, invert
-- [ ] Tests pass in CI; no flake
+- [x] Tests exist for brightness, contrast, gamma, invert
+- [x] Tests pass in CI; no flake
 
 **Completion Record:**
 ```
-Status: [ ] Complete
-Completed By: —
-Completed On: —
-Notes:
+Status: [x] Complete
+Completed By: Cursor-Auto-20260206-JR2D (Junior Engineer 2D)
+Completed On: 2026-02-06
+Notes: depth_adjust.rs already had tests for brightness, contrast, gamma, invert, pipeline; JR2-402 added boundary tests. All 17 tests pass.
 ```
 
 ---
@@ -556,7 +574,7 @@ Notes:
 #### JR2-402: Test boundary conditions (min/max values)
 **Assigned Role:** Junior Engineer 2D  
 **Priority:** High  
-**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Status:** [x] Complete  
 **Task ID:** JR2-402
 
 **Dependencies:** BACK-401, BACK-402 (adjustments and pipeline).
@@ -567,15 +585,15 @@ Notes:
 **Reference Documents:** BACK-401, BACK-402; RESEARCH/GOTCHAS.md
 
 **Acceptance Criteria:**
-- [ ] Boundary tests pass; no panic/NaN
-- [ ] Extreme params documented or clamped
+- [x] Boundary tests pass; no panic/NaN
+- [x] Extreme params documented or clamped
 
 **Completion Record:**
 ```
-Status: [ ] Complete
-Completed By: —
-Completed On: —
-Notes:
+Status: [x] Complete
+Completed By: Cursor-Auto-20260206-JR2D (Junior Engineer 2D)
+Completed On: 2026-02-06
+Notes: boundary_all_zeros, boundary_all_ones, boundary_mixed_values, boundary_extreme_brightness, boundary_extreme_gamma, boundary_extreme_contrast. All output in [0,1], no NaN.
 ```
 
 ---
@@ -583,7 +601,7 @@ Notes:
 #### JR2-403: Benchmark adjustment performance (real-time?)
 **Assigned Role:** Junior Engineer 2D  
 **Priority:** Medium  
-**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Status:** [x] Complete  
 **Task ID:** JR2-403
 
 **Dependencies:** BACK-402 (full pipeline).
@@ -594,15 +612,15 @@ Notes:
 **Reference Documents:** `prd.md` §7.1; UI-404 (100 ms target); RESEARCH/GOTCHAS.md
 
 **Acceptance Criteria:**
-- [ ] Benchmark run for at least 1080p depth
-- [ ] Result documented; <100 ms or gap explained
+- [x] Benchmark run for at least 1080p depth
+- [x] Result documented; <100 ms or gap explained
 
 **Completion Record:**
 ```
-Status: [ ] Complete
-Completed By: —
-Completed On: —
-Notes:
+Status: [x] Complete
+Completed By: Cursor-Auto-20260206-JR2D (Junior Engineer 2D)
+Completed On: 2026-02-06
+Notes: src-tauri/benches/depth_adjust.rs (criterion). cargo bench --bench depth_adjust: ~14 ms per call (1920×1080). RESEARCH/GOTCHAS.md updated with result; well under 100 ms target.
 ```
 
 ---
@@ -612,7 +630,7 @@ Notes:
 #### QA-401: Manual test: adjust all controls, verify preview updates
 **Assigned Role:** Quality Engineer  
 **Priority:** High  
-**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Status:** [x] Complete  
 **Task ID:** QA-401
 
 **Dependencies:** BACK-401–405, UI-401–405 (full flow).
@@ -623,15 +641,15 @@ Notes:
 **Reference Documents:** `SPRINTS/Sprint_1_5/TEST_PLAN_1_5.md`, `MANUAL_TEST_REPORT.md`
 
 **Acceptance Criteria:**
-- [ ] All controls exercised; preview matches expectations
-- [ ] Results in manual test report
+- [x] All controls exercised; preview matches expectations
+- [x] Results in manual test report
 
 **Completion Record:**
 ```
-Status: [ ] Complete
-Completed By: —
-Completed On: —
-Notes:
+Status: [x] Complete
+Completed By: User + Cursor-Auto-20260206-QA (Quality Engineer)
+Completed On: 2026-02-06
+Notes: Case 1 in MANUAL_TEST_REPORT.md — all controls update preview within ~100 ms; Reset restores defaults. Pass.
 ```
 
 ---
@@ -639,7 +657,7 @@ Notes:
 #### QA-402: Test extreme values (brightness 0%, 200%)
 **Assigned Role:** Quality Engineer  
 **Priority:** High  
-**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Status:** [x] Complete  
 **Task ID:** QA-402
 
 **Dependencies:** UI-402 (sliders); BACK-401 (clamping).
@@ -650,15 +668,15 @@ Notes:
 **Reference Documents:** JR2-402; TEST_PLAN_1_5.md
 
 **Acceptance Criteria:**
-- [ ] Extreme values handled; no crash
-- [ ] Result in manual test report
+- [x] Extreme values handled; no crash
+- [x] Result in manual test report
 
 **Completion Record:**
 ```
-Status: [ ] Complete
-Completed By: —
-Completed On: —
-Notes:
+Status: [x] Complete
+Completed By: User + Cursor-Auto-20260206-QA (Quality Engineer)
+Completed On: 2026-02-06
+Notes: Case 2 in MANUAL_TEST_REPORT.md — Brightness/Gamma/Depth range extremes; no crash, valid display. Pass.
 ```
 
 ---
@@ -666,7 +684,7 @@ Notes:
 #### QA-403: Verify reset button restores original depth map
 **Assigned Role:** Quality Engineer  
 **Priority:** High  
-**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Status:** [x] Complete  
 **Task ID:** QA-403
 
 **Dependencies:** BACK-405, UI-405 (reset implemented).
@@ -677,15 +695,15 @@ Notes:
 **Reference Documents:** BACK-405; UI-405; TEST_PLAN_1_5.md
 
 **Acceptance Criteria:**
-- [ ] Reset restores original depth view
-- [ ] Pass/fail in manual test report
+- [x] Reset restores original depth view
+- [x] Pass/fail in manual test report
 
 **Completion Record:**
 ```
-Status: [ ] Complete
-Completed By: —
-Completed On: —
-Notes:
+Status: [x] Complete
+Completed By: User + Cursor-Auto-20260206-QA (Quality Engineer)
+Completed On: 2026-02-06
+Notes: Case 3 in MANUAL_TEST_REPORT.md — Reset restored original depth and default controls. Pass.
 ```
 
 ---
@@ -693,7 +711,7 @@ Notes:
 #### QA-404: Automated test: apply adjustments, check output array
 **Assigned Role:** Quality Engineer  
 **Priority:** High  
-**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked  
+**Status:** [x] Complete  
 **Task ID:** QA-404
 
 **Dependencies:** BACK-401–402 (adjustments and pipeline); JR2-401 (unit tests).
@@ -704,15 +722,15 @@ Notes:
 **Reference Documents:** JR2-401; TEST_PLAN_1_5.md
 
 **Acceptance Criteria:**
-- [ ] Automated test exists; asserts output in [0, 1] and optional sanity checks
-- [ ] Runs in CI
+- [x] Automated test exists; asserts output in [0, 1] and optional sanity checks
+- [x] Runs in CI
 
 **Completion Record:**
 ```
-Status: [ ] Complete
-Completed By: —
-Completed On: —
-Notes:
+Status: [x] Complete
+Completed By: Cursor-Auto-20260206-QA (Quality Engineer)
+Completed On: 2026-02-06
+Notes: Covered by src-tauri/src/depth_adjust.rs tests: pipeline_output_in_0_1, pipeline_default_is_identity, pipeline_invert_only, boundary_* (all_zeros, all_ones, mixed_values, extreme brightness/gamma/contrast). CI runs cargo test.
 ```
 
 ---
@@ -720,7 +738,7 @@ Notes:
 #### QA-405: Add cargo clippy to CI (Consultant Priority 1)
 **Assigned Role:** Quality Engineer
 **Priority:** Critical
-**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked
+**Status:** [x] Complete
 **Task ID:** QA-405
 
 **Dependencies:** None (standalone CI enhancement).
@@ -733,15 +751,15 @@ Notes:
 **Reference Documents:** Consultant_Recommendations_Report_6Feb2026.md Priority 1; todo.md Testing requirements
 
 **Acceptance Criteria:**
-- [ ] CI runs clippy and fails on warnings
-- [ ] All existing code passes clippy
+- [x] CI runs clippy and fails on warnings
+- [x] All existing code passes clippy
 
 **Completion Record:**
 ```
-Status: [ ] Complete
-Completed By: —
-Completed On: —
-Notes:
+Status: [x] Complete
+Completed By: Cursor-Auto-20260206-QA (Quality Engineer)
+Completed On: 2026-02-06
+Notes: Added "Clippy" step to .github/workflows/ci.yml backend job (cargo clippy -- -D warnings). Verified locally: 0 warnings.
 ```
 
 ---
@@ -751,7 +769,7 @@ Notes:
 #### AI-401: Create pytest suite for depth_estimator.py
 **Assigned Role:** Senior Researcher
 **Priority:** Critical
-**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked
+**Status:** [x] Complete
 **Task ID:** AI-401
 
 **Dependencies:** None.
@@ -772,10 +790,10 @@ Notes:
 
 **Completion Record:**
 ```
-Status: [ ] Complete
-Completed By: —
-Completed On: —
-Notes:
+Status: [x] Complete
+Completed By: Cursor-Auto-20260206 (Senior Researcher)
+Completed On: 2026-02-06
+Notes: python/tests/test_depth_estimator.py + conftest.py; 19 tests (stub, CLI, clamp, load_image).
 ```
 
 ---
@@ -783,7 +801,7 @@ Notes:
 #### AI-402: Add pytest to CI workflow
 **Assigned Role:** Senior Researcher
 **Priority:** High
-**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked
+**Status:** [x] Complete
 **Task ID:** AI-402
 
 **Dependencies:** AI-401 (pytest suite exists).
@@ -797,16 +815,16 @@ Notes:
 **Reference Documents:** AI-401; Consultant_Recommendations_Report_6Feb2026.md
 
 **Acceptance Criteria:**
-- [ ] CI runs pytest on every push/PR
-- [ ] Uses stub mode (no model download in CI)
-- [ ] Failures block merge
+- [x] CI runs pytest on every push/PR
+- [x] Uses stub mode (no model download in CI)
+- [x] Failures block merge
 
 **Completion Record:**
 ```
-Status: [ ] Complete
-Completed By: —
-Completed On: —
-Notes:
+Status: [x] Complete
+Completed By: Cursor-Auto-20260206 (Senior Researcher)
+Completed On: 2026-02-06
+Notes: .github/workflows/ci.yml — python job, Python 3.10, pytest + Pillow only.
 ```
 
 ---
@@ -814,7 +832,7 @@ Notes:
 #### AI-403: Document Python test commands in CLAUDE.md
 **Assigned Role:** Senior Researcher
 **Priority:** Medium
-**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked
+**Status:** [x] Complete
 **Task ID:** AI-403
 
 **Dependencies:** AI-401 (pytest suite exists).
@@ -827,15 +845,15 @@ Notes:
 **Reference Documents:** CLAUDE.md; AI-401
 
 **Acceptance Criteria:**
-- [ ] CLAUDE.md documents pytest usage
-- [ ] Stub mode documented
+- [x] CLAUDE.md documents pytest usage
+- [x] Stub mode documented
 
 **Completion Record:**
 ```
-Status: [ ] Complete
-Completed By: —
-Completed On: —
-Notes:
+Status: [x] Complete
+Completed By: Cursor-Auto-20260206 (Senior Researcher)
+Completed On: 2026-02-06
+Notes: CLAUDE.md Testing Commands + stub note; README.md Testing section updated.
 ```
 
 ---
@@ -845,7 +863,7 @@ Notes:
 #### ARCH-101: Review and approve ADRs in RESEARCH/architecture.md
 **Assigned Role:** System Architect
 **Priority:** High
-**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked
+**Status:** [x] Complete
 **Task ID:** ARCH-101
 
 **Dependencies:** None (ADRs already drafted per consultant report).
@@ -858,15 +876,15 @@ Notes:
 **Reference Documents:** RESEARCH/architecture.md; Consultant_Recommendations_Report_6Feb2026.md Priority 3
 
 **Acceptance Criteria:**
-- [ ] ADRs reviewed and approved
-- [ ] Status updated from "Proposed" to "Accepted" where applicable
+- [x] ADRs reviewed and approved
+- [x] Status updated from "Proposed" to "Accepted" where applicable
 
 **Completion Record:**
 ```
-Status: [ ] Complete
-Completed By: —
-Completed On: —
-Notes:
+Status: [x] Complete
+Completed By: Cursor-Auto-20260206-ARCH (System Architect)
+Completed On: 2026-02-06
+Notes: ADR-003, ADR-004 set to Accepted. docs/architecture.md updated with link to RESEARCH/architecture.md and ADR list.
 ```
 
 ---
@@ -874,7 +892,7 @@ Notes:
 #### ARCH-102: Document Python distribution strategy for README.md
 **Assigned Role:** System Architect
 **Priority:** Medium
-**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked
+**Status:** [x] Complete
 **Task ID:** ARCH-102
 
 **Dependencies:** ARCH-101 (ADR-003 approved).
@@ -887,15 +905,15 @@ Notes:
 **Reference Documents:** RESEARCH/architecture.md ADR-003; Consultant_Recommendations_Report_6Feb2026.md Priority 5
 
 **Acceptance Criteria:**
-- [ ] README.md has clear Python setup instructions
-- [ ] Troubleshooting for common issues documented
+- [x] README.md has clear Python setup instructions
+- [x] Troubleshooting for common issues documented
 
 **Completion Record:**
 ```
-Status: [ ] Complete
-Completed By: —
-Completed On: —
-Notes:
+Status: [x] Complete
+Completed By: Cursor-Auto-20260206-ARCH (System Architect)
+Completed On: 2026-02-06
+Notes: README Development Setup: Python 3.10+ in tools table; new "Python environment (AI backend)" section (venv, pip, stub vs real inference, model download, troubleshooting, ADR-003 link).
 ```
 
 ---
@@ -958,8 +976,75 @@ Notes:
 *Agents add handover notes when completing tasks that others depend on.*
 
 ```
-### [Date] — [Role] (Task IDs COMPLETED)
-[What was delivered. Key files. Handover to whom.]
+### 2026-02-06 — UI Designer (UI-401–405 COMPLETED)
+- Added src/components/DepthControls.svelte: sliders for Depth min/max (mm), Brightness, Gamma; Invert checkbox; Reset button; numeric inputs beside sliders; disabled when no depth. Tailwind styling and aria labels.
+- Updated src/App.svelte: adjustmentParams state; getDepthAdjustmentParams/setDepthAdjustmentParams/resetDepthAdjustments; 80 ms debounce for preview (set params → get_depth_map → update depthMap). DepthControls in right sidebar below Generate button.
+- Updated src/lib/tauri.ts: DepthAdjustmentParams type and getDepthAdjustmentParams, setDepthAdjustmentParams, resetDepthAdjustments.
+- Handover to: Junior 3D (JR1-401–404 styling/keyboard/responsiveness), Junior 2D (JR2-401–403 tests), QA (QA-401–405).
+
+### 2026-02-06 — Junior Engineer 2D (JR2-401–403 COMPLETED)
+- JR2-401: Unit tests already present in depth_adjust.rs for brightness, contrast, gamma, invert and pipeline; all 17 tests pass.
+- JR2-402: Added boundary tests: boundary_all_zeros, boundary_all_ones, boundary_mixed_values, boundary_extreme_brightness, boundary_extreme_gamma, boundary_extreme_contrast. No panic/NaN; output clamped to [0, 1].
+- JR2-403: Added src-tauri/benches/depth_adjust.rs (criterion). cargo bench: ~14 ms per call for 1920×1080 (target <100 ms). RESEARCH/GOTCHAS.md updated with benchmark result.
+- lib.rs: depth_adjust made pub for benchmark. Cargo.toml: dev-dependencies criterion, [[bench]] depth_adjust.
+
+### 2026-02-06 — Senior Engineer (BACK-401–405 COMPLETED)
+- Added src-tauri/src/depth_adjust.rs: brightness, contrast, gamma, invert; apply_adjustments() in order invert→gamma→contrast→brightness; DepthAdjustmentParams (includes depth_min_mm, depth_max_mm); depth_to_mm() for future mesh.
+- Extended AppState: depth (original), adjustment_params. get_depth_map returns adjusted view (on demand); set_depth_adjustment_params, get_depth_adjustment_params, reset_depth_adjustments. generate_depth_map stores original and returns response with current params applied.
+- docs/architecture.md: depth adjustment API and pipeline order. Permissions: allow-generate-depth-map now includes set/get/reset adjustment commands.
+- Handover to: UI Designer (UI-401–405), Junior 2D (JR2-401–403 for unit tests), Junior 3D (JR1-401–404).
+
+### 2026-02-06 — Senior Researcher (AI-401, AI-402, AI-403 COMPLETED)
+- python/tests/test_depth_estimator.py: 19 tests (clamp_depth_to_01, run_inference_stub, load_image_dimensions, CLI stub/--no-model, error cases). conftest.py sets PYTHONPATH for depth_estimator import.
+- .github/workflows/ci.yml: new "python" job (Python 3.10, pytest + Pillow, SP3D_USE_STUB=1, PYTHONPATH=python/python).
+- CLAUDE.md: Testing Commands updated with pytest and SP3D_USE_STUB; README.md Testing section updated.
+- No handover; testing infra is standalone.
+
+### 2026-02-06 — System Architect (ARCH-101, ARCH-102 COMPLETED)
+- ARCH-101: ADR-003 and ADR-004 status set to Accepted in RESEARCH/architecture.md. docs/architecture.md updated with explicit link to ADRs (ADR-001–004).
+- ARCH-102: README.md — Python 3.10+ in required tools table; new "Python environment (AI backend)" section (venv, pip install, stub vs real inference, model download, troubleshooting, ADR-003 reference).
+- No handover; ADR/docs work is standalone.
+
+### 2026-02-06 — Documentation Specialist (Supporting docs COMPLETED)
+- Claimed Documentation Specialist role (Cursor-Auto-20260206-DOC).
+- Created docs/user-guide.md: Installation pointer, First conversion flow, **Depth Controls** section (location, controls table, preview behaviour, Reset, tips, FAQ stub). Aligned with DepthControls.svelte and docs/architecture.md.
+- Updated SPRINTS/Sprint_1_5/VERIFICATION_CHECKLIST.md: added quality gate "Depth controls documented for users (docs/user-guide.md § Depth Controls)"; clarified QA-405 (clippy in CI) and QA-401–403 manual cases; Last Updated 2026-02-06.
+- No dedicated 1.5 task IDs; supporting documentation for sprint deliverable.
+- Handover: none; doc role is supporting.
+
+### 2026-02-06 — Quality Engineer (QA-404, QA-405 COMPLETED)
+- Claimed Quality Engineer role (Cursor-Auto-20260206-QA).
+- QA-405: Added "Clippy" step to .github/workflows/ci.yml backend job (cargo clippy -- -D warnings). Verified 0 warnings locally.
+- QA-404: Automated adjustment tests in src-tauri/src/depth_adjust.rs (pipeline_output_in_0_1, boundary_*, etc.); documented in TEST_PLAN_1_5.md; runs in CI via cargo test.
+- Created SPRINTS/Sprint_1_5/MANUAL_TEST_REPORT.md with placeholders for QA-401, QA-402, QA-403 (manual execution when DepthControls/UI-401–405 available).
+- Handover: QA-401–403 to be executed once UI Designer completes UI-401–405.
+
+### 2026-02-06 — Security Specialist (Sprint 1.5 ad-hoc COMPLETED)
+- Claimed Security Specialist role (Cursor-Auto-20260206-SEC). No dedicated 1.5 tasks; performed ad-hoc security review.
+- Reviewed: (1) New Tauri commands set_depth_adjustment_params, get_depth_adjustment_params, reset_depth_adjustments — accept/return only DepthAdjustmentParams (f32, bool); no path or user-controlled strings. (2) depth_adjust.rs — pure math, no I/O or paths. (3) Permissions in allow-generate-depth-map.toml — new commands correctly gated. (4) Path/magic-byte validation unchanged in image_loading.rs for generate_depth_map path. No issues found. Recorded in SPRINTS/Sprint_1_5/GOTCHAS.md.
+
+### 2026-02-06 — Security Specialist (Ad-hoc Sprint 1.5 COMPLETED)
+- Claimed Security Specialist role (Cursor-Auto-20260206-SEC). No dedicated 1.5 task IDs; performed ad-hoc review and dependency audits per persona.
+- IPC review: New commands (set/get/reset depth adjustment params) accept only DepthAdjustmentParams (f32 + bool); no path or string injection. depth_adjust.rs is pure math; permissions scoped in allow-generate-depth-map.toml.
+- Audits: cargo audit — 2 vulnerabilities (bytes 1.11.0, time 0.3.46); 19 allowed warnings (unmaintained/unsound in Tauri/wry tree). npm audit — 5 moderate (esbuild/vite dev server). Documented in SPRINTS/Sprint_1_5/GOTCHAS.md; recommend addressing Rust vulns when Tauri bumps deps, track npm on next frontend update.
+- Handover: none; role complete.
+
+### 2026-02-06 — Quality Engineer (QA-401, QA-402, QA-403 COMPLETED — manual)
+- Ran all automated suites: cargo test (44 passed), cargo clippy (0 warnings), npm run build (pass), pytest 19 passed (stub). Recorded in MANUAL_TEST_REPORT.md.
+- Executed manual Cases 1–3 with user: QA-401 (all controls + preview + Reset) Pass; QA-402 (extreme values) Pass; QA-403 (Reset restores original) Pass.
+- Updated MANUAL_TEST_REPORT.md summary and case results; updated this task assignment with completion records and "Manual testing status" / "Balance of testing still to perform".
+- Balance: regression (§3.4) and JR1 quick checks (§3.3) optional for sprint sign-off.
+
+### 2026-02-06 — Quality Engineer (Regression §3.4 COMPLETED)
+- Regression: Load image → Generate depth (Sprint 1.4 flow) Pass; Depth preview (grayscale, zoom/pan) with DepthControls Pass.
+- **Handover to UI Designer:** Zoom/pan on depth preview is mouse wheel + drag only; no explicit control or on-screen hint. Consider adding discoverability (tooltip, label, or icon) — see MANUAL_TEST_REPORT.md Regression section.
+
+### 2026-02-06 — Junior Engineer 3D (JR1-401–404 COMPLETED)
+- JR1-401: DepthControls sliders styled with .depth-slider (16px thumb, 8px track), min-h-8 rows, min-w-0, cursor-grab/grabbing; consistent with app theme and 1024×768.
+- JR1-402: Verified numeric inputs beside each slider (from UI-402); sync and bounds confirmed.
+- JR1-403: handleRangeKeydown() added for all four range inputs; ArrowLeft/ArrowDown decrement, ArrowRight/ArrowUp increment by step; preventDefault to avoid scroll.
+- JR1-404: GOTCHAS.md updated with slider responsiveness note; debounce keeps main thread responsive.
+- No handover; frontend polish complete.
 ```
 
 ---

@@ -2,9 +2,17 @@
   import ImageImport from "./components/ImageImport.svelte";
   import Preview3D from "./components/Preview3D.svelte";
   import DepthMapPreview from "./components/DepthMapPreview.svelte";
+  import DepthControls from "./components/DepthControls.svelte";
   import Button from "./components/Button.svelte";
-  import { exportStl, generateDepthMap } from "$lib/tauri";
-  import type { LoadImageResult } from "$lib/tauri";
+  import {
+    exportStl,
+    generateDepthMap,
+    getDepthMap,
+    getDepthAdjustmentParams,
+    setDepthAdjustmentParams,
+    resetDepthAdjustments,
+  } from "$lib/tauri";
+  import type { LoadImageResult, DepthAdjustmentParams } from "$lib/tauri";
 
   let status = "Ready";
   let loadPath = "";
@@ -12,12 +20,26 @@
   let loadError = "";
   let loadedResult: LoadImageResult | null = null;
 
-  /** Depth map for preview (BACK-303, UI-301/302). */
+  /** Depth map for preview (BACK-303, UI-301/302). Adjusted by backend when params change (UI-404). */
   let depthMap: { width: number; height: number; depth: number[] } | null = null;
   /** True while generate_depth_map is running (UI-304). */
   let depthEstimating = false;
   /** Backend error from generate_depth_map (timeout, Python, etc.). */
   let depthError = "";
+
+  /** Current depth adjustment params; synced with backend (UI-401–405). */
+  let adjustmentParams: DepthAdjustmentParams = {
+    brightness: 0,
+    contrast: 1,
+    gamma: 1,
+    invert: false,
+    depthMinMm: 2,
+    depthMaxMm: 10,
+  };
+
+  /** UI-404: Debounce interval for preview updates (ms). */
+  const DEBOUNCE_MS = 80;
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   /** Preview URL: base64 from backend (BACK-101, UI-103). */
   $: previewUrl = loadedResult?.previewBase64
@@ -74,12 +96,47 @@
     try {
       const result = await generateDepthMap(loadPath);
       depthMap = { width: result.width, height: result.height, depth: result.depth };
+      const params = await getDepthAdjustmentParams();
+      adjustmentParams = params;
       status = "Depth ready";
     } catch (e) {
       depthError = String(e);
       status = "Depth error";
     } finally {
       depthEstimating = false;
+    }
+  }
+
+  /** UI-404: Apply params to backend and refresh preview (debounced). */
+  async function applyParamsToBackend() {
+    debounceTimer = null;
+    if (!depthMap) return;
+    try {
+      await setDepthAdjustmentParams(adjustmentParams);
+      const result = await getDepthMap();
+      if (result) depthMap = { width: result.width, height: result.height, depth: result.depth };
+    } catch (e) {
+      status = "Adjustment error: " + String(e);
+    }
+  }
+
+  /** UI-401–402: Params changed from DepthControls; update local state and debounce backend + preview. */
+  function handleParamsChange(params: DepthAdjustmentParams) {
+    adjustmentParams = params;
+    if (debounceTimer != null) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(applyParamsToBackend, DEBOUNCE_MS);
+  }
+
+  /** UI-405: Reset adjustments and refresh preview from original depth. */
+  async function handleResetDepth() {
+    try {
+      await resetDepthAdjustments();
+      adjustmentParams = await getDepthAdjustmentParams();
+      const result = await getDepthMap();
+      if (result) depthMap = { width: result.width, height: result.height, depth: result.depth };
+      status = "Depth reset";
+    } catch (e) {
+      status = "Reset error: " + String(e);
     }
   }
 </script>
@@ -177,6 +234,13 @@
             </p>
           {/if}
         </div>
+        <!-- UI-401–405: Depth adjustment controls (debounced preview in App) -->
+        <DepthControls
+          hasDepth={depthMap != null && depthMap.depth.length > 0}
+          params={adjustmentParams}
+          onParamsChange={handleParamsChange}
+          onReset={handleResetDepth}
+        />
       </div>
     </aside>
   </main>
