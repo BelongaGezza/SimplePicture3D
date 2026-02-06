@@ -8,7 +8,12 @@
       "Bash(npm install)",
       "Bash(where:*)",
       "Bash(cargo build:*)",
-      "Bash(cargo tree:*)"
+      "Bash(cargo tree:*)",
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "mcp__plugin_context7_context7__query-docs",
+      "Bash(python3:*)",
+      "Bash(pip3 install:*)",
+      "Bash(npm run tauri:*)"
     ]
   }
 }
