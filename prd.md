@@ -46,6 +46,27 @@ SimplePicture3D is an open-source desktop application that converts 2D images in
 - **Phase 3 (Cross-Platform)**: Achieve parity across all OS targets
 - **Phase 4 (Production)**: Release-ready application with professional packaging
 
+### 2.4 Timeline Planning Note
+
+*Added 2026-02-06 per External Consultant Recommendations Report.*
+
+**Original estimate:** 19-25 sprints (38-50 weeks, ~9-12 months)
+
+**Consultant recommendation:** 28-35 sprints (56-70 weeks, ~14-18 months)
+
+**Rationale for buffer:**
+- Testing infrastructure buildout: +3 sprints
+- Platform-specific debugging: +2 sprints
+- Integration testing and bug fixes: +2 sprints
+- Buffer for unknowns: +2 sprints
+
+**Alternative (scope reduction for faster MVP):**
+- Defer OBJ export to Phase 2
+- Defer model download wizard to Phase 2
+- Focus on STL export + manual depth mode for Phase 1
+
+See `todo.md` Phase Overview and `Consultant_Recommendations_Report_6Feb2026.md` for details.
+
 ---
 
 ## 3. Target Audience & User Personas
@@ -1092,7 +1113,14 @@ app to remove all associated data from your system.
 
 **Model Weights Notice:**
 - Depth-Anything-V2 weights: CC-BY-NC-4.0 (non-commercial)
-- **Action Required:** Clarify commercial use policy or offer commercial-friendly model option
+- MiDaS weights: MIT-compatible for commercial use
+
+**Commercial Use Resolution (2026-02-06, per Consultant Review ADR-004):**
+- Default model: Depth-Anything-V2 (best quality, non-commercial only)
+- Commercial-friendly option: MiDaS (MIT-compatible)
+- Model download wizard clearly indicates license restrictions
+- Users intending commercial use should select MiDaS
+- See `RESEARCH/architecture.md` ADR-004 for full decision rationale
 
 ### 9.3 Third-Party Notices
 

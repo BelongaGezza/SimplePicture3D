@@ -71,19 +71,21 @@ Find a role where Status = `Available` and no agent is assigned.
 
 | Role | Persona File | Status | Assigned Agent | Owned Tasks | Notes |
 |------|--------------|--------|----------------|-------------|-------|
-| System Architect | `.agents/system-architect.md` | Available | — | — | Optional: document depth adjustment API in architecture |
+| System Architect | `.agents/system-architect.md` | Available | — | ARCH-101–102 | ADR review, Python distribution docs (Consultant Priority 3) |
 | Senior Engineer | `.agents/senior-engineer.md` | Available | — | BACK-401–405 | Depth adjustment logic, apply transforms, cache original, reset |
 | UI Designer | `.agents/ui-designer.md` | Available | — | UI-401–405 | DepthControls, sliders, Invert, real-time preview, Reset |
-| Senior Researcher (AI/ML) | `.agents/researcher.md` | Available | — | — | No dedicated 1.5 tasks; ad-hoc if needed |
+| Senior Researcher (AI/ML) | `.agents/researcher.md` | Available | — | AI-401–403 | pytest suite, CI integration (Consultant Priority 1) |
 | Junior Engineer 2D | `.agents/junior-engineer-2d.md` | Available | — | JR2-401–403 | Unit tests for adjustments, boundary tests, benchmark |
 | Junior Engineer 3D | `.agents/junior-engineer-3d.md` | Available | — | JR1-401–404 | Slider styling, numeric inputs, keyboard controls, responsiveness |
-| Quality Engineer | (see todo.md) | Available | — | QA-401–404 | Manual/automated tests, extreme values, reset, output array |
+| Quality Engineer | (see todo.md) | Available | — | QA-401–405 | Manual/automated tests, clippy CI (Consultant Priority 1) |
 | Security Specialist | `.agents/security-specialist.md` | Available | — | — | No dedicated 1.5 tasks; ad-hoc if needed |
 | Documentation Specialist | `.agents/documentation-specialist.md` | Available | — | — | Supporting docs if needed |
 
 **Status values:** `Available` | `In Progress` | `Complete` | `Blocked`
 
 *Note: Junior Engineer #1 (frontend) = Junior Engineer 3D; Junior Engineer #2 (backend) = Junior Engineer 2D.*
+
+**Consultant Report Tasks Added (2026-02-06):** ARCH-101–102, AI-401–403, QA-405
 
 ---
 
@@ -92,8 +94,10 @@ Find a role where Status = `Available` and no agent is assigned.
 - **Scope:** `prd.md` — F1.2 depth controls, F1.4 preview, §5.2–5.3, §6 layout
 - **Sprint source:** `todo.md` — Sprint 1.5
 - **Architecture:** `docs/architecture.md` § Depth map format, § Frontend implications
+- **ADRs:** `RESEARCH/architecture.md` — ADR-001 to ADR-004 (added 2026-02-06)
 - **Technology:** `RESEARCH/frontend.md`, `RESEARCH/tauri.md`
 - **Coordination:** `RESEARCH/AI_DEVELOPMENT_GUIDE.md`
+- **Consultant Report:** `Consultant_Recommendations_Report_6Feb2026.md` — Priority 1 (Testing), Priority 3 (ADRs)
 
 ---
 
@@ -105,9 +109,13 @@ Find a role where Status = `Available` and no agent is assigned.
 | UI (UI-401–405) | ⏳ Not Started | 0% |
 | Junior 2D (JR2-401–403) | ⏳ Not Started | 0% |
 | Junior 3D (JR1-401–404) | ⏳ Not Started | 0% |
-| Quality (QA-401–404) | ⏳ Not Started | 0% |
+| Quality (QA-401–405) | ⏳ Not Started | 0% |
+| Testing Infra (AI-401–403) | ⏳ Not Started | 0% |
+| ADR Docs (ARCH-101–102) | ⏳ Not Started | 0% |
 
 **Overall Sprint Progress:** [x] Not Started / [ ] In Progress / [ ] Complete
+
+**Note:** Tasks AI-401–403, ARCH-101–102, QA-405 added 2026-02-06 per Consultant Recommendations Report.
 
 ---
 
@@ -709,6 +717,189 @@ Notes:
 
 ---
 
+#### QA-405: Add cargo clippy to CI (Consultant Priority 1)
+**Assigned Role:** Quality Engineer
+**Priority:** Critical
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked
+**Task ID:** QA-405
+
+**Dependencies:** None (standalone CI enhancement).
+
+**What to Do:**
+- Add `cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings` step to `.github/workflows/ci.yml` backend job
+- Ensure job fails on any clippy warnings
+- Fix any existing clippy warnings that surface
+
+**Reference Documents:** Consultant_Recommendations_Report_6Feb2026.md Priority 1; todo.md Testing requirements
+
+**Acceptance Criteria:**
+- [ ] CI runs clippy and fails on warnings
+- [ ] All existing code passes clippy
+
+**Completion Record:**
+```
+Status: [ ] Complete
+Completed By: —
+Completed On: —
+Notes:
+```
+
+---
+
+### Senior Researcher (Testing Infrastructure - Consultant Priority 1)
+
+#### AI-401: Create pytest suite for depth_estimator.py
+**Assigned Role:** Senior Researcher
+**Priority:** Critical
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked
+**Task ID:** AI-401
+
+**Dependencies:** None.
+
+**What to Do:**
+- Create `python/tests/test_depth_estimator.py`
+- Test stub mode: verify output shape, 0-1 normalization, JSON format
+- Test CLI interface: `--input`, `--no-model` flags
+- Test error cases: missing file, invalid image
+- All tests must work without downloading AI model (use SP3D_USE_STUB=1)
+
+**Reference Documents:** Consultant_Recommendations_Report_6Feb2026.md Priority 1; python/python/depth_estimator.py
+
+**Acceptance Criteria:**
+- [ ] pytest suite exists in python/tests/
+- [ ] Tests pass with `SP3D_USE_STUB=1 pytest python/`
+- [ ] Coverage for stub mode, CLI args, error handling
+
+**Completion Record:**
+```
+Status: [ ] Complete
+Completed By: —
+Completed On: —
+Notes:
+```
+
+---
+
+#### AI-402: Add pytest to CI workflow
+**Assigned Role:** Senior Researcher
+**Priority:** High
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked
+**Task ID:** AI-402
+
+**Dependencies:** AI-401 (pytest suite exists).
+
+**What to Do:**
+- Add Python job to `.github/workflows/ci.yml`
+- Install Python 3.10+, pip install pytest
+- Run `SP3D_USE_STUB=1 pytest python/`
+- Ensure CI fails if pytest fails
+
+**Reference Documents:** AI-401; Consultant_Recommendations_Report_6Feb2026.md
+
+**Acceptance Criteria:**
+- [ ] CI runs pytest on every push/PR
+- [ ] Uses stub mode (no model download in CI)
+- [ ] Failures block merge
+
+**Completion Record:**
+```
+Status: [ ] Complete
+Completed By: —
+Completed On: —
+Notes:
+```
+
+---
+
+#### AI-403: Document Python test commands in CLAUDE.md
+**Assigned Role:** Senior Researcher
+**Priority:** Medium
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked
+**Task ID:** AI-403
+
+**Dependencies:** AI-401 (pytest suite exists).
+
+**What to Do:**
+- Update CLAUDE.md Testing Commands section with pytest commands
+- Document SP3D_USE_STUB environment variable
+- Add to README.md if appropriate
+
+**Reference Documents:** CLAUDE.md; AI-401
+
+**Acceptance Criteria:**
+- [ ] CLAUDE.md documents pytest usage
+- [ ] Stub mode documented
+
+**Completion Record:**
+```
+Status: [ ] Complete
+Completed By: —
+Completed On: —
+Notes:
+```
+
+---
+
+### System Architect (ADR Documentation - Consultant Priority 3)
+
+#### ARCH-101: Review and approve ADRs in RESEARCH/architecture.md
+**Assigned Role:** System Architect
+**Priority:** High
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked
+**Task ID:** ARCH-101
+
+**Dependencies:** None (ADRs already drafted per consultant report).
+
+**What to Do:**
+- Review ADR-001 (Svelte), ADR-002 (Subprocess), ADR-003 (Python Distribution), ADR-004 (Depth Models)
+- Approve or request changes
+- Ensure ADRs are linked from docs/architecture.md
+
+**Reference Documents:** RESEARCH/architecture.md; Consultant_Recommendations_Report_6Feb2026.md Priority 3
+
+**Acceptance Criteria:**
+- [ ] ADRs reviewed and approved
+- [ ] Status updated from "Proposed" to "Accepted" where applicable
+
+**Completion Record:**
+```
+Status: [ ] Complete
+Completed By: —
+Completed On: —
+Notes:
+```
+
+---
+
+#### ARCH-102: Document Python distribution strategy for README.md
+**Assigned Role:** System Architect
+**Priority:** Medium
+**Status:** [ ] Not Started / [ ] In Progress / [ ] Complete / [ ] Blocked
+**Task ID:** ARCH-102
+
+**Dependencies:** ARCH-101 (ADR-003 approved).
+
+**What to Do:**
+- Add Python requirements section to README.md
+- Document venv setup, pip install, model download
+- Reference ADR-003 for rationale
+
+**Reference Documents:** RESEARCH/architecture.md ADR-003; Consultant_Recommendations_Report_6Feb2026.md Priority 5
+
+**Acceptance Criteria:**
+- [ ] README.md has clear Python setup instructions
+- [ ] Troubleshooting for common issues documented
+
+**Completion Record:**
+```
+Status: [ ] Complete
+Completed By: —
+Completed On: —
+Notes:
+```
+
+---
+
 ## Subtask Allocation (multi-role)
 
 | Sub-task | Role | Owner | Status |
@@ -728,6 +919,13 @@ Notes:
   - [ ] Reset button restores original depth map
   - [ ] Automated tests cover adjustment logic
   - [ ] UI responsive and intuitive
+- [ ] **Consultant Priority 1 (Testing Infrastructure):**
+  - [ ] `cargo clippy` enforced in CI (QA-405)
+  - [ ] Python pytest suite exists with stub mode tests (AI-401)
+  - [ ] pytest runs in CI (AI-402)
+- [ ] **Consultant Priority 3 (ADR Documentation):**
+  - [ ] ADRs reviewed and approved in RESEARCH/architecture.md (ARCH-101)
+  - [ ] Python setup documented in README.md (ARCH-102)
 - [ ] No blocking issues
 - [ ] Gotchas recorded in `SPRINTS/Sprint_1_5/GOTCHAS.md` (merge to RESEARCH when done)
 - [ ] Progress report filed
@@ -747,9 +945,11 @@ Notes:
 | Metric | Target | Actual |
 |--------|--------|--------|
 | cargo test | PASS | — |
-| cargo clippy | 0 warnings | — |
+| cargo clippy | 0 warnings (enforced in CI) | — |
 | npm run build | PASS | — |
+| pytest (stub mode) | PASS | — |
 | Manual test report | Cases executed and recorded | — |
+| ADRs approved | All 4 ADRs reviewed | — |
 
 ---
 

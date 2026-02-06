@@ -421,6 +421,16 @@ The Role Assignment table enables agents to claim roles:
 - [ ] **QA-402:** Test extreme values (brightness 0%, 200%)
 - [ ] **QA-403:** Verify reset button restores original depth map
 - [ ] **QA-404:** Automated test: apply adjustments, check output array
+- [ ] **QA-405:** Add `cargo clippy -- -D warnings` to CI (per Consultant Report Priority 1)
+
+**Senior Researcher (Testing Infrastructure - Consultant Priority 1):**
+- [ ] **AI-401:** Create pytest suite for `depth_estimator.py` (stub mode tests)
+- [ ] **AI-402:** Add pytest to CI workflow (with SP3D_USE_STUB=1)
+- [ ] **AI-403:** Document Python test commands in CLAUDE.md
+
+**System Architect (ADR Documentation - Consultant Priority 3):**
+- [ ] **ARCH-101:** Review and approve ADRs in RESEARCH/architecture.md
+- [ ] **ARCH-102:** Document Python distribution strategy for README.md
 
 #### Exit Criteria
 - ✅ All depth adjustment controls functional
@@ -428,6 +438,9 @@ The Role Assignment table enables agents to claim roles:
 - ✅ Reset button works correctly
 - ✅ Automated tests cover adjustment logic
 - ✅ UI responsive and intuitive
+- ✅ `cargo clippy` enforced in CI (Consultant Priority 1)
+- ✅ Python pytest suite exists with stub mode tests (Consultant Priority 1)
+- ✅ ADRs documented in RESEARCH/architecture.md (Consultant Priority 3)
 
 ---
 

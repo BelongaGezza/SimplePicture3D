@@ -3,7 +3,118 @@
 **Purpose:** System architecture and data flow for SimplePicture3D.
 
 **Source:** Derived from `prd.md` §5.2, §5.3, §5.4.  
-**Last checked:** 2026-02-01
+**Last checked:** 2026-02-06
+
+---
+
+## Architecture Decision Records (ADRs)
+
+*Added 2026-02-06 per External Consultant Recommendations Report.*
+
+### ADR-001: Svelte over React
+
+**Status:** Accepted
+**Date:** 2026-02-06
+**Context:** PRD §5.1 listed "Svelte or React" as options. A decision was needed.
+
+**Decision:** Use **Svelte 4** with TypeScript for the frontend.
+
+**Rationale:**
+1. **Smaller bundle size** — Svelte compiles to vanilla JS; no runtime library overhead
+2. **Simpler state management** — Svelte stores vs Redux/Zustand complexity
+3. **Better Tauri integration** — Svelte's reactivity model works well with Tauri's invoke pattern
+4. **Learning curve** — Easier onboarding for contributors unfamiliar with React patterns
+5. **Performance** — Compiled output is faster for our use case (real-time slider updates)
+
+**Consequences:**
+- React components/libraries not directly usable; must find Svelte equivalents
+- Three.js integration via `svelte-cubed` or direct imperative code
+- Team should document Svelte patterns in RESEARCH/frontend.md
+
+---
+
+### ADR-002: Subprocess over PyO3 for Python Bridge
+
+**Status:** Accepted
+**Date:** 2026-02-06
+**Context:** PRD mentioned PyO3 and subprocess as options for Rust-Python integration.
+
+**Decision:** Use **subprocess** (via Tauri shell plugin) for MVP.
+
+**Rationale:**
+1. **Process isolation** — Python crash does not crash the Tauri app
+2. **Simpler packaging** — User installs Python + venv; no embedded interpreter complexity
+3. **Security** — Easier to restrict subprocess to temp dir; fixed CLI contract
+4. **Debugging** — Can run Python script standalone for testing
+5. **PRD alignment** — prd.md §5.3 explicitly describes subprocess approach
+
+**Trade-offs:**
+- Spawn overhead (~100-200ms per invocation)
+- IPC via file/stdout (acceptable for depth maps)
+- No in-process memory sharing
+
+**Future consideration:** If profiling shows IPC bottleneck, evaluate:
+- Long-lived Python worker process (subprocess with stdin/stdout loop)
+- ONNX Runtime in Rust (eliminates Python dependency)
+
+---
+
+### ADR-003: Python Distribution Strategy
+
+**Status:** Proposed (MVP)
+**Date:** 2026-02-06
+**Context:** Need to define how Python + PyTorch + models are distributed to end users.
+
+**Decision (MVP):** **System Python** — Require users to install Python 3.10+ with pip.
+
+**Implementation:**
+1. Document Python requirements in README.md and first-run wizard
+2. Provide `pip install -r python/requirements.txt` instructions
+3. App checks for Python availability on startup; shows helpful error if missing
+4. Model download wizard (Sprint 1.10) handles Hugging Face model installation
+
+**Rationale:**
+- Lowest implementation effort for MVP
+- Users with laser engravers typically have technical comfort with installations
+- Avoids 200-500MB bundle size increase from embedded Python
+
+**Future options (v1.1+):**
+
+| Option | Effort | Trade-off |
+|--------|--------|-----------|
+| PyInstaller sidecar | Medium | Self-contained but 200-500MB |
+| ONNX Runtime in Rust | High | Eliminates Python; requires model conversion |
+| Docker container | Medium | Isolation but requires Docker installation |
+
+**Consequences:**
+- First-run experience requires Python setup
+- Cross-platform testing must verify Python availability detection
+- Document troubleshooting for common Python issues (venv, PATH, etc.)
+
+---
+
+### ADR-004: Depth Model Selection
+
+**Status:** Proposed
+**Date:** 2026-02-06
+**Context:** Need to select primary depth estimation model and address licensing concerns.
+
+**Decision:** Support **both** Depth-Anything-V2 (default) and MiDaS (alternative).
+
+**License consideration:**
+- **Depth-Anything-V2 weights:** CC-BY-NC-4.0 (non-commercial only)
+- **MiDaS weights:** MIT-compatible for commercial use
+
+**Implementation:**
+1. Default to Depth-Anything-V2 for best quality
+2. Offer MiDaS as "Commercial-friendly" option in model download wizard
+3. Document license implications in first-run wizard and README
+4. `--model` flag in depth_estimator.py already supports switching
+
+**Consequences:**
+- Users intending commercial use should select MiDaS
+- Documentation must clearly state license restrictions
+- Consider training/licensing permissive model for v1.1 commercial release
 
 ---
 
@@ -157,3 +268,68 @@ SimplePicture3D/
   - **Invocation:** Subprocess (no shell); fixed CLI; progress on stderr (ARCH-101, ARCH-103).
 - **Model storage:** `~/.simplepicture3d/models/`
 - **Settings:** `~/.simplepicture3d/` (presets, logs, cache)
+
+---
+
+## Python Distribution Strategy
+
+*Added 2026-02-06 per External Consultant Recommendations Report. See ADR-003 for decision.*
+
+### MVP Approach: System Python
+
+**Requirements:**
+- Python 3.10 or later
+- pip package manager
+- ~2GB disk space for PyTorch + model weights
+
+**User setup:**
+```bash
+# Create virtual environment (recommended)
+cd python
+python3 -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Download model (via app wizard or manual)
+python -c "from transformers import AutoModelForDepthEstimation; AutoModelForDepthEstimation.from_pretrained('depth-anything/Depth-Anything-V2-Small-hf')"
+```
+
+**App behavior:**
+1. On startup, check for Python: `python3 --version` or `python --version`
+2. If missing: Show helpful dialog with installation links
+3. Check for dependencies: Attempt import of torch, transformers
+4. If missing: Show `pip install` instructions
+5. Check for model: Look in `~/.simplepicture3d/models/`
+6. If missing: Launch model download wizard (Sprint 1.10)
+
+### Future: ONNX Migration Path (v1.1+)
+
+To eliminate Python dependency:
+
+1. Convert Depth-Anything-V2 to ONNX format
+2. Use `ort` crate (ONNX Runtime for Rust)
+3. Bundle ONNX model with installer (~200MB)
+4. Remove Python subprocess bridge
+
+**Benefits:**
+- Single binary distribution
+- Faster inference (no Python overhead)
+- Simpler cross-platform packaging
+
+**Effort:** ~2-3 sprints for implementation and testing
+
+---
+
+## Risk Mitigations
+
+*Added 2026-02-06 per External Consultant Recommendations Report.*
+
+| Risk | Mitigation |
+|------|------------|
+| Depth-Anything-V2 model unavailable | Mirror weights; document MiDaS alternative |
+| Tauri v2 breaking changes | Pin version in Cargo.toml; monitor release notes |
+| PyTorch version conflicts | Document tested versions; virtual environment isolation |
+| Testing debt compounds | Address in Sprint 1.5; see consultant report Priority 1 |
+| Python bundling complexity | System Python for MVP; ONNX for v1.1 |
