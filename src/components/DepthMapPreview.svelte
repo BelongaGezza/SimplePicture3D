@@ -2,6 +2,7 @@
   /**
    * DepthMapPreview — displays depth map as grayscale image (JR1-301, UI-301/302).
    * Zoom/pan: mouse wheel zoom, drag to pan (JR1-302).
+   * Fit-to-view: when a new depth map loads or "Fit" is used, scale to fit the fixed panel (right sidebar).
    */
   import { onMount, afterUpdate } from "svelte";
   import { renderDepthToCanvas } from "$lib/depthCanvas";
@@ -15,7 +16,8 @@
   let canvas: HTMLCanvasElement;
   let container: HTMLDivElement;
 
-  const MIN_ZOOM = 0.1;
+  /** Allow zoom out enough to fit large images in the fixed w-64 sidebar (~256px). e.g. 4K width needs ~0.067. */
+  const MIN_ZOOM = 0.02;
   const MAX_ZOOM = 10;
   let zoom = 1;
   let panX = 0;
@@ -33,6 +35,30 @@
     canvas.width = width;
     canvas.height = height;
     renderDepthToCanvas(ctx, width, height, depth);
+  }
+
+  /** Set zoom and pan so the depth map fits inside the container and is centered. */
+  function applyFitToView() {
+    if (!container || width <= 0 || height <= 0) return;
+    const cw = container.clientWidth;
+    const ch = container.clientHeight;
+    if (cw <= 0 || ch <= 0) return;
+    const fitZoom = Math.min(cw / width, ch / height);
+    zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, fitZoom));
+    panX = (cw - width * zoom) / 2;
+    panY = (ch - height * zoom) / 2;
+  }
+
+  function scheduleFitToView() {
+    requestAnimationFrame(() => applyFitToView());
+  }
+
+  /** Run fit-to-view when a new depth map is set (dimensions change), so large images fit in the fixed panel. */
+  let prevFitKey = "";
+  $: fitKey = width > 0 && height > 0 && depth.length > 0 ? `${width}-${height}` : "";
+  $: if (fitKey && fitKey !== prevFitKey) {
+    prevFitKey = fitKey;
+    scheduleFitToView();
   }
 
   function handleWheel(e: WheelEvent) {
@@ -68,7 +94,10 @@
   $: transformStyle = `transform: scale(${zoom}) translate(${panX}px, ${panY}px);`;
 
   afterUpdate(draw);
-  onMount(draw);
+  onMount(() => {
+    draw();
+    if (width > 0 && height > 0 && depth.length > 0) scheduleFitToView();
+  });
 </script>
 
 <div
@@ -103,6 +132,13 @@
         role="img"
       />
     </div>
+    <button
+      type="button"
+      class="depth-fit-btn"
+      title="Fit depth map to view"
+      on:click={() => applyFitToView()}
+      on:mousedown|stopPropagation
+    >Fit</button>
   {:else}
     <p class="text-slate-500 text-sm">No depth map</p>
   {/if}
@@ -111,6 +147,7 @@
 <style>
   .depth-preview-wrapper {
     user-select: none;
+    position: relative;
   }
   .depth-preview-wrapper:focus {
     outline: 2px solid var(--tw-ring-color, theme(colors.slate.400));
@@ -122,6 +159,29 @@
   }
   .depth-canvas {
     display: block;
+  }
+  .depth-fit-btn {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: theme(colors.slate.600);
+    background: theme(colors.slate.100);
+    border: 1px solid theme(colors.slate.300);
+    border-radius: 4px;
+    cursor: pointer;
+    z-index: 1;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+  .depth-fit-btn:hover {
+    background: theme(colors.slate.200);
+    color: theme(colors.slate.800);
+  }
+  .depth-fit-btn:focus {
+    outline: 2px solid theme(colors.slate.400);
+    outline-offset: 1px;
   }
 
   /* JR1-304: loading skeleton during generation */
