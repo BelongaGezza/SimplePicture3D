@@ -60,6 +60,10 @@ jobs:
         with:
           workspaces: src-tauri
 
+      - name: Create placeholder dist folder
+        run: mkdir -p dist && echo '<!DOCTYPE html><html><body></body></html>' > dist/index.html
+        # Tauri build expects frontendDist to exist; placeholder suffices for backend-only CI.
+
       - name: Build
         run: cargo build --manifest-path src-tauri/Cargo.toml
 
