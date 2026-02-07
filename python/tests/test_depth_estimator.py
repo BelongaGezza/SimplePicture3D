@@ -188,3 +188,22 @@ def test_cli_env_stub():
     assert code == 0
     data = json.loads(out)
     assert "depth" in data and len(data["depth"]) == 1
+
+
+# ----- --show-license (AI-502) -----
+
+
+def test_show_license_exits_zero():
+    """--show-license prints to stdout and exits 0."""
+    env = {**os.environ, "PYTHONPATH": str(REPO_ROOT / "python" / "python")}
+    result = subprocess.run(
+        [sys.executable, "-m", "depth_estimator", "--show-license"],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        env=env,
+    )
+    assert result.returncode == 0
+    assert "CC-BY-NC-4.0" in result.stdout
+    assert "non-commercial" in result.stdout
+    assert "Stub mode" in result.stdout or "stub" in result.stdout.lower()

@@ -92,8 +92,8 @@ SimplePicture3D is built with modern, performant technologies:
 - **[PyTorch](https://pytorch.org)** - Deep learning framework for depth estimation
 
 ### AI Models
-- **[Depth-Anything-V2](https://github.com/DepthAnything/Depth-Anything-V2)** - State-of-the-art monocular depth estimation
-- **[MiDaS](https://github.com/isl-org/MiDaS)** - Alternative depth estimation model
+- **[Depth-Anything-V2](https://github.com/DepthAnything/Depth-Anything-V2)** - State-of-the-art monocular depth estimation (default). Weights: **CC-BY-NC-4.0** (non-commercial use only).
+- **[MiDaS](https://github.com/isl-org/MiDaS)** - Alternative depth estimation model. **MIT-compatible**; suitable for commercial use. See [RESEARCH/architecture.md](RESEARCH/architecture.md) **ADR-005** for licensing details.
 
 ### Architecture
 
@@ -161,21 +161,28 @@ npm run tauri dev
 ```
 
 **Python environment (AI backend):**  
-Depth estimation runs in a Python subprocess. You need Python 3.10+ and a virtual environment. From the project root:
+Depth estimation runs in a Python subprocess. You need **Python 3.10+** and a virtual environment. From the project root:
 
 ```bash
-# Create venv (recommended; can live in repo root or python/)
+# Create virtual environment (recommended)
 python -m venv venv
-# Windows:   venv\Scripts\activate
-# macOS/Linux:   source venv/bin/activate
+# Windows:
+venv\Scripts\activate
+# macOS/Linux:
+source venv/bin/activate
 
 # Install dependencies
 pip install -r python/requirements.txt
 ```
 
-For **stub mode** (no AI model, for tests/CI), only Pillow is required; set `SP3D_USE_STUB=1` when running pytest. For **real depth inference**, install PyTorch per [pytorch.org](https://pytorch.org/get-started/locally/) (CPU/CUDA/Metal), then install the rest of `python/requirements.txt`. The first run of depth estimation will download the model (Hugging Face); see [python/README.md](python/README.md) for model paths and `--no-model` usage.
+- **Stub mode (no AI model):** For tests and CI, set `SP3D_USE_STUB=1` so no model is downloaded. Run pytest from the project root:
+  - **macOS/Linux:** `SP3D_USE_STUB=1 PYTHONPATH=python/python python -m pytest python/ -v`
+  - **Windows PowerShell:** `$env:SP3D_USE_STUB="1"; $env:PYTHONPATH="python\python"; python -m pytest python/ -v`
+- **Real depth inference:** Install PyTorch per [pytorch.org](https://pytorch.org/get-started/locally/) (CPU/CUDA/Metal), then install the rest of `python/requirements.txt`. The first run will download the Depth-Anything-V2 model from Hugging Face (model download wizard planned for Sprint 1.10). See [python/README.md](python/README.md) for model paths and `--no-model` usage.
+- **Model license:** Depth-Anything-V2 weights are **CC-BY-NC-4.0** (non-commercial use). MiDaS is **MIT-compatible** for commercial use. See [License](#-license) and **ADR-005** in [RESEARCH/architecture.md](RESEARCH/architecture.md).
+- **Why system Python:** For rationale (system Python for MVP, no bundling yet), see [RESEARCH/architecture.md](RESEARCH/architecture.md) **ADR-003**.
 
-**Troubleshooting:** If the app reports "Python not found", ensure `python` (or `python3`) is on your PATH and is 3.10+. On Windows, the Tauri app may not see the same PATH as your terminal—install Python for "all users" or add it to the system PATH. For rationale and alternatives (e.g. future PyInstaller/ONNX), see [RESEARCH/architecture.md](RESEARCH/architecture.md) ADR-003.
+**Troubleshooting:** If the app reports "Python not found", ensure `python` (or `python3`) is on your PATH and is 3.10+. On Windows, the Tauri app may not see the same PATH as your terminal—install Python for "all users" or add it to the system PATH.
 
 **Verifying your setup:** Run these from the project root to confirm all three environments work:
 
@@ -312,7 +319,7 @@ This project incorporates open-source software with compatible licenses:
 - PyTorch (BSD-3-Clause)
 - Three.js (MIT)
 
-**Note:** AI model weights (Depth-Anything-V2) are licensed under CC-BY-NC-4.0 (non-commercial use). We're evaluating commercial-friendly alternatives for broader use cases.
+**Note:** AI model weights have separate licenses. **Depth-Anything-V2** (default): CC-BY-NC-4.0 (non-commercial only). **MiDaS**: MIT-compatible (commercial use allowed). See [RESEARCH/architecture.md](RESEARCH/architecture.md) **ADR-005**.
 
 See [ATTRIBUTION.md](ATTRIBUTION.md) for full third-party notices (coming soon).
 

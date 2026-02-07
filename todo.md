@@ -1460,30 +1460,31 @@ The Role Assignment table enables agents to claim roles:
 
 *Software Quality Lead review (2026-02-06): Current state and requirements below.*
 
-### Current state (as of 2026-02-06)
+### Current state (as of 2026-02-07)
 
 | Layer | Implemented | Gaps |
 |-------|-------------|------|
-| **Rust** | 27 unit/integration tests (file_io, image_loading, python_bridge, lib); 5 tests `#[ignore]` (Python/env-dependent). `cargo test` in CI. | No `cargo clippy` in CI; no coverage (tarpaulin); Python-dependent tests not run in CI. |
-| **Frontend** | `npm run build` in CI; test fixtures under `tests/fixtures/`. | No test runner (no Vitest/Jest); no `npm test`; no component or E2E tests. |
-| **Python** | `python/depth_estimator.py` used by Rust bridge; stub mode for roundtrip. | No `pytest` suite; no `test_*.py`; no coverage; not run in CI. |
+| **Rust** | 44 unit/integration tests passed, 5 `#[ignore]` (Python/env-dependent). `cargo test` and `cargo clippy` in CI. | No coverage (tarpaulin) yet; Python-dependent tests not run in CI. Tarpaulin baseline in Sprint 1.5A. |
+| **Frontend** | `npm run build` in CI; test fixtures under `tests/fixtures/`. | Vitest and `npm test` being added in Sprint 1.5A; no component or E2E tests yet. |
+| **Python** | 19 pytest tests (stub mode); run in CI. `depth_estimator` used by Rust bridge. | pytest-cov baseline in Sprint 1.5A. |
 | **Integration** | Rust tests for load_image, generate_depth_map (path validation, normalization); roundtrip test exists but ignored without Python. | Integration tests requiring Python not automated in CI. |
 | **E2E** | Manual test plans and reports per sprint. | No Playwright (or similar) E2E automation. |
 
 **Local test commands (verified):**
-- Rust: `cargo test --manifest-path src-tauri/Cargo.toml` — 27 passed, 5 ignored.
-- Frontend: `npm run build` — build only; no test script.
-- Lint: `cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings` — not in CI.
+- Rust: `cargo test --manifest-path src-tauri/Cargo.toml` — 44 passed, 5 ignored.
+- Frontend: `npm run build` — build only; `npm test` (Vitest) added in Sprint 1.5A.
+- Lint: `cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings` — in CI.
+- Python: `SP3D_USE_STUB=1 PYTHONPATH=python/python python -m pytest python/ -v` (Windows: set env in PowerShell). — 19 tests, in CI.
 - Audits: `cargo audit`, `npm audit --audit-level=high` — both in CI.
 
 ### Testing requirements (Quality Engineer backlog)
 
 These items are required to meet Phase 1 exit criteria and the Test Pyramid below. Assign to Quality Engineer and/or sprint tasking as needed.
 
-1. **CI — Lint:** Add `cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings` to CI (backend job); fix any new warnings on merge.
-2. **Rust — Coverage:** Introduce `cargo tarpaulin` (or equivalent) in CI; report coverage; target >70% for Phase 1, >80% for Phase 4 (core logic).
-3. **Frontend — Test suite:** Add test runner (Vitest or Jest), `npm test` script, and at least smoke/unit tests for critical paths; target >60% coverage by Phase 4.
-4. **Python — Test suite:** Add `pytest` in `python/`, with tests for `depth_estimator` (stub mode, output shape, CLI); run `pytest` in CI; target >70% for Phase 1.
+1. **CI — Lint:** ~~Add `cargo clippy` to CI~~ **Done** — clippy runs in backend job.
+2. **Rust — Coverage:** Introduce `cargo tarpaulin` (or equivalent) in CI; report coverage; target >70% for Phase 1, >80% for Phase 4 (core logic). *Baseline in Sprint 1.5A (BACK-501).*
+3. **Frontend — Test suite:** Add test runner (Vitest or Jest), `npm test` script, and at least smoke/unit tests for critical paths; target >60% coverage by Phase 4. *In progress: Sprint 1.5A (UI-502, JR1/JR2 tests).*
+4. **Python — Test suite:** ~~Add `pytest` in `python/`, run in CI~~ **Done** — 19 tests, stub mode, in CI. Coverage baseline in Sprint 1.5A (AI-501).
 5. **Integration — Python in CI:** Option A: Run Python-dependent Rust tests in CI when Python 3.10+ and deps are available. Option B: Keep them `#[ignore]` and document running `cargo test -- --ignored` locally or in a separate workflow.
 6. **E2E:** Defer to Sprint 1.11 (QA-1001); document Playwright (or Tauri testing) as requirement for Phase 1 exit.
 
@@ -1506,9 +1507,9 @@ These items are required to meet Phase 1 exit criteria and the Test Pyramid belo
 
 | Component | Target Coverage | Tool | Status |
 |-----------|----------------|------|--------|
-| Rust Backend | >70% (Phase 1); >80% (Phase 4) | `cargo tarpaulin` | No coverage in CI yet |
-| Python AI | >70% | `pytest --cov` | No pytest suite yet |
-| Frontend | >60% (Phase 4) | Vitest / Jest | No test runner yet |
+| Rust Backend | >70% (Phase 1); >80% (Phase 4) | `cargo tarpaulin` | Baseline in Sprint 1.5A (BACK-501) |
+| Python AI | >70% | `pytest --cov` | 19 tests in CI; coverage baseline in Sprint 1.5A (AI-501) |
+| Frontend | >60% (Phase 4) | Vitest | Vitest + tests in Sprint 1.5A (UI-502, JR1/JR2) |
 | Integration | 100% critical paths | Rust tests + optional Python in CI | Partial (Rust-only in CI) |
 | E2E | Happy path + 5 edge cases | Playwright (Sprint 1.11) | Manual only |
 
@@ -1570,10 +1571,10 @@ These items are required to meet Phase 1 exit criteria and the Test Pyramid belo
 - **Backend job:** Rust stable + clippy component; `cargo build` → `cargo test` → `cargo audit` (src-tauri). Single OS: ubuntu-latest.
 
 **Required additions (see Testing requirements above):**
-- **Lint:** Run `cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings` in backend job (fail on warnings).
-- **Frontend test:** Once `npm test` exists, add step: `npm test`.
-- **Python test:** Once `pytest` exists in `python/`, add job or step: `pip install -r python/requirements.txt` (or dev deps) and `pytest python/`.
-- **Coverage:** Add coverage step (e.g. tarpaulin for Rust, pytest-cov for Python) and upload to Codecov or similar when targets are set.
+- ~~**Lint:** Run `cargo clippy` in backend job~~ **Done.**
+- **Frontend test:** Once `npm test` exists (Sprint 1.5A), add step: `npm test`.
+- ~~**Python test:** Add pytest in CI~~ **Done** — pytest runs in CI (stub mode).
+- **Coverage:** Add coverage step (tarpaulin for Rust, pytest-cov for Python) in Sprint 1.5A; upload to Codecov or similar when targets are set.
 - **Matrix (later):** Expand to OS matrix (Windows, macOS, Linux) when Phase 3 cross-platform is active.
 
 ---

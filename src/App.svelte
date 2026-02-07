@@ -113,7 +113,12 @@
     if (!depthMap) return;
     try {
       await setDepthAdjustmentParams(adjustmentParams);
+      if (import.meta.env.DEV) console.time("getDepthMap");
       const result = await getDepthMap();
+      if (import.meta.env.DEV) {
+        console.timeEnd("getDepthMap");
+        if (result) console.debug("getDepthMap dimensions:", result.width, "x", result.height);
+      }
       if (result) depthMap = { width: result.width, height: result.height, depth: result.depth };
     } catch (e) {
       status = "Adjustment error: " + String(e);
@@ -132,7 +137,12 @@
     try {
       await resetDepthAdjustments();
       adjustmentParams = await getDepthAdjustmentParams();
+      if (import.meta.env.DEV) console.time("getDepthMap");
       const result = await getDepthMap();
+      if (import.meta.env.DEV) {
+        console.timeEnd("getDepthMap");
+        if (result) console.debug("getDepthMap dimensions:", result.width, "x", result.height);
+      }
       if (result) depthMap = { width: result.width, height: result.height, depth: result.depth };
       status = "Depth reset";
     } catch (e) {

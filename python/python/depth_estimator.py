@@ -12,6 +12,11 @@ Contract (ARCH-101, ARCH-102, AI-301):
 
 Uses Depth-Anything-V2 (Hugging Face) when available; falls back to stub depth for roundtrip testing
 when model is not installed or SP3D_USE_STUB=1.
+
+Model licensing (AI-502):
+  - Depth-Anything-V2 weights: CC-BY-NC-4.0 (non-commercial use only).
+  - Stub mode (--no-model / SP3D_USE_STUB=1): no model loaded; no license applies.
+  Use --show-license to print license information to stdout.
 """
 
 import argparse
@@ -127,6 +132,8 @@ def run_inference_depth_anything_v2(
     model = AutoModelForDepthEstimation.from_pretrained(model_id).to(device)
     model.eval()
 
+    emit_stage("model_license: CC-BY-NC-4.0 (non-commercial)", stderr)
+
     emit_stage("inference", stderr)
     inputs = image_processor(images=image, return_tensors="pt")
     inputs = {k: v.to(device) for k, v in inputs.items()}
@@ -152,9 +159,18 @@ def run_inference_depth_anything_v2(
     return width, height, depth_list
 
 
+def get_license_info() -> str:
+    """Return human-readable license information for the depth model (AI-502)."""
+    lines = [
+        "Depth-Anything-V2 (default model): CC-BY-NC-4.0 (non-commercial use only).",
+        "Stub mode (--no-model or SP3D_USE_STUB=1): No model loaded; no license applies.",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Depth estimator for SimplePicture3D")
-    parser.add_argument("--input", required=True, type=Path, help="Path to input image (temp file)")
+    parser.add_argument("--input", type=Path, help="Path to input image (temp file)")
     parser.add_argument(
         "--model",
         default=os.environ.get("DEPTH_MODEL_PATH", "depth-anything/Depth-Anything-V2-Small-hf"),
@@ -165,8 +181,20 @@ def main() -> int:
         action="store_true",
         help="Use stub depth only (no PyTorch); for roundtrip tests without model",
     )
+    parser.add_argument(
+        "--show-license",
+        action="store_true",
+        help="Print model license information to stdout and exit",
+    )
     args = parser.parse_args()
 
+    if args.show_license:
+        print(get_license_info(), flush=True)
+        return 0
+
+    if not args.input:
+        print("error: --input required for depth estimation (or use --show-license)", file=sys.stderr)
+        return 1
     if not args.input.is_file():
         print("error: input path is not a file", file=sys.stderr)
         return 1

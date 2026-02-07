@@ -74,18 +74,28 @@ npm run tauri build
 
 ## Testing Commands
 
+Run from the **project root** unless noted.
+
 ```bash
-cargo test              # Rust
-cargo clippy            # Rust lint
-cargo fmt               # Rust format
-# Python (depth_estimator) — run from repo root; no AI model required in stub mode
-SP3D_USE_STUB=1 PYTHONPATH=python/python python -m pytest python/ -v   # Linux/macOS
-# Windows PowerShell: $env:SP3D_USE_STUB="1"; $env:PYTHONPATH="python\python"; python -m pytest python/ -v
-npm test                # Frontend
-npm run lint            # Frontend lint
-cargo audit             # Security (Rust)
-npm audit               # Security (Node)
-pip-audit               # Security (Python)
+# Rust (from project root)
+cargo test --manifest-path src-tauri/Cargo.toml
+cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+cargo fmt --check
+
+# Frontend
+npm test                # Vitest (Sprint 1.5A); use npm run test:watch for watch mode
+npm run lint
+
+# Python (depth_estimator) — no AI model required in stub mode
+# Linux/macOS:
+SP3D_USE_STUB=1 PYTHONPATH=python/python python -m pytest python/ -v
+# Windows PowerShell:
+$env:SP3D_USE_STUB="1"; $env:PYTHONPATH="python\python"; python -m pytest python/ -v
+
+# Security
+cargo audit
+npm audit
+pip-audit
 ```
 
 **Python stub mode:** Set `SP3D_USE_STUB=1` (or use `--no-model` when invoking the CLI) to run depth estimation without downloading the AI model. All pytest tests use stub mode by default.

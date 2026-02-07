@@ -46,8 +46,9 @@ Look at the Role Assignment table below. Find a role where:
 1. **Edit this document** to update that role's row:
    - Change Status from `Available` to `In Progress`
    - Add your session identifier to the "Assigned Agent" column
-2. **Read the persona file** listed in the "Persona File" column
-3. **Adopt that persona** for all remaining work
+2. **Set your Cursor title to the role name.** Update the Cursor session (composer/chat) title so it matches your assigned role exactly (e.g. **System Architect**, **Senior Engineer**, **UI Designer**). This keeps the session clearly identified with the role you have taken.
+3. **Read the persona file** listed in the "Persona File" column
+4. **Adopt that persona** for all remaining work
 
 ### Step 3: Become Your Role
 - Embody the agent's identity, expertise, and responsibilities

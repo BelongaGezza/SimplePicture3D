@@ -22,19 +22,22 @@ log = "0.4"
 image = "0.25"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tauri = { version = "2", features = ["protocol-asset"] }
+tauri = { version = "2", features = [] }
 tauri-plugin-dialog = { version = "2", features = [] }
 tauri-plugin-shell = { version = "2", features = [] }
 tokio = { version = "1", features = ["fs", "io-util"] }
 
 [features]
-default = ["custom-protocol", "protocol-asset"]
+default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
-protocol-asset = ["tauri/protocol-asset"]
 
 [dev-dependencies]
 criterion = "0.5"
 
 [[bench]]
 name = "depth_adjust"
+harness = false
+
+[[bench]]
+name = "ipc_depth_map_serialization"
 harness = false

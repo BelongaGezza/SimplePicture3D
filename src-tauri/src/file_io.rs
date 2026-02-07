@@ -29,11 +29,7 @@ const TEMP_PREFIX: &str = "simplepicture3d_";
 ///
 /// # Errors
 /// Returns error if temp dir is unavailable, sanitization fails, or write fails.
-pub fn write_temp_file(
-    prefix: &str,
-    suffix: &str,
-    contents: &[u8],
-) -> io::Result<PathBuf> {
+pub fn write_temp_file(prefix: &str, suffix: &str, contents: &[u8]) -> io::Result<PathBuf> {
     let prefix = sanitize_temp_component(prefix).unwrap_or_else(|| TEMP_PREFIX.to_string());
     let suffix = sanitize_temp_component(suffix).unwrap_or_default();
     let temp_dir = std::env::temp_dir();
@@ -131,10 +127,7 @@ mod tests {
             sanitize_temp_component("img_01"),
             Some("img_01".to_string())
         );
-        assert_eq!(
-            sanitize_temp_component(".png"),
-            Some(".png".to_string())
-        );
+        assert_eq!(sanitize_temp_component(".png"), Some(".png".to_string()));
     }
 
     #[test]

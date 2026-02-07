@@ -118,6 +118,44 @@
 
 ---
 
+### ADR-005: Depth Model Licensing and Commercial Use
+
+**Status:** Accepted  
+**Date:** 2026-02-07  
+**Context:** Consultant Report §1.2, §4 Priority 6. CC-BY-NC-4.0 on Depth-Anything-V2 weights conflicts with commercial use cases. A formal decision and user-facing documentation are required.
+
+**Current situation:**
+- **Depth-Anything-V2 weights:** CC-BY-NC-4.0 (non-commercial only). Best quality; default in the app.
+- **MiDaS weights:** MIT-compatible; commercial use permitted. Repository archived; code and weights remain usable.
+- **SimplePicture3D application:** MIT license. App code does not restrict use; model weights have their own licenses.
+
+**Options considered:**
+
+| Option | Description | Decision |
+|--------|-------------|----------|
+| **A** | Non-commercial only — document prominently, restrict to hobbyist use | Rejected: too limiting; MiDaS offers a commercial path. |
+| **B** | Offer MiDaS as commercial-friendly default; Depth-Anything-V2 as optional higher-quality non-commercial model | **Accepted** (aligns with ADR-004). |
+| **C** | Dual model support — user chooses at install time; license shown in model download wizard | Implemented as part of B: wizard (Sprint 1.10) will surface choice and license. |
+| **D** | Custom model with permissive license | Deferred; high effort; consider for v1.1+. |
+
+**Decision:** **Option B (with C in the wizard).**
+
+1. **Default:** Depth-Anything-V2 for best quality. Clearly document in UI and docs that it is **non-commercial only** (CC-BY-NC-4.0).
+2. **Commercial use:** MiDaS offered as "Commercial-friendly" option in model download wizard and docs. Users who need commercial use must select MiDaS.
+3. **User-facing:** README, user guide, and first-run / model-download flows must state:
+   - Depth-Anything-V2: CC-BY-NC-4.0 — personal / non-commercial use only.
+   - MiDaS: MIT-compatible — commercial use allowed.
+4. **Model download wizard (Sprint 1.10):** Show license for each model at selection time; require acknowledgment for Depth-Anything-V2 (non-commercial). Plan: wizard step "Choose model" lists Depth-Anything-V2 (default, "Non-commercial only") and MiDaS ("Commercial use OK") with short license text or link.
+
+**Rationale:** Balances quality (default) with commercial viability (MiDaS) without blocking either use case. ADR-004 already committed to supporting both models; this ADR formalizes licensing implications and user communication.
+
+**Consequences:**
+- AI-502: Python depth_estimator must emit license notice when real model is loaded; `--show-license` flag for tooling.
+- DOC-503 / user-guide: Model license info visible to end users.
+- Sprint 1.10: Model download wizard surfaces license and choice.
+
+---
+
 ## Overview
 
 Tauri desktop app: Rust backend, Svelte/React frontend, Python subprocess for AI inference.

@@ -26,6 +26,9 @@
   const BRIGHTNESS_MAX = 0.5;
   const GAMMA_MIN = 0.5;
   const GAMMA_MAX = 2;
+  const CONTRAST_MIN = 0.5;
+  const CONTRAST_MAX = 2;
+  const CONTRAST_STEP = 0.05;
   const SLIDER_STEP = 0.01;
   const GAMMA_STEP = 0.05;
   const DEPTH_MM_STEP = 0.5;
@@ -50,6 +53,11 @@
   function handleBrightnessInput(e: Event) {
     const v = parseFloat((e.target as HTMLInputElement).value);
     if (!Number.isNaN(v)) emitChange({ brightness: Math.max(BRIGHTNESS_MIN, Math.min(BRIGHTNESS_MAX, v)) });
+  }
+
+  function handleContrastInput(e: Event) {
+    const v = parseFloat((e.target as HTMLInputElement).value);
+    if (!Number.isNaN(v)) emitChange({ contrast: Math.max(CONTRAST_MIN, Math.min(CONTRAST_MAX, v)) });
   }
 
   function handleGammaInput(e: Event) {
@@ -186,6 +194,37 @@
           on:input={handleBrightnessInput}
           class="w-14 text-right text-sm border border-slate-300 rounded px-1.5 py-0.5 bg-white"
           aria-label="Brightness value"
+        />
+      </div>
+    </div>
+
+    <!-- Contrast - UI-501 -->
+    <div class="flex flex-col gap-1" role="group" aria-label="Contrast">
+      <label for="contrast-slider" class="text-xs text-slate-600">Contrast</label>
+      <div class="flex items-center gap-2 min-h-8">
+        <input
+          id="contrast-slider"
+          type="range"
+          min={CONTRAST_MIN}
+          max={CONTRAST_MAX}
+          step={CONTRAST_STEP}
+          value={params.contrast}
+          on:input={handleContrastInput}
+          on:keydown={(e) => handleRangeKeydown(e, params.contrast, CONTRAST_MIN, CONTRAST_MAX, CONTRAST_STEP, (v) => emitChange({ contrast: v }))}
+          class="depth-slider flex-1 min-w-0 h-2 rounded-full appearance-none bg-slate-200 accent-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1 cursor-grab active:cursor-grabbing"
+          aria-valuemin={CONTRAST_MIN}
+          aria-valuemax={CONTRAST_MAX}
+          aria-valuenow={params.contrast}
+        />
+        <input
+          type="number"
+          min={CONTRAST_MIN}
+          max={CONTRAST_MAX}
+          step={CONTRAST_STEP}
+          value={params.contrast}
+          on:input={handleContrastInput}
+          class="w-14 text-right text-sm border border-slate-300 rounded px-1.5 py-0.5 bg-white"
+          aria-label="Contrast value"
         />
       </div>
     </div>

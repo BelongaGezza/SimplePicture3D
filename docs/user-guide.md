@@ -38,6 +38,7 @@ After generating a depth map, the **Depth controls** panel appears in the right 
 | **Depth range (min)** | Minimum depth in millimetres (darker = closer to viewer in preview). | 1–20 mm (default 2) |
 | **Depth range (max)** | Maximum depth in millimetres (brighter = farther). | 1–20 mm (default 10) |
 | **Brightness** | Shifts all depth values up or down (additive). | -0.5 to 0.5 (default 0) |
+| **Contrast** | Expands or compresses midtones around the centre value (scale around 0.5). | 0.5–2 (default 1) |
 | **Gamma** | Adjusts midtones (higher = brighter midtones, lower = darker). | 0.5–2 (default 1) |
 | **Invert depth** | Swaps near and far (checkbox). | On / Off (default Off) |
 | **Reset** | Restores the original AI-generated depth and resets all sliders to defaults. | — |
@@ -52,6 +53,17 @@ After generating a depth map, the **Depth controls** panel appears in the right 
 - Use **Depth range** to match your laser’s working range (e.g. 2–10 mm for many internal engravers).
 - Use **Invert depth** if the near/far sense is reversed for your image.
 - Use **Reset** to start over from the raw AI output if you’ve changed too much.
+
+---
+
+## AI models and licenses
+
+Depth estimation uses AI models that have their own licenses:
+
+- **Depth-Anything-V2** (default): High quality. Weights are **CC-BY-NC-4.0** — **non-commercial use only**. Suitable for hobby and personal projects.
+- **MiDaS** (optional): **MIT-compatible** — **commercial use allowed**. Choose this in the model setup or download wizard if you need to use depth maps for commercial work.
+
+The app will show which model is in use and its license when you set up or download models (model download wizard planned for a future release). For full details see [RESEARCH/architecture.md](../RESEARCH/architecture.md) (ADR-004, ADR-005).
 
 ---
 

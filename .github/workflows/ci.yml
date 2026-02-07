@@ -29,6 +29,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Test
+        run: npm test
+
       - name: npm audit
         run: npm audit --audit-level=high
         # Policy: fail on high/critical. See docs/threat-model.md.
@@ -74,6 +77,13 @@ jobs:
         run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
         # QA-405: fail on any clippy warning (Consultant Priority 1).
 
+      - name: Coverage (tarpaulin)
+        run: |
+          cargo install cargo-tarpaulin --locked
+          cargo tarpaulin --manifest-path src-tauri/Cargo.toml --out Xml --output-dir coverage/
+        continue-on-error: true
+        # BACK-501: Advisory baseline; threshold enforcement in Sprint 1.6.
+
       - name: cargo audit
         run: |
           cargo install cargo-audit --locked
@@ -94,11 +104,11 @@ jobs:
           cache-dependency-path: python/requirements.txt
 
       - name: Install dependencies
-        run: python -m pip install --upgrade pip && python -m pip install pytest Pillow
+        run: python -m pip install --upgrade pip && python -m pip install pytest pytest-cov Pillow
         # Stub mode only: no torch/model download (SP3D_USE_STUB=1).
 
-      - name: Run pytest (stub mode, no model download)
+      - name: Run pytest (stub mode, with coverage)
         env:
           SP3D_USE_STUB: "1"
           PYTHONPATH: python/python
-        run: pytest python/ -v
+        run: pytest python/ -v --cov=depth_estimator --cov-report=term --cov-report=xml:coverage/python-coverage.xml
