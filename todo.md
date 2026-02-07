@@ -1,7 +1,7 @@
 # SimplePicture3D - Development TODO & Sprint Planning
 
-**Version:** 1.1  
-**Last Updated:** February 6, 2026  
+**Version:** 1.2  
+**Last Updated:** February 7, 2026  
 **Repository:** https://github.com/[org]/SimplePicture3D  
 **Project Board:** GitHub Projects (Kanban)
 
@@ -448,44 +448,96 @@ The Role Assignment table enables agents to claim roles:
 
 **Sprint Goal:** Convert depth map to 3D point cloud/mesh in Rust.
 
+**Sprint Status:** Implementation complete; QA pending. See `Consultant_Recommendations_Report_7Feb2026.md` §3.1.
+
 #### Tasks
 
 **System Architect:**
-- [ ] **ARCH-201:** Design mesh generation algorithm (point cloud vs triangulated)
-- [ ] **ARCH-202:** Define vertex format (position, normal, color?)
-- [ ] **ARCH-203:** Document mesh topology requirements for laser engraving
-- [ ] **ARCH-204:** Review memory efficiency for large meshes
+- [x] **ARCH-201:** Design mesh generation algorithm (point cloud vs triangulated) — ADR-006 in RESEARCH/architecture.md
+- [x] **ARCH-202:** Define vertex format (position, normal, color?) — MeshData with positions + normals
+- [x] **ARCH-203:** Document mesh topology requirements for laser engraving — 2.5D, no overhangs
+- [x] **ARCH-204:** Review memory efficiency for large meshes — single buffer, 4K ~200MB estimated
 
 **Senior Engineer:**
-- [ ] **BACK-501:** Implement point cloud generation from depth map
-- [ ] **BACK-502:** Uniform grid sampling strategy
-- [ ] **BACK-503:** Scale vertices to millimeter dimensions (2-10mm Z-axis)
-- [ ] **BACK-504:** Optional: Delaunay triangulation for mesh connectivity
-- [ ] **BACK-505:** Calculate vertex normals (for shading)
-- [ ] **BACK-506:** Optimize memory usage (streaming, chunking)
+- [x] **BACK-501:** Implement point cloud generation from depth map — `mesh_generator.rs` (406 lines)
+- [x] **BACK-502:** Uniform grid sampling strategy — `MeshParams.step_x/step_y`
+- [x] **BACK-503:** Scale vertices to millimeter dimensions (2-10mm Z-axis) — `depth_to_z_mm()`
+- [x] **BACK-504:** Optional: Delaunay triangulation for mesh connectivity — Deferred per ADR-006; point cloud for MVP
+- [x] **BACK-505:** Calculate vertex normals (for shading) — `normal_from_gradient()` finite difference
+- [x] **BACK-506:** Optimize memory usage (streaming, chunking) — single-pass build, `MAX_DIMENSION=8192`
 
 **Junior Engineer #2:**
-- [ ] **JR2-501:** Write unit tests for point cloud generation
-- [ ] **JR2-502:** Test edge cases (empty depth map, single pixel)
-- [ ] **JR2-503:** Benchmark mesh generation (1K, 4K, 8K images)
-- [ ] **JR2-504:** Profile memory usage with valgrind/Instruments
+- [x] **JR2-501:** Write unit tests for point cloud generation — 5×5 bounds, constant depth, gradient tests
+- [x] **JR2-502:** Test edge cases (empty depth map, single pixel) — empty rejected, single row/column valid
+- [x] **JR2-503:** Benchmark mesh generation (1K, 4K, 8K images) — 1K ~9.3ms, 4K ~73ms (well under 15s target)
+- [x] **JR2-504:** Profile memory usage with valgrind/Instruments — Procedure documented; actual measurement TBD
 
 **Quality Engineer:**
-- [ ] **QA-501:** Manual test: generate mesh, verify vertex count
-- [ ] **QA-502:** Validate mesh dimensions match depth range
-- [ ] **QA-503:** Performance test: mesh generation time (target <15s for 4K)
-- [ ] **QA-504:** Automated test: mesh statistics (bounds, normals)
+- [ ] **QA-501:** Manual test: generate mesh, verify vertex count — *Not started (Consultant Priority 1)*
+- [ ] **QA-502:** Validate mesh dimensions match depth range — *Not started (Consultant Priority 1)*
+- [ ] **QA-503:** Performance test: mesh generation time (target <15s for 4K) — *Not started (Consultant Priority 1)*
+- [ ] **QA-504:** Automated test: mesh statistics (bounds, normals) — *Not started (Consultant Priority 1)*
 
 **Security Engineer:**
-- [ ] **SEC-301:** Review for integer overflow in vertex calculations
-- [ ] **SEC-302:** Validate depth map inputs before processing
+- [x] **SEC-301:** Review for integer overflow in vertex calculations — `checked_mul` verified; SECURITY_SIGNOFF.md
+- [x] **SEC-302:** Validate depth map inputs before processing — `validate_depth_input()`, MAX_DIMENSION enforced
 
 #### Exit Criteria
 - ✅ Mesh generation produces valid point cloud
 - ✅ Vertex positions in correct units (mm)
-- ✅ Performance meets targets (<15s for 4K)
-- ✅ Memory usage within budget (<2GB for 4K)
-- ✅ Algorithm documented in architecture.md
+- ✅ Performance meets targets (<15s for 4K) — benchmark: 73ms for 4K
+- ⬜ Memory usage within budget (<2GB for 4K) — estimated ~200MB, empirical measurement pending (JR2-504)
+- ✅ Algorithm documented in architecture.md — ADR-006, ARCH-201–204
+- ⬜ QA tasks QA-501–504 not yet executed — must complete before Sprint 1.7
+
+---
+
+### Sprint 1.6A: QA Completion & Pre-1.7 Hardening (1 week)
+
+**Sprint Goal:** Complete Sprint 1.6 QA, enforce coverage thresholds, improve lib.rs testability, run IPC benchmark, and decide on binary transfer — gating work before 3D preview and export sprints.
+
+**Rationale:** Consultant Recommendations Report (7 Feb 2026) identifies Sprint 1.6 QA as Priority 1 blocker. Additionally, IPC performance and triangulation decisions are critical-path dependencies for Sprints 1.7 and 1.8 respectively.
+
+#### Tasks
+
+**Quality Engineer (Sprint 1.6 QA — Consultant Priority 1):**
+- [ ] **QA-501:** Manual test — generate mesh, verify vertex count
+- [ ] **QA-502:** Validate mesh dimensions match configured depth range (Z bounds = 2–10mm)
+- [ ] **QA-503:** Performance test — mesh generation time on real hardware (target <15s for 4K)
+- [ ] **QA-504:** Automated test — mesh statistics (bounds, normals unit length); integrate in CI
+- [ ] **QA-505:** Update Sprint 1.6 `VERIFICATION_CHECKLIST.md` and sign off
+
+**Senior Engineer (lib.rs Testability — Consultant Priority 2):**
+- [ ] **BACK-507:** Extract business logic from Tauri command handlers (`lib.rs`) into standalone testable functions
+- [ ] **BACK-508:** Add unit tests for extracted functions — target lib.rs coverage from 6% to >50%
+
+**Quality Engineer (Coverage Enforcement — Consultant Priority 3):**
+- [ ] **QA-506:** Switch `cargo tarpaulin` to `--fail-under 65` (current baseline 63.6%)
+- [ ] **QA-507:** Remove `continue-on-error: true` from coverage CI steps
+- [ ] **QA-508:** Document plan to increment threshold by 5% each sprint until 70%
+
+**System Architect (Triangulation Planning — Consultant Priority 4):**
+- [ ] **ARCH-205:** Document triangulation requirement as Sprint 1.8 dependency
+- [ ] **ARCH-206:** Decide: triangulation in `mesh_generator.rs` vs dedicated export module
+- [ ] **ARCH-207:** Spike: evaluate `delaunator` crate or grid-based triangulation for uniform grids
+
+**Senior Engineer / Junior Engineer #2 (IPC Binary Transfer — Consultant Priority 5):**
+- [ ] **BACK-509:** Run IPC serialization benchmark and document results (640×480, 1080p, 4K)
+- [ ] **BACK-510:** If latency >100ms for 1080p: implement binary transfer via temp file
+- [ ] **ARCH-208:** Document decision as ADR-007 (IPC transfer mechanism for mesh data)
+
+**Junior Engineer #2 (Memory Profile — Consultant Priority 6):**
+- [ ] **JR2-505:** Run mesh generation memory profile on development hardware (fill in JR2-504 results)
+- [ ] **JR2-506:** Update Sprint 1.6 GOTCHAS.md with empirical peak memory measurement
+
+#### Exit Criteria
+- ✅ Sprint 1.6 QA-501–504 executed and signed off
+- ✅ Sprint 1.6 `VERIFICATION_CHECKLIST.md` complete
+- ✅ lib.rs coverage improved (>50%)
+- ✅ Coverage thresholds enforced in CI (`--fail-under 65`)
+- ✅ Triangulation strategy documented for Sprint 1.8
+- ✅ IPC benchmark results documented; binary transfer decision made (ADR-007)
+- ✅ Memory profile completed with empirical measurements
 
 ---
 
@@ -493,15 +545,20 @@ The Role Assignment table enables agents to claim roles:
 
 **Sprint Goal:** Display generated mesh in interactive 3D viewport.
 
+**Dependencies (from Sprint 1.6A / Consultant Report):**
+- **IPC Transfer:** ADR-007 decision (Sprint 1.6A BACK-509/510) determines how mesh data flows to frontend. If latency >100ms for 1080p, binary transfer via temp file needed before this sprint.
+- **Mesh Format:** Point cloud only (ADR-006). Use `THREE.Points` or `THREE.BufferGeometry` with positions + normals from `get_mesh_data`. Triangulated faces not available until Sprint 1.8.
+- **`get_mesh_data` command:** Already implemented in Sprint 1.6 (BACK-501). BACK-601 below updates to use ADR-007 transfer mechanism if binary.
+
 #### Tasks
 
 **UI Specialist:**
 - [ ] **UI-501:** Integrate Three.js into Svelte component
 - [ ] **UI-502:** Create 3D scene with camera, lights, grid
-- [ ] **UI-503:** Load mesh data from Rust (via Tauri IPC)
-- [ ] **UI-504:** Render point cloud or mesh (BufferGeometry)
+- [ ] **UI-503:** Load mesh data from Rust (via Tauri IPC — per ADR-007 transfer mechanism)
+- [ ] **UI-504:** Render point cloud (BufferGeometry with `THREE.Points`); mesh rendering deferred until triangulation (Sprint 1.8)
 - [ ] **UI-505:** Implement orbit controls (rotate, zoom, pan)
-- [ ] **UI-506:** Toggle wireframe/solid/point rendering modes
+- [ ] **UI-506:** Toggle wireframe/solid/point rendering modes (wireframe/solid require triangulated mesh — placeholder until 1.8)
 
 **Junior Engineer #1:**
 - [ ] **JR1-501:** Add camera presets (top, front, side views)
@@ -511,8 +568,8 @@ The Role Assignment table enables agents to claim roles:
 - [ ] **JR1-505:** Add lighting controls (ambient, directional)
 
 **Senior Engineer:**
-- [ ] **BACK-601:** Implement `get_mesh_data` Tauri command
-- [ ] **BACK-602:** Serialize vertex array for frontend (JSON or binary?)
+- [ ] **BACK-601:** Update `get_mesh_data` Tauri command for ADR-007 transfer mechanism (already exists from Sprint 1.6; adapt if binary transfer chosen)
+- [ ] **BACK-602:** Serialize vertex array for frontend (JSON or binary — per ADR-007)
 - [ ] **BACK-603:** LOD (Level of Detail) for large meshes (optional)
 
 **Quality Engineer:**
@@ -534,10 +591,20 @@ The Role Assignment table enables agents to claim roles:
 
 **Sprint Goal:** User can export generated mesh as binary STL file.
 
+**Critical Dependency — Triangulation (from Consultant Report §3.5 / Sprint 1.6A ARCH-205–207):**
+- **STL format requires triangulated faces.** The current mesh generator outputs a point cloud (positions + normals). A point cloud cannot be directly written to STL.
+- **OBJ format can represent points** but laser engraving software typically expects mesh faces.
+- This sprint must implement triangulation (grid-based or Delaunay) either in `mesh_generator.rs` or a dedicated export module, per the decision from Sprint 1.6A ARCH-206.
+- **Spike results from ARCH-207** (`delaunator` vs grid-based triangulation) should be available before this sprint begins.
+
 #### Tasks
 
+**System Architect:**
+- [ ] **ARCH-301:** Finalize triangulation implementation approach (from ARCH-206/207 spike)
+
 **Senior Engineer:**
-- [ ] **BACK-701:** Implement STL binary format writer (stl_io crate)
+- [ ] **BACK-700:** Implement triangulation for point cloud → triangle mesh (grid-based for uniform grid; add to `mesh_generator.rs` or new module per ARCH-206)
+- [ ] **BACK-701:** Implement STL binary format writer (stl_io crate) — consumes triangulated mesh
 - [ ] **BACK-702:** Validate mesh before export (manifold check, normals)
 - [ ] **BACK-703:** Implement `export_stl` Tauri command
 - [ ] **BACK-704:** File dialog integration (save location)
@@ -1460,33 +1527,46 @@ The Role Assignment table enables agents to claim roles:
 
 *Software Quality Lead review (2026-02-06): Current state and requirements below.*
 
-### Current state (as of 2026-02-07)
+### Current state (as of 2026-02-07, post Sprint 1.6)
 
 | Layer | Implemented | Gaps |
 |-------|-------------|------|
-| **Rust** | 44 unit/integration tests passed, 5 `#[ignore]` (Python/env-dependent). `cargo test` and `cargo clippy` in CI. | No coverage (tarpaulin) yet; Python-dependent tests not run in CI. Tarpaulin baseline in Sprint 1.5A. |
-| **Frontend** | `npm run build` in CI; test fixtures under `tests/fixtures/`. | Vitest and `npm test` being added in Sprint 1.5A; no component or E2E tests yet. |
-| **Python** | 19 pytest tests (stub mode); run in CI. `depth_estimator` used by Rust bridge. | pytest-cov baseline in Sprint 1.5A. |
-| **Integration** | Rust tests for load_image, generate_depth_map (path validation, normalization); roundtrip test exists but ignored without Python. | Integration tests requiring Python not automated in CI. |
+| **Rust** | **59 passing + 5 ignored** (64 total). `cargo test`, `cargo clippy`, and `cargo tarpaulin` in CI. Coverage: **63.6%** (199/313 lines). | lib.rs at only 6.0% (Tauri handlers need extraction — Sprint 1.6A BACK-507/508). Coverage thresholds advisory only (`continue-on-error: true`). 5 ignored tests require Python. |
+| **Frontend** | **34 Vitest tests** passing in 1.4s. `@testing-library/svelte`, 5 test files covering components + utilities. `npm test` in CI. | Estimated ~40–50% coverage. No formal coverage measurement yet. |
+| **Python** | 19 pytest tests (stub mode); `pytest --cov` in CI. | pytest-cov advisory only. Coverage ~70–80% estimated. |
+| **Integration** | Rust tests for load_image, generate_depth_map, get_mesh_data (path validation, normalization, mesh generation); roundtrip test exists but ignored without Python. | Integration tests requiring Python not automated in CI. |
 | **E2E** | Manual test plans and reports per sprint. | No Playwright (or similar) E2E automation. |
 
+**Quantitative summary (Consultant Report 7 Feb 2026):**
+
+| Stack | Source Lines | Tests | Measured Coverage | Target | Status |
+|-------|-------------|-------|-------------------|--------|--------|
+| Rust backend | ~2,014 | 64 (59+5 ignored) | 63.6% (tarpaulin) | >70% | Approaching target |
+| Python | ~224 | 19 | ~70–80% (est.) | >70% | Meets target |
+| Frontend | ~1,078 | 34 | ~40–50% (est.) | >60% | Improving |
+| **Total** | **~3,316** | **117** | — | — | Up from 65 tests at Sprint 1.5 |
+
 **Local test commands (verified):**
-- Rust: `cargo test --manifest-path src-tauri/Cargo.toml` — 44 passed, 5 ignored.
-- Frontend: `npm run build` — build only; `npm test` (Vitest) added in Sprint 1.5A.
+- Rust: `cargo test --manifest-path src-tauri/Cargo.toml` — 59 passed, 5 ignored.
+- Frontend: `npm test` — 34 tests via Vitest; `npm run test:watch` for watch mode.
 - Lint: `cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings` — in CI.
 - Python: `SP3D_USE_STUB=1 PYTHONPATH=python/python python -m pytest python/ -v` (Windows: set env in PowerShell). — 19 tests, in CI.
 - Audits: `cargo audit`, `npm audit --audit-level=high` — both in CI.
+- Coverage (Rust): `cargo tarpaulin --manifest-path src-tauri/Cargo.toml --out xml` — in CI (advisory).
+- Coverage (Python): `pytest --cov=depth_estimator --cov-report=xml` — in CI (advisory).
 
 ### Testing requirements (Quality Engineer backlog)
 
 These items are required to meet Phase 1 exit criteria and the Test Pyramid below. Assign to Quality Engineer and/or sprint tasking as needed.
 
-1. **CI — Lint:** ~~Add `cargo clippy` to CI~~ **Done** — clippy runs in backend job.
-2. **Rust — Coverage:** Introduce `cargo tarpaulin` (or equivalent) in CI; report coverage; target >70% for Phase 1, >80% for Phase 4 (core logic). *Baseline in Sprint 1.5A (BACK-501).*
-3. **Frontend — Test suite:** Add test runner (Vitest or Jest), `npm test` script, and at least smoke/unit tests for critical paths; target >60% coverage by Phase 4. *In progress: Sprint 1.5A (UI-502, JR1/JR2 tests).*
-4. **Python — Test suite:** ~~Add `pytest` in `python/`, run in CI~~ **Done** — 19 tests, stub mode, in CI. Coverage baseline in Sprint 1.5A (AI-501).
+1. ~~**CI — Lint:** Add `cargo clippy` to CI~~ **Done** — clippy runs in backend job.
+2. ~~**Rust — Coverage:** Introduce `cargo tarpaulin` in CI~~ **Done** — baseline 63.6%. Enforcement at `--fail-under 65` in Sprint 1.6A (QA-506/507). Target >70% for Phase 1, >80% for Phase 4.
+3. ~~**Frontend — Test suite:** Add Vitest, `npm test` script, smoke/unit tests~~ **Done** — 34 tests across 5 files, `@testing-library/svelte`. Target >60% coverage by Phase 4.
+4. ~~**Python — Test suite:** Add `pytest` in `python/`, run in CI~~ **Done** — 19 tests, stub mode, in CI. `pytest-cov` baseline in CI.
 5. **Integration — Python in CI:** Option A: Run Python-dependent Rust tests in CI when Python 3.10+ and deps are available. Option B: Keep them `#[ignore]` and document running `cargo test -- --ignored` locally or in a separate workflow.
 6. **E2E:** Defer to Sprint 1.11 (QA-1001); document Playwright (or Tauri testing) as requirement for Phase 1 exit.
+7. **lib.rs testability:** Extract business logic from Tauri command handlers into standalone functions (Sprint 1.6A BACK-507/508). Current lib.rs coverage: 6.0% (10/167 lines). Target: >50% after extraction.
+8. **Coverage enforcement:** Enable `--fail-under` thresholds and remove `continue-on-error` (Sprint 1.6A QA-506/507). Increment by 5% per sprint until 70% reached.
 
 ### Test Pyramid
 
@@ -1505,13 +1585,13 @@ These items are required to meet Phase 1 exit criteria and the Test Pyramid belo
 
 ### Test Coverage Goals
 
-| Component | Target Coverage | Tool | Status |
-|-----------|----------------|------|--------|
-| Rust Backend | >70% (Phase 1); >80% (Phase 4) | `cargo tarpaulin` | Baseline in Sprint 1.5A (BACK-501) |
-| Python AI | >70% | `pytest --cov` | 19 tests in CI; coverage baseline in Sprint 1.5A (AI-501) |
-| Frontend | >60% (Phase 4) | Vitest | Vitest + tests in Sprint 1.5A (UI-502, JR1/JR2) |
-| Integration | 100% critical paths | Rust tests + optional Python in CI | Partial (Rust-only in CI) |
-| E2E | Happy path + 5 edge cases | Playwright (Sprint 1.11) | Manual only |
+| Component | Target Coverage | Tool | Current | Status |
+|-----------|----------------|------|---------|--------|
+| Rust Backend | >70% (Phase 1); >80% (Phase 4) | `cargo tarpaulin` | **63.6%** (measured) | Approaching — lib.rs gap (6%) pulling down average. Sprint 1.6A targets >65%. |
+| Python AI | >70% | `pytest --cov` | **~70–80%** (est.) | Meets target |
+| Frontend | >60% (Phase 4) | Vitest | **~40–50%** (est.) | 34 tests; utilities well-covered, components partial |
+| Integration | 100% critical paths | Rust tests + optional Python in CI | Partial | Rust-only in CI; Python-dependent tests `#[ignore]` |
+| E2E | Happy path + 5 edge cases | Playwright (Sprint 1.11) | None | Manual only |
 
 ### Testing Cadence
 
@@ -1562,19 +1642,25 @@ These items are required to meet Phase 1 exit criteria and the Test Pyramid belo
 
 ### GitHub Actions Workflows
 
-#### 1. **CI Workflow** (`ci.yml`) — current vs required
+#### 1. **CI Workflow** (`ci.yml`) — current state (post Sprint 1.6)
 
 **Trigger:** Every push, pull request to `main`, `develop`.
 
-**Current (as of 2026-02-06):**
-- **Frontend job:** `npm ci` → `npm run build` → `npm audit --audit-level=high`.
-- **Backend job:** Rust stable + clippy component; `cargo build` → `cargo test` → `cargo audit` (src-tauri). Single OS: ubuntu-latest.
+**Five-signal quality gate (as of 2026-02-07):**
+```
+Frontend:  npm ci → npm run build → npm test → npm audit
+Backend:   cargo build → cargo test → cargo clippy -D warnings → cargo tarpaulin → cargo audit
+Python:    python 3.10 → pip install → pytest --cov (stub mode)
+Coverage:  tarpaulin XML + pytest-cov XML (advisory — continue-on-error: true)
+```
 
-**Required additions (see Testing requirements above):**
+**Status of previous requirements:**
 - ~~**Lint:** Run `cargo clippy` in backend job~~ **Done.**
-- **Frontend test:** Once `npm test` exists (Sprint 1.5A), add step: `npm test`.
-- ~~**Python test:** Add pytest in CI~~ **Done** — pytest runs in CI (stub mode).
-- **Coverage:** Add coverage step (tarpaulin for Rust, pytest-cov for Python) in Sprint 1.5A; upload to Codecov or similar when targets are set.
+- ~~**Frontend test:** Add `npm test`~~ **Done** — 34 Vitest tests in CI.
+- ~~**Python test:** Add pytest in CI~~ **Done** — 19 pytest tests, stub mode, in CI.
+- ~~**Coverage:** Add coverage step~~ **Done** — tarpaulin (Rust 63.6%) and pytest-cov (Python) in CI.
+- **Coverage enforcement:** Not yet — both steps use `continue-on-error: true`. Sprint 1.6A QA-506/507 to enforce `--fail-under 65`.
+- **Codecov upload:** Not yet — reports generated locally only.
 - **Matrix (later):** Expand to OS matrix (Windows, macOS, Linux) when Phase 3 cross-platform is active.
 
 ---

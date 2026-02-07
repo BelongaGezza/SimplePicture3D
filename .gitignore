@@ -31,3 +31,11 @@ logs/
 # Environment
 .env
 .env.local
+
+# Local / machine-specific (do not sync across devices)
+.claude/settings.local.json
+.cursor/settings.local.json
+
+# Coverage and reports (generated locally)
+src-tauri/coverage/
+coverage/

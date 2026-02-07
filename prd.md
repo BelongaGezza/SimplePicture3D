@@ -1,8 +1,8 @@
 # SimplePicture3D - Product Requirements Document
 
-**Version:** 1.0  
-**Date:** January 31, 2026  
-**Status:** Draft for Development  
+**Version:** 1.1  
+**Date:** February 7, 2026  
+**Status:** In Development (Phase 1 MVP — ~60–65% complete)  
 **License:** MIT  
 
 ---
@@ -48,7 +48,7 @@ SimplePicture3D is an open-source desktop application that converts 2D images in
 
 ### 2.4 Timeline Planning Note
 
-*Added 2026-02-06 per External Consultant Recommendations Report.*
+*Added 2026-02-06 per External Consultant Recommendations Report. Updated 2026-02-07 per third review.*
 
 **Original estimate:** 19-25 sprints (38-50 weeks, ~9-12 months)
 
@@ -60,12 +60,19 @@ SimplePicture3D is an open-source desktop application that converts 2D images in
 - Integration testing and bug fixes: +2 sprints
 - Buffer for unknowns: +2 sprints
 
+**Current progress (as of 2026-02-07, post Sprint 1.6):**
+- Phase 1 MVP approximately **60–65% complete** (consultant assessment)
+- Sprints 1.1–1.6 delivered: project setup, image loading, Python bridge, depth map generation/preview, manual depth adjustments, mesh generation algorithm
+- Sprint 1.5A delivered hardening pass (frontend tests, coverage, security fixes)
+- **6 sprints remain** before Phase 1 exit: Sprint 1.6A (QA/hardening, 1 week), 1.7 (3D preview), 1.8 (STL/OBJ export), 1.9 (settings), 1.10 (model wizard), 1.11 (E2E/polish)
+- Sprints 1.7 and 1.8 are technically most challenging (Three.js integration, triangulation for STL)
+
 **Alternative (scope reduction for faster MVP):**
 - Defer OBJ export to Phase 2
 - Defer model download wizard to Phase 2
 - Focus on STL export + manual depth mode for Phase 1
 
-See `todo.md` Phase Overview and `Consultant_Recommendations_Report_6Feb2026.md` for details.
+See `todo.md` Phase Overview, `Consultant_Recommendations_Report_7Feb2026.md`, and `Consultant_Recommendations_Report_6Feb2026.md` for details.
 
 ---
 
@@ -187,6 +194,11 @@ See `todo.md` Phase Overview and `Consultant_Recommendations_Report_6Feb2026.md`
 - LOD (Level of Detail) for large meshes
 - Orthographic and perspective camera modes
 
+**IPC Transfer Dependency (identified 2026-02-07, Consultant Report §1.5):**
+- Large mesh data (positions + normals) must flow from Rust to frontend. IPC serialization benchmark exists but no binary transfer mechanism implemented.
+- Sprint 1.6A (BACK-509/510) to benchmark and decide: JSON IPC vs binary transfer via temp file. Decision recorded as ADR-007.
+- If JSON latency >100ms for 1080p mesh data, binary transfer required before Sprint 1.7.
+
 ---
 
 #### F1.5 Mesh Generation
@@ -204,6 +216,15 @@ See `todo.md` Phase Overview and `Consultant_Recommendations_Report_6Feb2026.md`
 - Sampling strategies: uniform grid, adaptive density
 - Optional Delaunay triangulation for mesh connectivity
 - Memory-efficient streaming for large images
+
+**Implementation Status (Sprint 1.6, 2026-02-07):**
+- Point cloud generation implemented in `mesh_generator.rs` (406 lines) — ADR-006
+- Uniform grid sampling with configurable step size (`MeshParams.step_x/step_y`)
+- Vertex normals computed via finite-difference depth gradient
+- Input validation with `checked_mul` for overflow safety, `MAX_DIMENSION=8192`
+- **Delaunay triangulation deferred** to Sprint 1.8 per ADR-006. Point cloud sufficient for Three.js preview (Sprint 1.7). STL/OBJ export (Sprint 1.8) requires triangulated faces — see F1.6 note.
+- 18 unit tests, security review (SEC-301/302) complete
+- Benchmark: 1K ~9.3ms, 4K ~73ms (well under targets)
 
 **Performance Targets:**
 - 1920×1080 image: <15 seconds
@@ -228,6 +249,13 @@ See `todo.md` Phase Overview and `Consultant_Recommendations_Report_6Feb2026.md`
 - Use `stl_io` crate for STL writing
 - Validate mesh integrity before export
 - Option to include metadata (generator, date, source image)
+
+**Triangulation Dependency (identified 2026-02-07, Consultant Report §3.5):**
+- STL format requires triangulated faces — a point cloud cannot be directly written to STL.
+- OBJ format can represent points, but laser engraving software typically expects mesh faces.
+- Sprint 1.8 must implement triangulation (grid-based or Delaunay) before export.
+- Decision on where triangulation lives (`mesh_generator.rs` vs export module) documented in Sprint 1.6A (ARCH-206).
+- Spike on `delaunator` crate vs grid-based triangulation in Sprint 1.6A (ARCH-207).
 
 ---
 
@@ -1105,7 +1133,7 @@ app to remove all associated data from your system.
 | Rust crates (most) | MIT/Apache-2.0 | ✅ Yes | Dual-licensed common |
 | PyTorch | BSD-3-Clause | ✅ Yes | - |
 | Depth-Anything-V2 | Apache-2.0 | ✅ Yes | Model weights CC-BY-NC-4.0 |
-| MiDaS | MIT | ✅ Yes | Model weights for non-commercial |
+| MiDaS | MIT | ✅ Yes | Model weights MIT-compatible for commercial use (ADR-004) |
 | Three.js | MIT | ✅ Yes | - |
 | Svelte | MIT | ✅ Yes | - |
 
@@ -1226,13 +1254,16 @@ These will NOT be pursued:
 
 ### 12.1 Technical Risks
 
-| Risk | Probability | Impact | Mitigation |
-|------|-------------|--------|------------|
-| Python-Rust IPC performance bottleneck | Medium | High | Benchmark early, consider ONNX runtime in Rust |
-| AI model size exceeds user tolerance | Low | Medium | Offer quantized models, progressive download |
-| Cross-platform GPU bugs | High | Medium | Fallback to CPU, extensive testing matrix |
-| Memory overflow on 8K images | Medium | High | Stream processing, downsampling warnings |
-| Tauri security vulnerability | Low | High | Subscribe to security advisories, rapid patching |
+| Risk | Probability | Impact | Mitigation | Status (2026-02-07) |
+|------|-------------|--------|------------|---------------------|
+| Python-Rust IPC performance bottleneck | Medium | High | Benchmark early, consider ONNX runtime in Rust | **Partially mitigated** — IPC benchmark exists; Sprint 1.6A BACK-509/510 to decide binary transfer (ADR-007) |
+| AI model size exceeds user tolerance | Low | Medium | Offer quantized models, progressive download | Unchanged |
+| Cross-platform GPU bugs | High | Medium | Fallback to CPU, extensive testing matrix | Unchanged |
+| Memory overflow on 8K images | Medium | High | Stream processing, downsampling warnings | **Reduced** — mesh gen uses single buffer; MAX_DIMENSION=8192 enforced; 4K ~200MB estimated |
+| Tauri security vulnerability | Low | High | Subscribe to security advisories, rapid patching | Unchanged |
+| Triangulation gap blocks STL export | Medium | High | Plan triangulation before Sprint 1.8 (Sprint 1.6A ARCH-205–207) | **New** — identified by consultant (§3.5) |
+| Python bundling complexity | High | Medium | ADR-003 documents decision (system Python for MVP), ONNX post-MVP | **Documented** — risk remains for end-user friction |
+| Coverage regression without enforcement | Medium | Low | Enable `--fail-under` on tarpaulin (Sprint 1.6A QA-506/507) | **New** — thresholds advisory only; enforcement in Sprint 1.6A |
 
 ### 12.2 User Adoption Risks
 
@@ -1292,6 +1323,7 @@ These will NOT be pursued:
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-01-31 | AI Assistant + User | Initial PRD creation |
+| 1.1 | 2026-02-07 | System Architect | Updated status to Phase 1 ~60–65% complete. Added timeline progress (Sprints 1.1–1.6 delivered). Updated F1.4 with IPC transfer dependency (ADR-007). Updated F1.5 with mesh generation implementation status and ADR-006 (triangulation deferred). Updated F1.6 with triangulation dependency for STL export. Referenced third Consultant Report (7 Feb 2026). Added §9.2 commercial use resolution for model licensing (ADR-004/005). |
 
 ---
 

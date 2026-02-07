@@ -23,7 +23,7 @@ SimplePicture3D has made **significant progress** since the second review. Sprin
 | Sprint Planning | **Good** | **Very Good** | Sprint 1.5 artefacts updated; Sprint 1.6 multi-role coordination effective |
 | Testing Infrastructure | **Improved** | **Good** | Frontend test suite created (34 tests); Vitest + @testing-library operational |
 | Risk Management | **Adequate** | **Good** | ADR-005 formalizes licensing decision; security sign-offs systematic |
-| CI/CD Pipeline | **Good** | **Very Good** | Tarpaulin + pytest-cov in pipeline; four-signal quality gate |
+| CI/CD Pipeline | **Good** | **Very Good** | Tarpaulin + pytest-cov in pipeline; five-signal quality gate (build + test all stacks) |
 
 ---
 
@@ -161,18 +161,18 @@ Combined with the Sprint 1.5 SEC-201 review in `docs/security-checklist.md`, the
 
 Sprint 1.6 task assignment demonstrates effective coordination across 6 roles (System Architect, Senior Engineer, Junior Engineer 2D, Security Specialist, Documentation Specialist, UI Designer). The handover log in the task assignment document provides clear traceability of who did what and when.
 
-### 2.6 CI Pipeline Now Four-Signal Quality Gate
+### 2.6 CI Pipeline Now Five-Signal Quality Gate
 
-The CI pipeline provides four independent quality signals:
+The CI pipeline provides five independent quality signals:
 
 ```
-Frontend:  npm ci → npm run build → npm audit
+Frontend:  npm ci → npm run build → npm test → npm audit
 Backend:   cargo build → cargo test → cargo clippy -D warnings → cargo tarpaulin → cargo audit
 Python:    python 3.10 → pip install → pytest --cov (stub mode)
 Coverage:  tarpaulin XML + pytest-cov XML (advisory)
 ```
 
-This is a meaningful improvement from the initial two-job pipeline.
+All three stacks now have both build and test steps in CI. This is a meaningful improvement from the initial two-job pipeline.
 
 ---
 
@@ -203,16 +203,11 @@ More importantly, the coverage report shows **lib.rs at only 6.0% coverage** (10
 
 **Recommendation:** Consider extracting business logic from Tauri command handlers into testable functions that don't require a Tauri context. This would improve both testability and coverage.
 
-### 3.3 Medium: Frontend Tests Not in CI
+### 3.3 ~~Medium: Frontend Tests Not in CI~~ — RESOLVED
 
-While the frontend test suite is comprehensive (34 tests, all passing), the CI pipeline runs `npm run build` but **does not run `npm test`**. This means frontend test regressions will not be caught by CI.
+~~While the frontend test suite is comprehensive (34 tests, all passing), the CI pipeline runs `npm run build` but does not run `npm test`.~~
 
-**Recommendation:** Add `npm test` to the frontend CI job. This is a one-line change with high value:
-
-```yaml
-- name: Test
-  run: npm test
-```
+**Status:** On closer inspection, `npm test` is already present in `ci.yml` lines 32–33 of the frontend job (added during Sprint 1.5A). This was incorrectly flagged as missing in the initial draft of this review. The CI pipeline correctly runs build, test, and audit for the frontend. **No action required.**
 
 ### 3.4 Medium: Coverage Thresholds Not Enforced
 
@@ -232,9 +227,9 @@ This is not a bug — the deferral is deliberate — but the export sprint (1.8)
 
 **Recommendation:** Add a note to Sprint 1.7/1.8 planning that triangulation must be implemented before STL export. Consider whether it belongs in mesh_generator.rs or in a dedicated export module.
 
-### 3.6 Medium: No `npm test` in `CLAUDE.md` Testing Commands
+### 3.6 ~~Medium: No `npm test` in CI~~ — RESOLVED
 
-The `CLAUDE.md` testing section has been updated with `npm test` (correct), but the CI pipeline doesn't yet run it (see 3.3). This creates a gap between documented practice and actual CI enforcement.
+~~The CI pipeline doesn't run `npm test`.~~ See 3.3 — this was incorrectly flagged. Both `CLAUDE.md` and CI are aligned: `npm test` runs in the frontend job.
 
 ### 3.7 Low: Memory Profile Not Completed
 
@@ -250,15 +245,11 @@ While the implementation tasks (ARCH, BACK, JR2, SEC) are all complete, the veri
 
 ## 4. Updated Recommendations
 
-### Priority 1: Add `npm test` to CI (Immediate)
+### ~~Priority 1: Add `npm test` to CI~~ — ALREADY DONE
 
-| Action | Owner | Effort |
-|--------|-------|--------|
-| Add `npm test` step to frontend CI job after `npm run build` | QA Engineer | 15 min |
+`npm test` is already in the CI pipeline (`ci.yml` lines 32–33). No action required.
 
-This is the highest-impact, lowest-effort change available. 34 tests exist but are not running in CI.
-
-### Priority 2: Complete Sprint 1.6 QA (Before Sprint 1.7)
+### Priority 1: Complete Sprint 1.6 QA (Before Sprint 1.7)
 
 | Action | Owner | Effort |
 |--------|-------|--------|
@@ -268,7 +259,7 @@ This is the highest-impact, lowest-effort change available. 34 tests exist but a
 | Implement QA-504: Automated mesh statistics test | Junior Engineer | 2 hours |
 | Update verification checklist and sign off Sprint 1.6 | QA Engineer | 15 min |
 
-### Priority 3: Improve lib.rs Testability
+### Priority 2: Improve lib.rs Testability
 
 | Action | Owner | Effort |
 |--------|-------|--------|
@@ -276,7 +267,7 @@ This is the highest-impact, lowest-effort change available. 34 tests exist but a
 | Add unit tests for extracted functions | Junior Engineer | Half day |
 | Target: lib.rs coverage from 6% to >50% | — | — |
 
-### Priority 4: Enforce Coverage Thresholds
+### Priority 3: Enforce Coverage Thresholds
 
 | Action | Owner | Effort |
 |--------|-------|--------|
@@ -284,7 +275,7 @@ This is the highest-impact, lowest-effort change available. 34 tests exist but a
 | Remove `continue-on-error: true` from coverage steps | QA Engineer | 5 min |
 | Increment threshold by 5% each sprint until 70% reached | QA Engineer | Ongoing |
 
-### Priority 5: Plan Triangulation for Export
+### Priority 4: Plan Triangulation for Export
 
 | Action | Owner | Effort |
 |--------|-------|--------|
@@ -292,7 +283,7 @@ This is the highest-impact, lowest-effort change available. 34 tests exist but a
 | Decide: triangulation in mesh_generator.rs vs export module | System Architect | 1 hour |
 | Spike: evaluate `delaunator` or grid-based triangulation for uniform grids | Senior Engineer | Half day |
 
-### Priority 6: IPC Binary Transfer (Before Sprint 1.7)
+### Priority 5: IPC Binary Transfer (Before Sprint 1.7)
 
 | Action | Owner | Effort |
 |--------|-------|--------|
@@ -300,7 +291,7 @@ This is the highest-impact, lowest-effort change available. 34 tests exist but a
 | If latency >100ms for 1080p: implement binary transfer via temp file | Senior Engineer | 1 day |
 | Document decision in GOTCHAS.md or as ADR-007 | System Architect | 30 min |
 
-### Priority 7: Complete Memory Profile
+### Priority 6: Complete Memory Profile
 
 | Action | Owner | Effort |
 |--------|-------|--------|
@@ -340,7 +331,7 @@ This is the highest-impact, lowest-effort change available. 34 tests exist but a
 
 | Risk | Probability | Impact | Mitigation |
 |------|-------------|--------|------------|
-| Frontend tests not in CI → silent regressions | **High** | **Medium** | Add `npm test` to CI (Priority 1) |
+| ~~Frontend tests not in CI~~ | ~~High~~ | ~~Medium~~ | **Resolved** — `npm test` already in CI (lines 32–33) |
 | Triangulation gap blocks STL export | **Medium** | **High** | Plan triangulation before Sprint 1.8 (Priority 5) |
 | Coverage regresses without threshold enforcement | **Medium** | **Low** | Enable `--fail-under` on tarpaulin (Priority 4) |
 | Sprint 1.6 QA incomplete → mesh bugs discovered late | **Medium** | **Medium** | Execute QA-501–504 before Sprint 1.7 (Priority 2) |
@@ -415,11 +406,11 @@ Remaining: Python distribution implementation (P7 — deferred by design to post
 
 | # | Action | Effort | Impact |
 |---|--------|--------|--------|
-| 1 | Add `npm test` to CI pipeline | 15 min | Prevents silent frontend regressions; 34 tests running nowhere |
-| 2 | Complete Sprint 1.6 QA (QA-501–504) and sign off verification | Half day | Validates mesh pipeline end-to-end before building on it |
-| 3 | Plan triangulation strategy for STL export (Sprint 1.8 dependency) | 2 hours | Prevents architectural surprise when export sprint begins |
-| 4 | Enforce coverage thresholds (`--fail-under 65` baseline) | 15 min | Prevents coverage regression as codebase grows |
-| 5 | Run IPC serialization benchmark and decide on binary transfer | 2 hours | Critical path for Sprint 1.7 (Three.js preview with large mesh data) |
+| 1 | Complete Sprint 1.6 QA (QA-501–504) and sign off verification | Half day | Validates mesh pipeline end-to-end before building on it |
+| 2 | Plan triangulation strategy for STL export (Sprint 1.8 dependency) | 2 hours | Prevents architectural surprise when export sprint begins |
+| 3 | Enforce coverage thresholds (`--fail-under 65` baseline) | 15 min | Prevents coverage regression as codebase grows |
+| 4 | Run IPC serialization benchmark and decide on binary transfer | 2 hours | Critical path for Sprint 1.7 (Three.js preview with large mesh data) |
+| 5 | Improve lib.rs testability (extract logic from Tauri handlers) | 1 day | Raises Rust coverage from 63.6% toward 70% target |
 
 ---
 

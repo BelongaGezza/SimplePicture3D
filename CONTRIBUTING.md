@@ -103,6 +103,20 @@ To verify everything works: from the project root run `cargo build` in `src-taur
 
 **Rust logging:** The backend uses `env_logger`. Set `RUST_LOG` (e.g. `RUST_LOG=debug` or `RUST_LOG=simplepicture3d=info`) when running the app; see README.
 
+### Multi-device sync (Windows, macOS, Linux)
+
+When using GitHub as the central repo across several machines:
+
+- **Synced via Git:** Source code, config templates, docs, `RESEARCH/`, `SPRINTS/`, `package.json`, `requirements.txt`, `.cursor/rules/`, `.agents/`, and shared editor config (e.g. `.vscode/settings.json`). After `git pull`, run `npm install` and (if using Python) recreate or update the venv so each device has the same dependencies.
+- **Not synced (local only):** Machine-specific and generated files are in [.gitignore](.gitignore), including:
+  - `.claude/settings.local.json`, `.cursor/settings.local.json` — per-machine IDE/editor settings
+  - `src-tauri/coverage/`, `python/venv/`, `node_modules/`, `src-tauri/target/` — generated on each device
+  - `.env`, `.env.local` — secrets and local env
+- **Recommended workflow:** On each device, `git pull` to get latest, then run the same build/install steps (e.g. `npm install`, `cargo build`, venv) so behaviour is consistent. Commit and push only shared, cross-platform assets; keep local overrides out of the repo.
+
+If you previously committed local settings (e.g. `.claude/settings.local.json`), stop tracking them once so future syncs don’t overwrite other devices:  
+`git rm --cached .claude/settings.local.json` (then commit the change).
+
 ---
 
 ## How to Contribute
