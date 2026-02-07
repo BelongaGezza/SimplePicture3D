@@ -1248,6 +1248,11 @@ These will NOT be pursued:
 - ❌ Marketplace for selling models (focus on creation tool)
 - ❌ Social features (sharing/comments/likes)
 
+### 11.3 Far-Future Roadmap (Post–v1.0)
+The following are **not** scheduled for Phases 1–4 but are candidates for a future major or maintenance release:
+
+- **Svelte 5 migration** — Upgrade the frontend from Svelte 4 to Svelte 5 (runes, new component API). Requires updating all `.svelte` components, `@sveltejs/vite-plugin-svelte` to ^4.x, and `@testing-library/svelte` to v5. See ADR-001 (Svelte 4 chosen for MVP) and RESEARCH/frontend.md for version alignment. Evaluate when Svelte 4 approaches end-of-life or when runes/improved DX justify the migration cost.
+
 ---
 
 ## 12. Risks & Mitigation

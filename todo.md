@@ -15,10 +15,11 @@
 5. [Phase 2: Enhanced UX](#phase-2-enhanced-ux)
 6. [Phase 3: Cross-Platform Parity](#phase-3-cross-platform-parity)
 7. [Phase 4: Production Polish](#phase-4-production-polish)
-8. [Testing Strategy](#testing-strategy)
-9. [CI/CD Pipeline](#cicd-pipeline)
-10. [Release Checklist](#release-checklist)
-11. [Dependencies & Risks](#dependencies--risks)
+8. [Beyond Phase 4: Far-Future Roadmap](#beyond-phase-4-far-future-roadmap)
+9. [Testing Strategy](#testing-strategy)
+10. [CI/CD Pipeline](#cicd-pipeline)
+11. [Release Checklist](#release-checklist)
+12. [Dependencies & Risks](#dependencies--risks)
 
 ---
 
@@ -1520,6 +1521,16 @@ The Role Assignment table enables agents to claim roles:
    - Maker forums
 4. Submit to package managers (Homebrew, Chocolatey, AUR)
 5. Monitor community feedback, triage bug reports
+
+---
+
+## Beyond Phase 4: Far-Future Roadmap
+
+Items below are **not** scheduled for Phases 1–4. They are candidates for a future major or maintenance release (e.g. v1.1+), to be prioritized when v1.0 is stable and maintainer capacity allows.
+
+| Item | Description |
+|------|-------------|
+| **Svelte 5 migration** | Upgrade frontend from Svelte 4 to Svelte 5: runes, new component API, `@sveltejs/vite-plugin-svelte` ^4.x, `@testing-library/svelte` v5. See ADR-001, RESEARCH/frontend.md, prd.md §11.3. Evaluate when Svelte 4 approaches EOL or when runes/DX justify the migration. |
 
 ---
 

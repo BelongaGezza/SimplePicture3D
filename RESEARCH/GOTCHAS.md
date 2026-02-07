@@ -21,6 +21,12 @@ When you hit a debugging gotcha:
 
 ## Entries
 
+### 2026-02-07 — Svelte 4 / @testing-library/svelte — Build fails with "Component not assignable to Constructor<SvelteComponent>"
+**Symptom:** Frontend CI fails at Build step (`tsc && vite build`) with 10 TypeScript errors in `DepthControls.test.ts` and `ImageImport.test.ts`: "Argument of type 'typeof Component' is not assignable to parameter of type 'ComponentImport<SvelteComponent<any, any, any>>'" (or `Constructor<SvelteComponent<...>>`).  
+**Causes:** (1) **Technologies have moved forward:** @testing-library/svelte **v5** is designed for **Svelte 5** (new component signature); this codebase uses **Svelte 4** (ADR-001), so types no longer match. (2) Optionally: project's `src/vite-env.d.ts` declared `*.svelte` with a minimal `Component` class that did not extend Svelte's `SvelteComponent`, contributing to type-check failure.  
+**Fix (Option A — recommended):** Pin `@testing-library/svelte` to **^4.2.0** in package.json (last major compatible with Svelte 4). If needed, align `src/vite-env.d.ts` with Svelte's types (e.g. `ComponentType` from `svelte`). One-line dependency change; no Svelte 5 migration.  
+**Fix (Option B):** Upgrade to Svelte 5 (`svelte` ^5.0.0, `@sveltejs/vite-plugin-svelte` ^4.0.0) and keep @testing-library/svelte v5; larger migration (runes, component API). See RESEARCH/frontend.md for version alignment.
+
 ### 2026-02-06 — Rust — Depth adjustment benchmark (1920×1080) (JR2-403)
 **Symptom:** Need to confirm real-time preview is feasible for 1080p depth.  
 **Cause:** prd §7.1 / UI-404 target: preview update within 100 ms.  

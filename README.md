@@ -388,6 +388,8 @@ Special thanks to early contributors and beta testers (you'll be listed here!).
 - [ ] Auto-update mechanism
 - [ ] Accessibility (WCAG AA)
 
+### Far-future (post–v1.0)
+- [ ] **Svelte 5 migration** — Upgrade frontend to Svelte 5 (runes, new component API) when Svelte 4 approaches EOL or when the migration cost is justified. See prd.md §11.3 and todo.md “Beyond Phase 4”.
 See [TODO.md](todo.md) for the complete sprint-by-sprint plan.
 
 ---

@@ -6,7 +6,7 @@
 
 | Technology | URL | Last Checked |
 |------------|-----|--------------|
-| Svelte | https://svelte.dev/docs | 2026-02-01 |
+| Svelte | https://svelte.dev/docs | 2026-02-07 |
 | React | https://react.dev/ | 2026-02-01 |
 | TypeScript | https://www.typescriptlang.org/docs/ | 2026-02-01 |
 | TailwindCSS | https://tailwindcss.com/docs | 2026-02-01 |
@@ -28,6 +28,16 @@
 
 - Use **TypeScript** for frontend (per PRD). Enable **strict** mode in `tsconfig.json`.
 - Bundler: **Vite** (recommended for Tauri v2); Tauri dev server points at Vite dev server (e.g. `http://localhost:5173`).
+
+---
+
+## Svelte 4 vs Svelte 5 and testing library compatibility
+
+- **Svelte 5** is the current major; the component API changed (runes, `SvelteComponent` with `$$prop_def`, `$$events_def`, `$$slot_def`, etc.). **Svelte 4** remains supported but is the previous major.
+- **@testing-library/svelte** v5 was designed for Svelte 5. Its `render()` expects the Svelte 5 component type (`ComponentImport<SvelteComponent<...>>`). Using it in a Svelte 4 project causes TypeScript errors: `Argument of type 'typeof Component' is not assignable to parameter of type 'ComponentImport<SvelteComponent<any, any, any>>'` when running `tsc` (e.g. in CI at the Build step).
+- **For Svelte 4 projects:** Pin `@testing-library/svelte` to **^4.2.0** (last major with type definitions compatible with Svelte 4). Do not use @testing-library/svelte v5 unless migrating to Svelte 5.
+- **If upgrading to Svelte 5:** Use `svelte` ^5.0.0 and `@sveltejs/vite-plugin-svelte` ^4.0.0; then @testing-library/svelte v5 is appropriate. This is a larger migration (runes, component API, possibly Vitest/render return types). Prefer the pin to ^4.2.0 unless the project is explicitly moving to Svelte 5.
+- **Last checked:** 2026-02-07 (CI failure analysis; no package or code changes applied — under architect review).
 
 ---
 
