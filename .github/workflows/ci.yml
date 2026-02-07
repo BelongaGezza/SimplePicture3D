@@ -77,7 +77,7 @@ jobs:
       - name: cargo audit
         run: |
           cargo install cargo-audit --locked
-          cargo audit --manifest-path src-tauri/Cargo.toml
+          cd src-tauri && cargo audit
         # Policy: fail on any known vulnerability. See docs/threat-model.md.
 
   python:
