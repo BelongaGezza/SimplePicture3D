@@ -10,7 +10,7 @@
 
 SimplePicture3D is a Tauri desktop application with a Rust backend, Svelte/React frontend, and a Python subprocess for AI depth estimation. All processing runs locally (100% offline).
 
-**Architecture decisions** are recorded as ADRs in [RESEARCH/architecture.md](../RESEARCH/architecture.md): ADR-001 (Svelte), ADR-002 (Subprocess), ADR-003 (Python distribution), ADR-004 (Depth models).
+**Architecture decisions** are recorded as ADRs in [RESEARCH/architecture.md](../RESEARCH/architecture.md): ADR-001 (Svelte), ADR-002 (Subprocess), ADR-003 (Python distribution), ADR-004 (Depth models), ADR-006 (Mesh generation algorithm).
 
 ---
 
@@ -83,6 +83,31 @@ SimplePicture3D is a Tauri desktop application with a Rust backend, Svelte/React
 5. **Mesh generation** (Rust): Depth map → point cloud / triangulated mesh
 6. **Preview** (Frontend): Vertex data → Three.js BufferGeometry
 7. **Export** (Rust): STL/OBJ to user-selected path
+
+---
+
+## Mesh generation (algorithm) — Sprint 1.6
+
+*Documentation Specialist: algorithm summary for developers. Full design: [RESEARCH/architecture.md](../RESEARCH/architecture.md) § Mesh Generation (Sprint 1.6) and ADR-006.*
+
+**What it does:** The Rust backend converts the adjusted depth map (row-major, 0–1 normalized) into a **point cloud** with positions and normals in **millimeters**, suitable for Three.js preview and future STL/OBJ export.
+
+**Algorithm (ARCH-201, BACK-501–506):**
+
+- **Sampling:** Uniform grid over the depth map. Step size in X/Y (e.g. 1 = full resolution, 2 = every 2nd pixel). Vertex count = `ceil(width/step_x) × ceil(height/step_y)`.
+- **Coordinates:** X/Y from pixel indices scaled by a configurable factor (e.g. 1 pixel = 1 mm). Z from normalized depth mapped to a configurable range (e.g. 2–10 mm): `z_mm = min_mm + depth * (max_mm - min_mm)`.
+- **Normals:** Derived from depth gradient (finite difference in X/Y), unit length, for shading and STL.
+- **Output:** `MeshData` with `positions: Vec<[f32;3]>` and `normals: Vec<[f32;3]>` (no triangulation in MVP; see ADR-006).
+
+**Where to look:**
+
+| Topic | Location |
+|-------|----------|
+| Design (algorithm, vertex format, topology, memory) | [RESEARCH/architecture.md](../RESEARCH/architecture.md) § Mesh Generation, ADR-006 |
+| Implementation | `src-tauri/src/mesh_generator.rs` (`depth_to_point_cloud`, `MeshParams`, `MeshData`) |
+| IPC | Tauri command `get_mesh_data` (see Key Interfaces below) |
+
+**Constraints:** 2.5D only (single Z per (x,y)); no overhangs. Input validated (dimensions, length); max dimension 8192. Memory and scaling notes in RESEARCH/architecture.md § Memory Efficiency (ARCH-204).
 
 ---
 

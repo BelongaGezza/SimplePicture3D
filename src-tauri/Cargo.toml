@@ -41,3 +41,7 @@ harness = false
 [[bench]]
 name = "ipc_depth_map_serialization"
 harness = false
+
+[[bench]]
+name = "mesh_generation"
+harness = false

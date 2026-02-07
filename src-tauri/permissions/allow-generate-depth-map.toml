@@ -1,10 +1,11 @@
 [[permission]]
 identifier = "allow-generate-depth-map"
-description = "Enables depth map generation, retrieval, and adjustment commands."
+description = "Enables depth map generation, retrieval, adjustment, and mesh generation commands."
 commands.allow = [
     "generate_depth_map",
     "get_depth_map",
     "set_depth_adjustment_params",
     "get_depth_adjustment_params",
     "reset_depth_adjustments",
+    "get_mesh_data",
 ]

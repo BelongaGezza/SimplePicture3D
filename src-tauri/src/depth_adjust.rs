@@ -95,7 +95,6 @@ pub fn apply_adjustments(depth: &[f32], params: &DepthAdjustmentParams) -> Vec<f
 /// Map normalized depth [0, 1] to physical range [min_mm, max_mm] (BACK-404).
 /// Formula: z_mm = min_mm + v * (max_mm - min_mm). Used by mesh/export pipeline.
 #[inline]
-#[allow(dead_code)] // Used when generating mesh (future sprint)
 pub fn depth_to_mm(v: f32, min_mm: f32, max_mm: f32) -> f32 {
     min_mm + v * (max_mm - min_mm)
 }

@@ -1,12 +1,14 @@
 pub mod depth_adjust;
 mod file_io;
 mod image_loading;
+pub mod mesh_generator;
 mod python_bridge;
 
 use std::sync::Mutex;
 use tauri::State;
 
 use depth_adjust::{apply_adjustments, DepthAdjustmentParams};
+use mesh_generator::{depth_to_point_cloud, MeshData, MeshParams};
 
 // Error handling pattern (BACK-004): use anyhow inside commands for context chain;
 // Tauri IPC requires serializable errors, so we use Result<T, String> and map
@@ -144,6 +146,31 @@ fn reset_depth_adjustments(state: State<AppState>) -> Result<(), String> {
     Ok(())
 }
 
+/// Returns mesh data (point cloud with normals) from current adjusted depth map (BACK-501–505).
+/// Uses depth range from adjustment params; step 1 (full resolution). Returns None if no depth.
+#[tauri::command]
+fn get_mesh_data(state: State<AppState>) -> Result<Option<MeshData>, String> {
+    let guard = state.depth.lock().map_err(|e| e.to_string())?;
+    let original = match guard.as_ref() {
+        Some(d) => d.clone(),
+        None => return Ok(None),
+    };
+    drop(guard);
+    let params_guard = state.adjustment_params.lock().map_err(|e| e.to_string())?;
+    let adjusted = apply_adjustments(&original.depth, &params_guard);
+    let mesh_params = MeshParams {
+        step_x: 1,
+        step_y: 1,
+        depth_min_mm: params_guard.depth_min_mm,
+        depth_max_mm: params_guard.depth_max_mm,
+        pixel_to_mm: 1.0,
+    };
+    drop(params_guard);
+    let mesh = depth_to_point_cloud(&adjusted, original.width, original.height, &mesh_params)
+        .map_err(|e| e.to_string())?;
+    Ok(Some(mesh))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let _ = env_logger::try_init();
@@ -161,7 +188,8 @@ pub fn run() {
             get_depth_map,
             set_depth_adjustment_params,
             get_depth_adjustment_params,
-            reset_depth_adjustments
+            reset_depth_adjustments,
+            get_mesh_data
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

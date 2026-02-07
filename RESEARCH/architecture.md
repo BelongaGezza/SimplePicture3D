@@ -156,6 +156,31 @@
 
 ---
 
+### ADR-006: Mesh Generation Algorithm (Sprint 1.6)
+
+**Status:** Accepted  
+**Date:** 2026-02-07  
+**Context:** ARCH-201. Need to decide point cloud vs triangulated mesh and sampling strategy for depth map → 3D geometry.
+
+**Decision:**
+
+1. **MVP delivers both** point cloud and optional triangulated mesh.
+   - **Primary path:** Point cloud — sufficient for Three.js preview (Sprint 1.7) and dimensionally accurate for export. Simpler to implement and validate.
+   - **Optional path:** Delaunay triangulation (2.5D) for STL/OBJ with faces; enables solid mesh export and face normals. Can be implemented in Sprint 1.6 or deferred to a follow-up if point cloud is sufficient for MVP export (STL can be generated from point cloud or triangulated mesh per BACK-504).
+
+2. **Sampling strategy: uniform grid.**
+   - Depth map is row-major `height × width`. Sample at regular steps in X and Y.
+   - **Grid step:** Configurable step size (e.g. 1 = full resolution, 2 = every 2nd pixel → 1/4 vertices). Vertex count = `ceil(width / step_x) × ceil(height / step_y)`.
+   - **Density control:** Step size parameter (or equivalent) provides PRD F1.5 "density control"; full resolution and downsampled (e.g. step=2) must be supported.
+
+3. **Relationship to depth map resolution:** One vertex per sample; (i, j) in grid → depth from `depth[i * width + j]`. No adaptive density in MVP; uniform grid only.
+
+**Rationale:** PRD F1.5 requires "point cloud with density control" and "Optional Delaunay triangulation"; 2.5D (single Z per (x,y)) makes a regular grid natural and avoids overhangs. BACK-501–506 implement against this design.
+
+**Consequences:** BACK-501 (point cloud), BACK-502 (uniform grid), BACK-504 (optional Delaunay) and JR2-501/502 tests follow this specification.
+
+---
+
 ## Overview
 
 Tauri desktop app: Rust backend, Svelte/React frontend, Python subprocess for AI inference.
@@ -294,6 +319,40 @@ SimplePicture3D/
 5. **Mesh generation** (Rust): Depth map → point cloud / triangulated mesh
 6. **Preview** (Frontend): Vertex data → Three.js BufferGeometry
 7. **Export** (Rust): STL/OBJ to user-selected path
+
+---
+
+## Mesh Generation (Sprint 1.6)
+
+*Design authority: System Architect. Implementation: BACK-501–506, referenced by Junior Engineer 2D and Security.*
+
+### Algorithm and Sampling (ARCH-201)
+
+- **Output:** Point cloud (required); optional triangulated mesh via Delaunay (2.5D). See ADR-006.
+- **Sampling:** Uniform grid. Step size in X/Y (e.g. 1 pixel = 1 vertex, or step = 2 for 1/4 vertices). Vertex count = `ceil(width/step_x) × ceil(height/step_y)`.
+- **Input:** Depth map: row-major `Vec<f32>` (or `&[f32]`), length `width × height`, values 0–1 normalized. Depth range (min_mm, max_mm) is user setting (e.g. 2–10 mm).
+
+### Vertex Format (ARCH-202)
+
+- **Position:** `(x, y, z)` in **millimeters** (f32). Required. X/Y from pixel indices scaled by configurable factor (e.g. 1 pixel = 1 mm); Z from normalized depth mapped to [min_mm, max_mm].
+- **Normals:** **Required** for MVP. Format: `Vec<[f32;3]>`, unit length. For point cloud: derived from depth gradient (finite difference in X/Y). For triangulated mesh: per-face normals for STL; vertex normals (average of adjacent face normals) for OBJ and Three.js.
+- **Color:** Not required for MVP. Omitted; can be added later if texture/heightmap color is needed.
+- **Serialization (Tauri IPC):** Struct with flat arrays: `positions: Vec<[f32;3]>`, `normals: Vec<[f32;3]>`. Optional `indices: Vec<u32>` for triangulated mesh (triangle list). Compatible with Three.js `BufferGeometry` (setAttribute position, normal) and with `stl_io` (vertices + face normals).
+- **Backend type:** `MeshData` (or equivalent): `positions`, `normals`, and optionally `indices`. All coordinates and normals in mm / unit length.
+
+### Mesh Topology for Laser Engraving (ARCH-203)
+
+- **No overhangs:** 2.5D representation guarantees a single Z per (x, y); the surface is a heightfield. Internal UV laser engraving is vertical; no undercuts.
+- **2.5D:** Each (x, y) has exactly one depth value from the depth map; mesh is a continuous surface over the XY plane.
+- **Manifold / watertight:** For triangulated mesh, 2.5D grid plus Delaunay in the (x, y) plane with Z from vertices yields a continuous surface. Ensure no degenerate triangles and consistent winding for STL/OBJ.
+- **Constraints:** Minimum feature size and vertical wall limits are machine-dependent; the mesh is dimensionally accurate in mm and topologically 2.5D. Export (Sprint 1.8) consumes this structure; BACK-504 and STL/OBJ export reference these requirements.
+
+### Memory Efficiency (ARCH-204)
+
+- **4K (3840×2160):** ~8.3M pixels. Full resolution: 8.3M vertices × (3+3)×4 bytes ≈ 200 MB (positions + normals). Depth map ≈ 33 MB. Total well under PRD <2 GB for 4K.
+- **8K (7680×4320):** ~33M vertices × 24 bytes ≈ 800 MB (positions + normals); with depth and working memory, stay within 16 GB.
+- **Recommendation:** **Single buffer** for MVP. No streaming or chunking required for 4K/8K at these sizes. Avoid redundant copies: build positions and normals in one pass; depth map is read-only. If vertex count exceeds ~50M or memory pressure appears, consider chunked generation or LOD for preview only; document in BACK-506.
+- **Scaling:** Vertex count = `(width/step) × (height/step)` (with ceiling); bytes ≈ 24 × vertex count. Document max input dimensions (e.g. 8192×8192) and any vertex cap to stay within budget. BACK-506 implementation follows this review.
 
 ---
 
