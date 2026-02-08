@@ -181,6 +181,82 @@
 
 ---
 
+### ADR-008: Grid-Based Triangulation for STL Export (Sprint 1.8)
+
+**Status:** Accepted
+**Date:** 2026-02-08
+**Context:** ARCH-301. Sprint 1.8 requires STL export, which mandates triangulated faces with normals. The existing `mesh_generator.rs` produces a uniform-grid point cloud (ADR-006). A triangulation strategy must be chosen and documented before BACK-700 implementation begins. This ADR supersedes the deferred ARCH-205–207 spike from Sprint 1.6A.
+
+**Options considered:**
+
+| Option | Description | Decision |
+|--------|-------------|----------|
+| **A** | Grid-based triangulation: each grid cell (ri, ci) produces 2 triangles from its 4 corner vertices. No external crate. | **Accepted.** |
+| **B** | Delaunay triangulation via `delaunator` crate: general-purpose for irregular point sets. | Rejected: overkill for uniform grid; adds dependency; slower for regular data. |
+
+**Decision: Option A — Grid-based triangulation in `mesh_generator.rs`.**
+
+**Rationale:**
+1. **Uniform grid is trivially triangulable.** Each grid cell at row `ri`, column `ci` (where `ri` ranges `0..num_rows-1` and `ci` ranges `0..num_cols-1`) has four corner vertices: top-left `(ri, ci)`, top-right `(ri, ci+1)`, bottom-left `(ri+1, ci)`, bottom-right `(ri+1, ci+1)`. Each cell yields exactly 2 triangles.
+2. **No external crate needed.** The algorithm is ~30 lines of index arithmetic. Adding `delaunator` would increase compile time and binary size for zero benefit on uniform data.
+3. **Deterministic and fast.** Triangle count = `2 × (num_rows - 1) × (num_cols - 1)`. O(n) where n is vertex count; no computational geometry overhead.
+4. **Compatible with existing code.** `depth_to_point_cloud` already computes vertex positions and normals on the same uniform grid; triangulation is a second pass over the same grid indices.
+
+**Module location: `src-tauri/src/mesh_generator.rs`.**
+
+Triangulation is tightly coupled to point cloud generation (same grid dimensions, same vertex indexing). A separate `triangulator.rs` would add indirection with no benefit at this scale. If adaptive/multi-resolution triangulation is added later, it can be extracted then.
+
+**Data format:**
+
+1. **Index buffer:** `indices: Vec<u32>` added as an `Option` field on `MeshData`. Each consecutive triple `(indices[3*t], indices[3*t+1], indices[3*t+2])` defines one triangle. This is a standard triangle list (not strip).
+2. **MeshData extension:**
+   ```rust
+   pub struct MeshData {
+       pub positions: Vec<[f32; 3]>,
+       pub normals: Vec<[f32; 3]>,
+       pub indices: Option<Vec<u32>>,  // NEW: triangle index buffer
+   }
+   ```
+   - `indices == None`: point cloud mode (current behavior, backwards compatible).
+   - `indices == Some(vec)`: triangulated mesh. Length is `6 × (num_rows - 1) × (num_cols - 1)` (2 triangles × 3 indices per cell).
+3. **Why indexed (not flat vertex list):** Indexed geometry avoids duplicating vertex data (each grid vertex is shared by up to 6 triangles). For a 1000x1000 grid: 1M vertices + 6M indices (24MB) vs 6M vertices duplicated (144MB). Three.js `BufferGeometry` supports indexed geometry natively. STL export dereferences indices to emit per-triangle vertex triples.
+4. **Serialization (Tauri IPC):** `{ "positions": [...], "normals": [...], "indices": [0, 1, 100, 1, 101, 100, ...] }`. Frontend checks for `indices` presence to decide point cloud vs indexed mesh rendering.
+
+**Winding order: Counter-clockwise (CCW) when viewed from +Z (outward normal direction).**
+
+For each grid cell at `(ri, ci)` with vertex indices computed as `v = ri * num_cols + ci`:
+- Triangle 1 (upper-left): `v_tl → v_bl → v_tr` i.e. `(ri*C + ci) → ((ri+1)*C + ci) → (ri*C + ci+1)`
+- Triangle 2 (lower-right): `v_tr → v_bl → v_br` i.e. `(ri*C + ci+1) → ((ri+1)*C + ci) → ((ri+1)*C + ci+1)`
+
+Where `C = num_cols`. CCW winding ensures the cross product `(v1-v0) × (v2-v0)` points in the +Z direction (outward from the surface), which is the convention for STL face normals.
+
+**Face normals for STL:**
+
+STL requires a per-face normal. Compute from the cross product of triangle edges: `normal = normalize((v1 - v0) × (v2 - v0))`. This is computed at export time (BACK-701), not stored in `MeshData`. The existing vertex normals (gradient-based) remain for Three.js smooth shading; face normals are computed on-the-fly during STL serialization.
+
+**API for triangulation:**
+
+A new public function in `mesh_generator.rs`:
+```rust
+pub fn triangulate_grid(num_rows: usize, num_cols: usize) -> Vec<u32>
+```
+Returns the index buffer for the grid. Called after `depth_to_point_cloud` to populate `MeshData.indices`. Alternatively, a combined function `depth_to_mesh` can call both in sequence and return `MeshData` with indices populated.
+
+**Edge cases:**
+- Grid with `num_rows < 2` or `num_cols < 2`: cannot form any triangle. Return empty indices (valid point cloud, no faces). STL export should reject meshes with 0 triangles.
+- Grid step > image dimension: results in a single row or column; same as above.
+
+**Memory impact:**
+- Indices add `6 × (R-1) × (C-1) × 4 bytes` per mesh. For 4K (3840/step × 2160/step at step=1): ~198M indices × 4 = ~792MB. At step=2: ~49.5M indices × 4 = ~198MB. Within PRD <2GB budget when combined with positions+normals. For very large grids, the LOD/step mechanism already controls vertex count.
+
+**Consequences:**
+- BACK-700 implements `triangulate_grid` and integrates with `MeshData`.
+- BACK-701 (STL writer) consumes `MeshData.indices` + `positions` to emit binary STL triangles with computed face normals.
+- Frontend (`Preview3D.svelte`) can use indexed `BufferGeometry` when `indices` is present, falling back to point cloud when absent.
+- No new crate dependencies introduced.
+
+---
+
 ## Overview
 
 Tauri desktop app: Rust backend, Svelte/React frontend, Python subprocess for AI inference.

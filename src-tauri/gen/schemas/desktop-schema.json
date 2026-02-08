@@ -399,6 +399,12 @@
           "markdownDescription": "Enables depth map generation, retrieval, adjustment, and mesh generation commands."
         },
         {
+          "description": "Enables the get_export_defaults command.",
+          "type": "string",
+          "const": "allow-get-export-defaults",
+          "markdownDescription": "Enables the get_export_defaults command."
+        },
+        {
           "description": "Enables the load_image command.",
           "type": "string",
           "const": "allow-load-image",

@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-get-export-defaults"
+description = "Enables the get_export_defaults command."
+commands.allow = ["get_export_defaults"]

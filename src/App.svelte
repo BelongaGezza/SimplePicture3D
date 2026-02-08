@@ -3,9 +3,9 @@
   import Preview3D from "./components/Preview3D.svelte";
   import DepthMapPreview from "./components/DepthMapPreview.svelte";
   import DepthControls from "./components/DepthControls.svelte";
+  import ExportPanel from "./components/ExportPanel.svelte";
   import Button from "./components/Button.svelte";
   import {
-    exportStl,
     generateDepthMap,
     getDepthMap,
     getDepthAdjustmentParams,
@@ -53,15 +53,8 @@
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   }
 
-  async function handleExport() {
-    status = "Exporting…";
-    try {
-      await exportStl(loadPath || "output.stl");
-      status = "Exported";
-    } catch (e) {
-      status = "Export error: " + String(e);
-    }
-  }
+  /** Extract just the filename from a path (cross-platform). */
+  $: sourceFileName = loadPath ? (loadPath.split(/[/\\]/).pop() ?? "") : "";
 
   function handleLoadStart(path: string) {
     loadPath = path;
@@ -255,12 +248,13 @@
     </aside>
   </main>
 
-  <!-- Bottom: export button, status bar (UI-304: status shows Estimating when in progress) -->
+  <!-- Bottom: export panel + status bar (UI-701–704) -->
   <footer class="shrink-0 border-t border-slate-200 bg-white px-4 py-2 flex items-center justify-between gap-4">
     <div class="text-sm text-slate-500" role="status" aria-live="polite" aria-label={status}>{status}</div>
-    <Button variant="primary" title="Export mesh as STL" on:click={handleExport}>
-      Export
-    </Button>
+    <ExportPanel
+      hasDepth={depthMap != null && depthMap.depth.length > 0}
+      sourceFileName={sourceFileName}
+    />
   </footer>
 </div>
 

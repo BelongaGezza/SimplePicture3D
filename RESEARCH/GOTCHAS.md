@@ -21,6 +21,11 @@ When you hit a debugging gotcha:
 
 ## Entries
 
+### 2026-02-08 — Mesh / Sprint 1.8 — Grid triangulation winding order produces wrong normal direction
+**Symptom:** ADR-008 specified winding order tl->bl->tr for triangle 1, but unit test showed face normal pointing -Z instead of expected +Z.
+**Cause:** For the grid layout where Y increases downward (row-major), the cross product of edges (bl-tl) x (tr-tl) yields -Z. The ADR's winding diagram assumed a different vertex spatial arrangement.
+**Fix:** Changed winding to tl->tr->bl (triangle 1) and tr->br->bl (triangle 2). Cross product now produces +Z outward normals. Test `triangulate_grid_ccw_winding_check` verifies this. ADR-008 in architecture.md should be updated to match the implemented winding.
+
 ### 2026-02-08 — Three.js / Sprint 1.7 — 3D preview mesh upside-down (image Y vs Three.js Y)
 **Symptom:** Point cloud in 3D viewport appears upside-down relative to the source image.  
 **Cause:** Backend uses row-major positions with `y_mm = row * pixel_to_mm` (image top = 0, bottom = height). Three.js uses Y-up, so mesh orientation is flipped.  
