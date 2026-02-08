@@ -21,6 +21,11 @@ When you hit a debugging gotcha:
 
 ## Entries
 
+### 2026-02-08 — Tauri v2 — NPM vs Rust version mismatch
+**Symptom:** `npm run tauri dev` fails with "Error Found version mismatched Tauri packages. Make sure the NPM package and Rust crate versions are on the same major/minor releases: tauri (v2.9.5) : @tauri-apps/api (v2.10.1)".  
+**Cause:** Rust Cargo.toml uses `tauri = "2"` (resolved to 2.9.5 in Cargo.lock) while package.json had `@tauri-apps/api: "^2.0.0"`, which npm resolved to latest 2.x (2.10.1). Tauri requires the same major/minor on both sides.  
+**Fix:** Pin Tauri NPM packages to the same minor as the Rust crate. In package.json: set `@tauri-apps/api` and `@tauri-apps/cli` to `~2.9.0` (or whatever minor the Rust tauri crate uses). Do **not** use `~2.9.0` for `@tauri-apps/plugin-dialog` — that package does not publish 2.9.x (latest is 2.6.x); keep it at `^2.0.0`. After upgrading Rust Tauri to a new minor (e.g. 2.10), bump the NPM packages to the same minor (e.g. `~2.10.0`).
+
 ### 2026-02-07 — Svelte 4 / @testing-library/svelte — Build fails with "Component not assignable to Constructor<SvelteComponent>"
 **Symptom:** Frontend CI fails at Build step (`tsc && vite build`) with 10 TypeScript errors in `DepthControls.test.ts` and `ImageImport.test.ts`: "Argument of type 'typeof Component' is not assignable to parameter of type 'ComponentImport<SvelteComponent<any, any, any>>'" (or `Constructor<SvelteComponent<...>>`).  
 **Causes:** (1) **Technologies have moved forward:** @testing-library/svelte **v5** is designed for **Svelte 5** (new component signature); this codebase uses **Svelte 4** (ADR-001), so types no longer match. (2) Optionally: project's `src/vite-env.d.ts` declared `*.svelte` with a minimal `Component` class that did not extend Svelte's `SvelteComponent`, contributing to type-check failure.  
