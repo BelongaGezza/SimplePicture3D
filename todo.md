@@ -562,11 +562,11 @@ The Role Assignment table enables agents to claim roles:
 - [ ] **UI-506:** Toggle wireframe/solid/point rendering modes (wireframe/solid require triangulated mesh — placeholder until 1.8)
 
 **Junior Engineer #1:**
-- [ ] **JR1-501:** Add camera presets (top, front, side views)
-- [ ] **JR1-502:** Implement grid floor for scale reference
-- [ ] **JR1-503:** Display mesh statistics (vertex count, bounds)
-- [ ] **JR1-504:** Test rendering performance with large meshes (>1M vertices)
-- [ ] **JR1-505:** Add lighting controls (ambient, directional)
+- [x] **JR1-501:** Add camera presets (top, front, side views)
+- [x] **JR1-502:** Implement grid floor for scale reference
+- [x] **JR1-503:** Display mesh statistics (vertex count, bounds)
+- [x] **JR1-504:** Test rendering performance with large meshes (>1M vertices)
+- [x] **JR1-505:** Add lighting controls (ambient, directional)
 
 **Senior Engineer:**
 - [ ] **BACK-601:** Update `get_mesh_data` Tauri command for ADR-007 transfer mechanism (already exists from Sprint 1.6; adapt if binary transfer chosen)

@@ -21,6 +21,26 @@ When you hit a debugging gotcha:
 
 ## Entries
 
+### 2026-02-08 — Three.js / Sprint 1.7 — 3D preview mesh upside-down (image Y vs Three.js Y)
+**Symptom:** Point cloud in 3D viewport appears upside-down relative to the source image.  
+**Cause:** Backend uses row-major positions with `y_mm = row * pixel_to_mm` (image top = 0, bottom = height). Three.js uses Y-up, so mesh orientation is flipped.  
+**Fix:** In Preview3D.svelte when building the position buffer, flip Y: `threeJsY = maxY - backendY` (and flip normal Y to match). Image top then appears at the top of the 3D viewport.
+
+### 2026-02-08 — Three.js / Sprint 1.7 — Points vs Wireframe/Solid toggle had no visible change
+**Symptom:** Selecting Wireframe or Solid looked the same as Points (point cloud stayed visible); toggle appeared to do nothing.  
+**Cause:** Wireframe and Solid are placeholders until Sprint 1.8 (triangulated mesh); only Points mode was implemented.  
+**Fix:** When Wireframe or Solid is selected, set `pointCloud.visible = false` and show an overlay message: "Wireframe/Solid mode requires a triangulated mesh (Sprint 1.8). Use Points for now." So Points = mesh visible; Wireframe/Solid = mesh hidden + message.
+
+### 2026-02-08 — Three.js / Sprint 1.7 — 3D grid floor scale (mm)
+**Symptom:** Grid must provide scale reference; mesh positions from backend are in mm.  
+**Cause:** GridHelper defaults to arbitrary units.  
+**Fix:** Use GridHelper(400, 20) with 1 unit = 1 mm: grid is 400 mm × 400 mm, 20 divisions = 20 mm spacing. Document in Preview3D.svelte and GOTCHAS. Mesh bounds (JR1-503) also in mm for consistency.
+
+### 2026-02-08 — Backend / Sprint 1.7 — Optional LOD for 3D preview (BACK-603)
+**Symptom:** Need reduced-detail preview for large meshes to meet 30+ FPS for 100K vertices.  
+**Cause:** Task allowed implement vs defer; performance validated by JR1-504/QA-604.  
+**Fix:** Implemented optional `preview_step` on `get_mesh_data`: frontend can pass e.g. `previewStep: 2`; backend returns mesh with step_x = step_y = step (fewer vertices). Full-detail export path (Sprint 1.8) unchanged. Omit param for full-res preview; use param if FPS is below target.
+
 ### 2026-02-08 — Tauri v2 — NPM vs Rust version mismatch
 **Symptom:** `npm run tauri dev` fails with "Error Found version mismatched Tauri packages. Make sure the NPM package and Rust crate versions are on the same major/minor releases: tauri (v2.9.5) : @tauri-apps/api (v2.10.1)".  
 **Cause:** Rust Cargo.toml uses `tauri = "2"` (resolved to 2.9.5 in Cargo.lock) while package.json had `@tauri-apps/api: "^2.0.0"`, which npm resolved to latest 2.x (2.10.1). Tauri requires the same major/minor on both sides.  

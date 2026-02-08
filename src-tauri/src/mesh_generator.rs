@@ -37,7 +37,14 @@ impl Default for MeshParams {
     }
 }
 
-/// Mesh output: positions and normals in mm; compatible with Three.js BufferGeometry and stl_io (ARCH-202).
+/// Mesh output: positions and normals in mm; compatible with Three.js BufferGeometry and stl_io (ARCH-202, BACK-602).
+///
+/// **JSON serialization (Tauri IPC):** camelCase. Shape: `{ "positions": [[x,y,z], ...], "normals": [[x,y,z], ...] }`.
+/// Each vertex i has `positions[i]` and `normals[i]`; lengths match. Units: mm for positions; normals unit length.
+///
+/// **Frontend (Three.js BufferGeometry):** Flatten for attributes: `new Float32Array(positions.flat())` for
+/// `BufferAttribute(positionsFlat, 3)`; same for normals. Byte order in JSON is numeric; if binary transfer
+/// is added (ADR-007), layout and byte order (e.g. little-endian) will be documented in RESEARCH/architecture.md.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MeshData {

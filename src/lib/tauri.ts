@@ -82,3 +82,24 @@ export async function setDepthAdjustmentParams(
 export async function resetDepthAdjustments(): Promise<void> {
   return invoke("reset_depth_adjustments");
 }
+
+/** Mesh data for 3D preview (BACK-601, BACK-602, 3D_PREVIEW_API.md). Positions/normals in mm. */
+export interface MeshData {
+  positions: [number, number, number][];
+  normals: [number, number, number][];
+}
+
+/** Optional preview_step for reduced-detail preview (BACK-603). Omit for full resolution. */
+export interface GetMeshDataOptions {
+  previewStep?: number;
+}
+
+export async function getMeshData(
+  options?: GetMeshDataOptions
+): Promise<MeshData | null> {
+  const args =
+    options?.previewStep != null
+      ? { preview_step: Math.max(1, options.previewStep) }
+      : {};
+  return invoke<MeshData | null>("get_mesh_data", args);
+}

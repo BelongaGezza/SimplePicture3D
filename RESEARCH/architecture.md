@@ -340,6 +340,12 @@ SimplePicture3D/
 - **Serialization (Tauri IPC):** Struct with flat arrays: `positions: Vec<[f32;3]>`, `normals: Vec<[f32;3]>`. Optional `indices: Vec<u32>` for triangulated mesh (triangle list). Compatible with Three.js `BufferGeometry` (setAttribute position, normal) and with `stl_io` (vertices + face normals).
 - **Backend type:** `MeshData` (or equivalent): `positions`, `normals`, and optionally `indices`. All coordinates and normals in mm / unit length.
 
+### Mesh data IPC contract (get_mesh_data, BACK-601, BACK-602)
+
+- **Current transfer:** JSON over Tauri IPC. `get_mesh_data` returns `Option<MeshData>`; serialized as `{ "positions": [[x,y,z], ...], "normals": [[x,y,z], ...] }` (camelCase). Frontend can build Three.js `BufferGeometry` by flattening: `new Float32Array(meshData.positions.flat())` for position attribute (itemSize 3), same for normals. Performance acceptable for 100K–1M vertices; if latency >100ms at 1080p, Sprint 1.6A may adopt binary transfer (ADR-007).
+- **ADR-007 (deferred):** If binary transfer is chosen (e.g. temp file or binary IPC), backend will implement the alternative path alongside JSON; format (byte order, layout) will be documented here. Caller-facing contract (positions, normals, dimensions) unchanged.
+- **LOD (BACK-603):** Optional `preview_step` argument: when set, backend uses that grid step (e.g. 2 → 1/4 vertices) for preview; full-detail export path is unchanged.
+
 ### Mesh Topology for Laser Engraving (ARCH-203)
 
 - **No overhangs:** 2.5D representation guarantees a single Z per (x, y); the surface is a heightfield. Internal UV laser engraving is vertical; no undercuts.

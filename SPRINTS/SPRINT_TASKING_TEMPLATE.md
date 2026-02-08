@@ -53,11 +53,29 @@ Look at the Role Assignment table below. Find a role where:
 ### Step 3: Become Your Role
 - Embody the agent's identity, expertise, and responsibilities
 - Follow the persona file's guidance and project references
+- Rename the agent so that it shows the agent identity in the agent list
 
 **If all roles show "In Progress" or "Complete", STOP. No work available.**
 
 ### Step 4: Update status
 - While progressing your role, update the status per the Status Values defined below.
+
+### Optional: One-shot role assumption (automated)
+An agent can **read this task assignment, find unassigned roles, and create one Cursor command per available role**. When you run one of those commands in a chat, that chat becomes a **one-shot agent** for that role (it claims the role and adopts the persona for the rest of the conversation). To generate the commands: run the Cursor command **"Create One-Shot Assume-Role Commands for This Sprint"** (`.cursor/commands/create-assume-role-commands.md`). Optionally @-mention this Task Assignment file so the agent knows which sprint to use. The agent will create files like `.cursor/commands/assume-sprint-X-Y-<role-slug>.md`; run any of them to assume that role one-shot.
+
+---
+
+## Roles required for this sprint
+
+**Which roles must be staffed for this sprint?** List only roles that have **Owned Tasks** (non-empty task IDs) in the Role Assignment table below. Roles with "—" or "No X.Y tasks" in Notes are optional for delivery and can be omitted from this list.
+
+| Role | Why required |
+|------|--------------|
+| [Role name] | [Owned task IDs and one-line scope, e.g. BACK-601–603: mesh data for frontend] |
+| … | … |
+
+*Users and agents can use this table to see at a glance which roles are required before reading the full Role Assignment.*
+
 ---
 
 ## Role Assignment

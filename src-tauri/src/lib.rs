@@ -146,10 +146,21 @@ fn reset_depth_adjustments(state: State<AppState>) -> Result<(), String> {
     Ok(())
 }
 
-/// Returns mesh data (point cloud with normals) from current adjusted depth map (BACK-501–505).
-/// Uses depth range from adjustment params; step 1 (full resolution). Returns None if no depth.
+/// Returns mesh data (point cloud with normals) from current adjusted depth map (BACK-501–505, BACK-601, BACK-602, BACK-603).
+///
+/// **Transfer (ADR-007):** Current path is JSON over Tauri IPC. If Sprint 1.6A/ADR-007 adopts binary
+/// transfer (e.g. temp file or binary IPC) for latency >100ms at 1080p, add an alternative path here
+/// (write mesh to temp file, return path or handle); frontend contract (positions, normals, dimensions)
+/// remains unchanged from the caller’s perspective.
+///
+/// **LOD (BACK-603):** Optional `preview_step` requests reduced vertex count for preview. When `None`,
+/// full resolution (step 1) is used. When `Some(s)`, step_x = step_y = max(1, s). Full-detail export
+/// (Sprint 1.8) is unaffected.
 #[tauri::command]
-fn get_mesh_data(state: State<AppState>) -> Result<Option<MeshData>, String> {
+fn get_mesh_data(
+    state: State<AppState>,
+    preview_step: Option<u32>,
+) -> Result<Option<MeshData>, String> {
     let guard = state.depth.lock().map_err(|e| e.to_string())?;
     let original = match guard.as_ref() {
         Some(d) => d.clone(),
@@ -158,9 +169,10 @@ fn get_mesh_data(state: State<AppState>) -> Result<Option<MeshData>, String> {
     drop(guard);
     let params_guard = state.adjustment_params.lock().map_err(|e| e.to_string())?;
     let adjusted = apply_adjustments(&original.depth, &params_guard);
+    let step = preview_step.unwrap_or(1).max(1);
     let mesh_params = MeshParams {
-        step_x: 1,
-        step_y: 1,
+        step_x: step,
+        step_y: step,
         depth_min_mm: params_guard.depth_min_mm,
         depth_max_mm: params_guard.depth_max_mm,
         pixel_to_mm: 1.0,

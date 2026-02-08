@@ -11,6 +11,7 @@ import {
   getDepthAdjustmentParams,
   setDepthAdjustmentParams,
   resetDepthAdjustments,
+  getMeshData,
   type DepthAdjustmentParams,
   type LoadImageResult,
   type DepthMapResult,
@@ -176,6 +177,44 @@ describe("tauri IPC", () => {
     it("propagates invoke rejection", async () => {
       mockInvoke.mockRejectedValue(new Error("reset failed"));
       await expect(resetDepthAdjustments()).rejects.toThrow("reset failed");
+    });
+  });
+
+  describe("getMeshData", () => {
+    it("calls invoke with get_mesh_data (no args when no options)", async () => {
+      const result = {
+        positions: [[0, 0, 2] as [number, number, number]],
+        normals: [[0, 0, 1] as [number, number, number]],
+      };
+      mockInvoke.mockResolvedValue(result);
+      const out = await getMeshData();
+      expect(mockInvoke).toHaveBeenCalledWith("get_mesh_data", {});
+      expect(out).toEqual(result);
+      expect(out?.positions).toHaveLength(1);
+      expect(out?.normals).toHaveLength(1);
+    });
+
+    it("calls invoke with get_mesh_data and preview_step when previewStep provided", async () => {
+      mockInvoke.mockResolvedValue({ positions: [], normals: [] });
+      await getMeshData({ previewStep: 2 });
+      expect(mockInvoke).toHaveBeenCalledWith("get_mesh_data", { preview_step: 2 });
+    });
+
+    it("clamps preview_step to at least 1", async () => {
+      mockInvoke.mockResolvedValue({ positions: [], normals: [] });
+      await getMeshData({ previewStep: 0 });
+      expect(mockInvoke).toHaveBeenCalledWith("get_mesh_data", { preview_step: 1 });
+    });
+
+    it("returns null when backend returns null", async () => {
+      mockInvoke.mockResolvedValue(null);
+      const out = await getMeshData();
+      expect(out).toBeNull();
+    });
+
+    it("propagates invoke rejection", async () => {
+      mockInvoke.mockRejectedValue(new Error("no mesh"));
+      await expect(getMeshData()).rejects.toThrow("no mesh");
     });
   });
 });
