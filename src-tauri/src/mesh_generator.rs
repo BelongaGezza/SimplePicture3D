@@ -487,13 +487,133 @@ pub fn write_stl_to_file(path: &str, mesh: &MeshData) -> Result<(), anyhow::Erro
     write_stl_binary(&mut writer, mesh)
 }
 
+// --- BACK-801: OBJ ASCII writer (Sprint 1.9) ---
+
+/// Write ASCII OBJ to the given writer (BACK-801).
+///
+/// OBJ format:
+/// - Comment header
+/// - `v x y z` lines (vertex positions)
+/// - `vn nx ny nz` lines (vertex normals)
+/// - `f v1//n1 v2//n2 v3//n3` lines (faces referencing vertex/normal indices, 1-based)
+///
+/// Optional MTL reference is written if `mtl_filename` is `Some`.
+pub fn write_obj_ascii<W: Write>(
+    writer: &mut W,
+    mesh: &MeshData,
+    mtl_filename: Option<&str>,
+) -> Result<(), anyhow::Error> {
+    let indices = mesh
+        .indices
+        .as_ref()
+        .context("Cannot write OBJ: mesh has no triangle indices")?;
+    ensure!(
+        !indices.is_empty(),
+        "Cannot write OBJ: mesh has no triangles"
+    );
+    ensure!(
+        indices.len() % 3 == 0,
+        "Index count must be a multiple of 3"
+    );
+
+    // Header comment
+    writeln!(writer, "# SimplePicture3D OBJ Export")?;
+    writeln!(
+        writer,
+        "# Vertices: {}  Triangles: {}",
+        mesh.positions.len(),
+        indices.len() / 3
+    )?;
+
+    // MTL reference (BACK-802)
+    if let Some(mtl) = mtl_filename {
+        writeln!(writer, "mtllib {}", mtl)?;
+        writeln!(writer, "usemtl default")?;
+    }
+
+    // Vertex positions
+    for pos in &mesh.positions {
+        writeln!(writer, "v {} {} {}", pos[0], pos[1], pos[2])?;
+    }
+
+    // Vertex normals
+    for n in &mesh.normals {
+        writeln!(writer, "vn {} {} {}", n[0], n[1], n[2])?;
+    }
+
+    // Faces (1-based indices, format: f v//vn v//vn v//vn)
+    let tri_count = indices.len() / 3;
+    for t in 0..tri_count {
+        let i0 = indices[t * 3] + 1; // OBJ is 1-based
+        let i1 = indices[t * 3 + 1] + 1;
+        let i2 = indices[t * 3 + 2] + 1;
+        writeln!(
+            writer,
+            "f {}//{} {}//{} {}//{}",
+            i0, i0, i1, i1, i2, i2
+        )?;
+    }
+
+    writer.flush()?;
+    Ok(())
+}
+
+/// Write a minimal MTL material file (BACK-802).
+///
+/// Creates a default material with neutral gray diffuse color suitable for mesh viewing.
+pub fn write_mtl<W: Write>(writer: &mut W) -> Result<(), anyhow::Error> {
+    writeln!(writer, "# SimplePicture3D Material")?;
+    writeln!(writer, "newmtl default")?;
+    writeln!(writer, "Ka 0.2 0.2 0.2")?; // ambient
+    writeln!(writer, "Kd 0.8 0.8 0.8")?; // diffuse
+    writeln!(writer, "Ks 0.1 0.1 0.1")?; // specular
+    writeln!(writer, "Ns 10.0")?; // specular exponent
+    writeln!(writer, "d 1.0")?; // opacity
+    writeln!(writer, "illum 2")?; // illumination model
+    writer.flush()?;
+    Ok(())
+}
+
+/// Write OBJ + optional MTL to files (BACK-801 convenience wrapper).
+pub fn write_obj_to_file(path: &str, mesh: &MeshData, write_mtl_file: bool) -> Result<(), anyhow::Error> {
+    let obj_path = std::path::Path::new(path);
+    let mtl_filename = if write_mtl_file {
+        obj_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .map(|stem| format!("{}.mtl", stem))
+    } else {
+        None
+    };
+
+    // Write OBJ
+    let file = std::fs::File::create(path)
+        .with_context(|| format!("Cannot create OBJ file: {}", path))?;
+    let mut writer = std::io::BufWriter::new(file);
+    write_obj_ascii(&mut writer, mesh, mtl_filename.as_deref())?;
+
+    // Write MTL alongside OBJ (BACK-802)
+    if let Some(ref mtl_name) = mtl_filename {
+        if let Some(parent) = obj_path.parent() {
+            let mtl_path = parent.join(mtl_name);
+            let mtl_file = std::fs::File::create(&mtl_path)
+                .with_context(|| format!("Cannot create MTL file: {}", mtl_path.display()))?;
+            let mut mtl_writer = std::io::BufWriter::new(mtl_file);
+            write_mtl(&mut mtl_writer)?;
+        }
+    }
+
+    Ok(())
+}
+
 // --- BACK-705: Auto-generate filename ---
 
-/// Generate a default export filename from source image name + timestamp (BACK-705).
+/// Generate a default export filename from source image name + timestamp (BACK-705, BACK-803).
 ///
-/// Format: `{image_stem}_{YYYYMMDD_HHMMSS}.stl`
+/// Format: `{image_stem}_{YYYYMMDD_HHMMSS}.{ext}`
 /// If `source_image_path` is empty, uses "mesh" as stem.
-pub fn generate_export_filename(source_image_path: &str) -> String {
+/// Extension defaults to "stl" if not provided.
+pub fn generate_export_filename_with_ext(source_image_path: &str, ext: &str) -> String {
     let stem = if source_image_path.trim().is_empty() {
         "mesh".to_string()
     } else {
@@ -515,7 +635,12 @@ pub fn generate_export_filename(source_image_path: &str) -> String {
         })
         .collect();
     let now = chrono_like_timestamp();
-    format!("{}_{}.stl", sanitized, now)
+    format!("{}_{}.{}", sanitized, now, ext)
+}
+
+/// Generate a default STL export filename (backwards-compatible wrapper).
+pub fn generate_export_filename(source_image_path: &str) -> String {
+    generate_export_filename_with_ext(source_image_path, "stl")
 }
 
 /// Simple timestamp without chrono dependency: YYYYMMDD_HHMMSS.

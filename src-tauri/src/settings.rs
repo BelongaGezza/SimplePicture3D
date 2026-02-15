@@ -6,13 +6,37 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-/// Application settings persisted between sessions (BACK-706).
+/// Application settings persisted between sessions (BACK-706, BACK-804, BACK-805).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
     /// Last directory used for STL/OBJ export (BACK-706).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_export_dir: Option<String>,
+
+    /// Preferred export format: "stl" or "obj" (BACK-804).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub export_format: Option<String>,
+
+    /// Last-used depth adjustment params for session restore (BACK-805).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub depth_brightness: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub depth_contrast: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub depth_gamma: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub depth_invert: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub depth_min_mm: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub depth_max_mm: Option<f32>,
+
+    /// Window dimensions for session restore (BACK-805).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub window_width: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub window_height: Option<u32>,
 }
 
 impl AppSettings {
@@ -80,15 +104,16 @@ mod tests {
 
     #[test]
     fn settings_roundtrip_json() {
-        let s = AppSettings {
-            last_export_dir: Some("C:\\Users\\test\\exports".to_string()),
-        };
+        let mut s = AppSettings::default();
+        s.last_export_dir = Some("C:\\Users\\test\\exports".to_string());
+        s.export_format = Some("obj".to_string());
         let json = serde_json::to_string(&s).unwrap();
         let loaded: AppSettings = serde_json::from_str(&json).unwrap();
         assert_eq!(
             loaded.last_export_dir.as_deref(),
             Some("C:\\Users\\test\\exports")
         );
+        assert_eq!(loaded.export_format.as_deref(), Some("obj"));
     }
 
     #[test]
@@ -116,9 +141,8 @@ mod tests {
     #[test]
     fn settings_save_and_load_roundtrip() {
         // Save to the real settings path, then load back
-        let original = AppSettings {
-            last_export_dir: Some("/tmp/sp3d_test_export".to_string()),
-        };
+        let mut original = AppSettings::default();
+        original.last_export_dir = Some("/tmp/sp3d_test_export".to_string());
         // Only test if we can determine the path
         if AppSettings::settings_path().is_some() {
             let save_result = original.save();

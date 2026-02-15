@@ -171,6 +171,123 @@ fn export_stl(path: String, state: State<AppState>) -> Result<(), String> {
     Ok(())
 }
 
+/// Export the current mesh as ASCII OBJ (BACK-801, BACK-802, BACK-803).
+///
+/// Same security validation as export_stl. Writes OBJ file and optional companion MTL file.
+#[tauri::command]
+fn export_obj(path: String, state: State<AppState>) -> Result<(), String> {
+    // SEC-401: Basic validation
+    if path.trim().is_empty() {
+        return Err("Export path must be non-empty".to_string());
+    }
+
+    // SEC-401: Canonicalize path
+    let canonical = std::fs::canonicalize(std::path::Path::new(&path).parent().ok_or_else(|| {
+        "Invalid export path: no parent directory".to_string()
+    })?)
+    .map_err(|_| "Export directory does not exist or is not accessible".to_string())?;
+    let file_name = std::path::Path::new(&path)
+        .file_name()
+        .ok_or_else(|| "Invalid export path: no filename".to_string())?;
+    let canonical_path = canonical.join(file_name);
+
+    // SEC-401: Validate file extension is .obj
+    match canonical_path.extension().and_then(|e| e.to_str()) {
+        Some(ext) if ext.eq_ignore_ascii_case("obj") => {}
+        _ => return Err("Export file must have .obj extension".to_string()),
+    }
+
+    // SEC-401: Reject writes to system directories
+    let canonical_str = canonical.to_string_lossy();
+    #[cfg(target_os = "windows")]
+    {
+        let lower = canonical_str.to_lowercase();
+        let blocked = [
+            "c:\\windows",
+            "c:\\program files",
+            "c:\\program files (x86)",
+            "c:\\programdata",
+        ];
+        for prefix in &blocked {
+            if lower.starts_with(prefix) {
+                log::warn!("SEC-401: Blocked export to system directory: {}", canonical_str);
+                return Err("Cannot export to system directories".to_string());
+            }
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let blocked = ["/etc", "/usr", "/bin", "/sbin", "/boot", "/lib", "/proc", "/sys"];
+        for prefix in &blocked {
+            if canonical_str.starts_with(prefix) {
+                log::warn!("SEC-401: Blocked export to system directory: {}", canonical_str);
+                return Err("Cannot export to system directories".to_string());
+            }
+        }
+    }
+
+    // SEC-402: Verify parent directory is writable
+    {
+        let parent = canonical_path.parent().unwrap_or(&canonical);
+        let test_file = parent.join(".sp3d_write_test");
+        match std::fs::File::create(&test_file) {
+            Ok(_) => {
+                let _ = std::fs::remove_file(&test_file);
+            }
+            Err(_) => {
+                return Err("Export directory is not writable".to_string());
+            }
+        }
+    }
+
+    let canonical_path_str = canonical_path.to_string_lossy().to_string();
+
+    // Get current depth map
+    let guard = state.depth.lock().map_err(|e| e.to_string())?;
+    let original = guard
+        .as_ref()
+        .ok_or_else(|| "No depth map loaded. Generate a depth map first.".to_string())?
+        .clone();
+    drop(guard);
+
+    // Apply adjustments
+    let params_guard = state.adjustment_params.lock().map_err(|e| e.to_string())?;
+    let adjusted = apply_adjustments(&original.depth, &params_guard);
+    let mesh_params = MeshParams {
+        step_x: 1,
+        step_y: 1,
+        depth_min_mm: params_guard.depth_min_mm,
+        depth_max_mm: params_guard.depth_max_mm,
+        pixel_to_mm: 1.0,
+    };
+    drop(params_guard);
+
+    // Generate triangulated mesh
+    let mesh =
+        depth_to_point_cloud(&adjusted, original.width, original.height, &mesh_params)
+            .map_err(|e| format!("Mesh generation failed: {}", e))?;
+
+    // Validate before writing (BACK-702)
+    mesh_generator::validate_mesh_for_export(&mesh)
+        .map_err(|e| format!("Mesh validation failed: {}", e))?;
+
+    // Write OBJ + MTL (BACK-801, BACK-802)
+    mesh_generator::write_obj_to_file(&canonical_path_str, &mesh, true)
+        .map_err(|_| "OBJ export failed: could not write file".to_string())?;
+
+    // Update last export directory (BACK-706)
+    if let Some(parent) = canonical_path.parent() {
+        let mut settings = state.app_settings.lock().map_err(|e| e.to_string())?;
+        settings.last_export_dir = Some(parent.to_string_lossy().to_string());
+        if let Err(e) = settings.save() {
+            log::warn!("Failed to save settings after export: {}", e);
+        }
+    }
+
+    log::info!("OBJ exported successfully: {}", canonical_path_str);
+    Ok(())
+}
+
 /// Get a suggested export filename and last export directory (BACK-705, BACK-706).
 #[tauri::command]
 fn get_export_defaults(state: State<AppState>) -> Result<ExportDefaults, String> {
@@ -181,24 +298,48 @@ fn get_export_defaults(state: State<AppState>) -> Result<ExportDefaults, String>
         .clone()
         .unwrap_or_default();
     let filename = mesh_generator::generate_export_filename(&source_path);
-    let last_dir = state
+    let settings_guard = state
         .app_settings
         .lock()
-        .map_err(|e| e.to_string())?
-        .last_export_dir
-        .clone();
+        .map_err(|e| e.to_string())?;
+    let last_dir = settings_guard.last_export_dir.clone();
+    let export_format = settings_guard.export_format.clone();
+    drop(settings_guard);
     Ok(ExportDefaults {
         suggested_filename: filename,
         last_export_dir: last_dir,
+        export_format,
     })
 }
 
-/// Response for get_export_defaults (BACK-705, BACK-706).
+/// Response for get_export_defaults (BACK-705, BACK-706, BACK-803).
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ExportDefaults {
     suggested_filename: String,
     last_export_dir: Option<String>,
+    export_format: Option<String>,
+}
+
+/// Get current app settings (BACK-804, BACK-805).
+#[tauri::command]
+fn get_settings(state: State<AppState>) -> Result<settings::AppSettings, String> {
+    state
+        .app_settings
+        .lock()
+        .map_err(|e| e.to_string())
+        .map(|guard| guard.clone())
+}
+
+/// Save app settings (BACK-804, BACK-805).
+#[tauri::command]
+fn save_settings(
+    new_settings: settings::AppSettings,
+    state: State<AppState>,
+) -> Result<(), String> {
+    let mut settings = state.app_settings.lock().map_err(|e| e.to_string())?;
+    *settings = new_settings;
+    settings.save().map_err(|e| e.to_string())
 }
 
 /// JR2-303: Log depth map statistics (min, max, mean) at info level. Single pass; no PII.
@@ -354,13 +495,16 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             load_image,
             export_stl,
+            export_obj,
             get_export_defaults,
             generate_depth_map,
             get_depth_map,
             set_depth_adjustment_params,
             get_depth_adjustment_params,
             reset_depth_adjustments,
-            get_mesh_data
+            get_mesh_data,
+            get_settings,
+            save_settings
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
