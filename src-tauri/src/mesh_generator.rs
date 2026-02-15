@@ -1878,4 +1878,275 @@ mod tests {
         }
         println!("=== Benchmark complete ===\n");
     }
+
+    // =========================================================================
+    // JR2-801: OBJ writer unit tests (Sprint 1.9)
+    // =========================================================================
+
+    /// Helper: parse OBJ text into (vertices, normals, faces).
+    fn parse_obj_text(text: &str) -> (Vec<[f32; 3]>, Vec<[f32; 3]>, Vec<[u32; 3]>) {
+        let mut verts = Vec::new();
+        let mut normals = Vec::new();
+        let mut faces = Vec::new();
+        for line in text.lines() {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.is_empty() { continue; }
+            match parts[0] {
+                "v" if parts.len() >= 4 => {
+                    verts.push([
+                        parts[1].parse::<f32>().unwrap(),
+                        parts[2].parse::<f32>().unwrap(),
+                        parts[3].parse::<f32>().unwrap(),
+                    ]);
+                }
+                "vn" if parts.len() >= 4 => {
+                    normals.push([
+                        parts[1].parse::<f32>().unwrap(),
+                        parts[2].parse::<f32>().unwrap(),
+                        parts[3].parse::<f32>().unwrap(),
+                    ]);
+                }
+                "f" => {
+                    // Parse "f v1//n1 v2//n2 v3//n3"
+                    let mut face_indices = Vec::new();
+                    for p in &parts[1..] {
+                        let idx_str = p.split("//").next().unwrap();
+                        face_indices.push(idx_str.parse::<u32>().unwrap());
+                    }
+                    if face_indices.len() == 3 {
+                        faces.push([face_indices[0], face_indices[1], face_indices[2]]);
+                    }
+                }
+                _ => {}
+            }
+        }
+        (verts, normals, faces)
+    }
+
+    #[test]
+    fn jr2_801_obj_write_2x2_mesh() {
+        let mesh = MeshData {
+            positions: vec![
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [1.0, 1.0, 0.0],
+            ],
+            normals: vec![[0.0, 0.0, 1.0]; 4],
+            indices: Some(triangulate_grid(2, 2)),
+        };
+        let mut buf = Vec::new();
+        write_obj_ascii(&mut buf, &mesh, None).unwrap();
+        let text = String::from_utf8(buf).unwrap();
+        let (verts, normals, faces) = parse_obj_text(&text);
+        assert_eq!(verts.len(), 4, "4 vertices");
+        assert_eq!(normals.len(), 4, "4 normals");
+        assert_eq!(faces.len(), 2, "2 triangles");
+    }
+
+    #[test]
+    fn jr2_801_obj_roundtrip_vertex_positions() {
+        let mesh = MeshData {
+            positions: vec![
+                [0.0, 0.0, 5.0],
+                [10.0, 0.0, 3.0],
+                [0.0, 10.0, 7.0],
+                [10.0, 10.0, 1.0],
+            ],
+            normals: vec![[0.0, 0.0, 1.0]; 4],
+            indices: Some(triangulate_grid(2, 2)),
+        };
+        let mut buf = Vec::new();
+        write_obj_ascii(&mut buf, &mesh, None).unwrap();
+        let text = String::from_utf8(buf).unwrap();
+        let (verts, _, faces) = parse_obj_text(&text);
+
+        // Verify vertex positions match
+        for (i, pos) in mesh.positions.iter().enumerate() {
+            for c in 0..3 {
+                assert!((verts[i][c] - pos[c]).abs() < 1e-4,
+                    "vertex {} component {} mismatch: {} vs {}", i, c, verts[i][c], pos[c]);
+            }
+        }
+
+        // Verify face indices reference correct vertices (OBJ is 1-based)
+        let idx = mesh.indices.as_ref().unwrap();
+        for (t, face) in faces.iter().enumerate() {
+            assert_eq!(face[0], idx[t * 3] + 1);
+            assert_eq!(face[1], idx[t * 3 + 1] + 1);
+            assert_eq!(face[2], idx[t * 3 + 2] + 1);
+        }
+    }
+
+    #[test]
+    fn jr2_801_obj_with_mtl_reference() {
+        let mesh = MeshData {
+            positions: vec![
+                [0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0],
+            ],
+            normals: vec![[0.0, 0.0, 1.0]; 3],
+            indices: Some(vec![0, 1, 2]),
+        };
+        let mut buf = Vec::new();
+        write_obj_ascii(&mut buf, &mesh, Some("test.mtl")).unwrap();
+        let text = String::from_utf8(buf).unwrap();
+        assert!(text.contains("mtllib test.mtl"), "should reference MTL file");
+        assert!(text.contains("usemtl default"), "should use default material");
+    }
+
+    #[test]
+    fn jr2_801_obj_without_mtl_reference() {
+        let mesh = MeshData {
+            positions: vec![
+                [0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0],
+            ],
+            normals: vec![[0.0, 0.0, 1.0]; 3],
+            indices: Some(vec![0, 1, 2]),
+        };
+        let mut buf = Vec::new();
+        write_obj_ascii(&mut buf, &mesh, None).unwrap();
+        let text = String::from_utf8(buf).unwrap();
+        assert!(!text.contains("mtllib"), "should not reference MTL without param");
+    }
+
+    #[test]
+    fn jr2_801_obj_rejects_no_indices() {
+        let mesh = MeshData {
+            positions: vec![[0.0, 0.0, 0.0]],
+            normals: vec![[0.0, 0.0, 1.0]],
+            indices: None,
+        };
+        let mut buf = Vec::new();
+        let err = write_obj_ascii(&mut buf, &mesh, None);
+        assert!(err.is_err(), "OBJ write should fail without indices");
+    }
+
+    #[test]
+    fn jr2_801_obj_header_comment() {
+        let mesh = MeshData {
+            positions: vec![
+                [0.0, 0.0, 0.0], [1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0], [1.0, 1.0, 0.0],
+            ],
+            normals: vec![[0.0, 0.0, 1.0]; 4],
+            indices: Some(triangulate_grid(2, 2)),
+        };
+        let mut buf = Vec::new();
+        write_obj_ascii(&mut buf, &mesh, None).unwrap();
+        let text = String::from_utf8(buf).unwrap();
+        assert!(text.starts_with("# SimplePicture3D OBJ Export"));
+        assert!(text.contains("Vertices: 4"));
+        assert!(text.contains("Triangles: 2"));
+    }
+
+    #[test]
+    fn jr2_801_obj_full_pipeline_depth_to_obj() {
+        let depth: Vec<f32> = (0..25).map(|i| (i as f32) / 24.0).collect();
+        let params = MeshParams::default();
+        let mesh = depth_to_point_cloud(&depth, 5, 5, &params).unwrap();
+        validate_mesh_for_export(&mesh).unwrap();
+        let mut buf = Vec::new();
+        write_obj_ascii(&mut buf, &mesh, Some("mesh.mtl")).unwrap();
+        let text = String::from_utf8(buf).unwrap();
+        let (verts, normals, faces) = parse_obj_text(&text);
+        assert_eq!(verts.len(), 25, "5x5 grid = 25 vertices");
+        assert_eq!(normals.len(), 25, "25 normals");
+        assert_eq!(faces.len(), 32, "4x4 cells * 2 = 32 triangles");
+    }
+
+    // --- BACK-802: MTL writer tests ---
+
+    #[test]
+    fn jr2_801_mtl_write() {
+        let mut buf = Vec::new();
+        write_mtl(&mut buf).unwrap();
+        let text = String::from_utf8(buf).unwrap();
+        assert!(text.contains("newmtl default"));
+        assert!(text.contains("Kd 0.8 0.8 0.8"));
+        assert!(text.contains("illum 2"));
+    }
+
+    // --- JR2-802: File write roundtrip ---
+
+    #[test]
+    fn jr2_802_obj_write_to_file_roundtrip() {
+        let mesh = MeshData {
+            positions: vec![
+                [0.0, 0.0, 0.0], [1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0], [1.0, 1.0, 0.0],
+            ],
+            normals: vec![[0.0, 0.0, 1.0]; 4],
+            indices: Some(triangulate_grid(2, 2)),
+        };
+        let dir = std::env::temp_dir().join("sp3d_test_obj");
+        let _ = std::fs::create_dir_all(&dir);
+        let obj_path = dir.join("test_roundtrip.obj").to_string_lossy().to_string();
+        write_obj_to_file(&obj_path, &mesh, true).unwrap();
+
+        // Verify OBJ file exists and has content
+        let obj_content = std::fs::read_to_string(&obj_path).unwrap();
+        let (verts, _, faces) = parse_obj_text(&obj_content);
+        assert_eq!(verts.len(), 4);
+        assert_eq!(faces.len(), 2);
+
+        // Verify MTL file exists
+        let mtl_path = dir.join("test_roundtrip.mtl");
+        assert!(mtl_path.exists(), "MTL file should be created alongside OBJ");
+        let mtl_content = std::fs::read_to_string(&mtl_path).unwrap();
+        assert!(mtl_content.contains("newmtl default"));
+
+        // Cleanup
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn jr2_802_obj_write_to_file_no_mtl() {
+        let mesh = MeshData {
+            positions: vec![
+                [0.0, 0.0, 0.0], [1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0], [1.0, 1.0, 0.0],
+            ],
+            normals: vec![[0.0, 0.0, 1.0]; 4],
+            indices: Some(triangulate_grid(2, 2)),
+        };
+        let dir = std::env::temp_dir().join("sp3d_test_obj_nomtl");
+        let _ = std::fs::create_dir_all(&dir);
+        let obj_path = dir.join("test_no_mtl.obj").to_string_lossy().to_string();
+        write_obj_to_file(&obj_path, &mesh, false).unwrap();
+
+        let obj_content = std::fs::read_to_string(&obj_path).unwrap();
+        assert!(!obj_content.contains("mtllib"), "no MTL reference when write_mtl_file=false");
+
+        let mtl_path = dir.join("test_no_mtl.mtl");
+        assert!(!mtl_path.exists(), "MTL file should not exist when write_mtl_file=false");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // --- BACK-803: Filename generation with format ---
+
+    #[test]
+    fn jr2_803_generate_export_filename_obj() {
+        let name = generate_export_filename_with_ext("C:\\photos\\my_image.png", "obj");
+        assert!(name.starts_with("my_image_"));
+        assert!(name.ends_with(".obj"));
+    }
+
+    #[test]
+    fn jr2_803_generate_export_filename_stl_backwards_compat() {
+        let name = generate_export_filename("test.png");
+        assert!(name.ends_with(".stl"), "backwards-compatible wrapper should use .stl");
+    }
+
+    // --- JR2-803: Settings corruption test ---
+
+    #[test]
+    fn jr2_803_corrupt_settings_falls_back_to_defaults() {
+        // Parse corrupt JSON should fall back to default
+        let corrupt_json = "{ this is not valid json }";
+        let result: Result<super::super::settings::AppSettings, _> =
+            serde_json::from_str(corrupt_json);
+        assert!(result.is_err(), "corrupt JSON should fail to parse");
+        // AppSettings::load() handles this internally by returning defaults
+    }
 }

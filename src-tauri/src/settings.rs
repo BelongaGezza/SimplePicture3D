@@ -155,4 +155,93 @@ mod tests {
             }
         }
     }
+
+    // =========================================================================
+    // Sprint 1.9: Extended settings tests (BACK-804, BACK-805, JR2-803, JR2-804)
+    // =========================================================================
+
+    #[test]
+    fn default_settings_all_none() {
+        let s = AppSettings::default();
+        assert!(s.last_export_dir.is_none());
+        assert!(s.export_format.is_none());
+        assert!(s.depth_brightness.is_none());
+        assert!(s.depth_contrast.is_none());
+        assert!(s.depth_gamma.is_none());
+        assert!(s.depth_invert.is_none());
+        assert!(s.depth_min_mm.is_none());
+        assert!(s.depth_max_mm.is_none());
+        assert!(s.window_width.is_none());
+        assert!(s.window_height.is_none());
+    }
+
+    #[test]
+    fn settings_extended_roundtrip_json() {
+        let mut s = AppSettings::default();
+        s.export_format = Some("obj".to_string());
+        s.depth_brightness = Some(1.2);
+        s.depth_contrast = Some(0.8);
+        s.depth_gamma = Some(2.2);
+        s.depth_invert = Some(true);
+        s.depth_min_mm = Some(3.0);
+        s.depth_max_mm = Some(8.0);
+        s.window_width = Some(1200);
+        s.window_height = Some(800);
+
+        let json = serde_json::to_string_pretty(&s).unwrap();
+        let loaded: AppSettings = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(loaded.export_format.as_deref(), Some("obj"));
+        assert_eq!(loaded.depth_brightness, Some(1.2));
+        assert_eq!(loaded.depth_contrast, Some(0.8));
+        assert_eq!(loaded.depth_gamma, Some(2.2));
+        assert_eq!(loaded.depth_invert, Some(true));
+        assert_eq!(loaded.depth_min_mm, Some(3.0));
+        assert_eq!(loaded.depth_max_mm, Some(8.0));
+        assert_eq!(loaded.window_width, Some(1200));
+        assert_eq!(loaded.window_height, Some(800));
+    }
+
+    #[test]
+    fn settings_skip_serializing_none_fields() {
+        let s = AppSettings::default();
+        let json = serde_json::to_string(&s).unwrap();
+        // With skip_serializing_if, the JSON for defaults should be just {}
+        assert_eq!(json, "{}");
+    }
+
+    #[test]
+    fn settings_partial_json_loads_with_defaults() {
+        // Old settings file with only last_export_dir (backwards compatibility)
+        let json = r#"{"lastExportDir":"/tmp/old"}"#;
+        let loaded: AppSettings = serde_json::from_str(json).unwrap();
+        assert_eq!(loaded.last_export_dir.as_deref(), Some("/tmp/old"));
+        assert!(loaded.export_format.is_none());
+        assert!(loaded.depth_brightness.is_none());
+        assert!(loaded.window_width.is_none());
+    }
+
+    #[test]
+    fn settings_unknown_fields_ignored() {
+        // Future settings file with extra unknown fields should still parse
+        let json = r#"{"lastExportDir":"/tmp","unknownFutureField":"value"}"#;
+        // serde by default ignores unknown fields
+        let loaded: AppSettings = serde_json::from_str(json).unwrap();
+        assert_eq!(loaded.last_export_dir.as_deref(), Some("/tmp"));
+    }
+
+    #[test]
+    fn settings_corrupt_json_returns_error() {
+        let corrupt = "not json at all {{{";
+        let result: Result<AppSettings, _> = serde_json::from_str(corrupt);
+        assert!(result.is_err(), "corrupt JSON should fail to parse");
+    }
+
+    #[test]
+    fn settings_empty_json_returns_defaults() {
+        let json = "{}";
+        let loaded: AppSettings = serde_json::from_str(json).unwrap();
+        assert!(loaded.last_export_dir.is_none());
+        assert!(loaded.export_format.is_none());
+    }
 }
