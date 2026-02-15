@@ -342,6 +342,120 @@ fn save_settings(
     settings.save().map_err(|e| e.to_string())
 }
 
+// --- Sprint 1.10: Model management commands ---
+
+/// Model status response (BACK-902).
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ModelStatus {
+    installed: bool,
+    model_dir: String,
+    model_id: String,
+    #[serde(default)]
+    missing_files: Vec<String>,
+    #[serde(default)]
+    size_mb: Option<f64>,
+}
+
+/// Model info response.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ModelInfo {
+    model_id: String,
+    model_dir: String,
+    license: String,
+    estimated_size_mb: u32,
+    description: String,
+}
+
+/// Download result response.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DownloadResult {
+    status: String,
+    #[serde(default)]
+    model_dir: Option<String>,
+    #[serde(default)]
+    size_mb: Option<f64>,
+    #[serde(default)]
+    error: Option<String>,
+}
+
+/// Run a python model_downloader command and parse JSON output.
+fn run_model_downloader_cmd(arg: &str) -> Result<String, String> {
+    let python = python_bridge_python_exe();
+    let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let work_dir = cwd.join("python");
+    let work_dir = if work_dir.is_dir() {
+        work_dir
+    } else {
+        cwd.parent()
+            .map(|p| p.join("python"))
+            .filter(|p| p.is_dir())
+            .unwrap_or(cwd)
+    };
+
+    let output = std::process::Command::new(&python)
+        .arg("-m")
+        .arg("python.model_downloader")
+        .arg(arg)
+        .current_dir(&work_dir)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .output()
+        .map_err(|e| format!("Failed to run model downloader: {}", e))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    if stdout.trim().is_empty() {
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        return Err(format!("Model downloader returned no output. stderr: {}", stderr));
+    }
+    Ok(stdout)
+}
+
+/// Helper: get python executable (re-uses same logic as python_bridge).
+fn python_bridge_python_exe() -> std::path::PathBuf {
+    if let Ok(venv) = std::env::var("VIRTUAL_ENV") {
+        let path = std::path::Path::new(&venv);
+        #[cfg(windows)]
+        let exe = path.join("Scripts").join("python.exe");
+        #[cfg(not(windows))]
+        let exe = path.join("bin").join("python");
+        if exe.is_file() {
+            return exe;
+        }
+    }
+    #[cfg(windows)]
+    return std::path::PathBuf::from("python");
+    #[cfg(not(windows))]
+    std::path::PathBuf::from("python3")
+}
+
+/// Check if AI model is installed (BACK-902).
+#[tauri::command]
+fn check_model() -> Result<ModelStatus, String> {
+    let stdout = run_model_downloader_cmd("--check")?;
+    serde_json::from_str(&stdout)
+        .map_err(|e| format!("Failed to parse model status: {}", e))
+}
+
+/// Get model information (BACK-901).
+#[tauri::command]
+fn get_model_info() -> Result<ModelInfo, String> {
+    let stdout = run_model_downloader_cmd("--info")?;
+    serde_json::from_str(&stdout)
+        .map_err(|e| format!("Failed to parse model info: {}", e))
+}
+
+/// Download AI model (BACK-901, BACK-903).
+#[tauri::command]
+fn download_model() -> Result<DownloadResult, String> {
+    let stdout = run_model_downloader_cmd("--download")?;
+    serde_json::from_str(&stdout)
+        .map_err(|e| format!("Failed to parse download result: {}", e))
+}
+
 /// JR2-303: Log depth map statistics (min, max, mean) at info level. Single pass; no PII.
 fn log_depth_stats(depth: &[f32]) {
     if depth.is_empty() {
@@ -504,7 +618,10 @@ pub fn run() {
             reset_depth_adjustments,
             get_mesh_data,
             get_settings,
-            save_settings
+            save_settings,
+            check_model,
+            get_model_info,
+            download_model
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

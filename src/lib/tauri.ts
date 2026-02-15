@@ -125,6 +125,46 @@ export interface GetMeshDataOptions {
   previewStep?: number;
 }
 
+// --- Sprint 1.10: Model management ---
+
+/** Model installation status (BACK-902). */
+export interface ModelStatus {
+  installed: boolean;
+  modelDir: string;
+  modelId: string;
+  missingFiles: string[];
+  sizeMb?: number;
+}
+
+/** Model info for display. */
+export interface ModelInfo {
+  modelId: string;
+  modelDir: string;
+  license: string;
+  estimatedSizeMb: number;
+  description: string;
+}
+
+/** Download result. */
+export interface DownloadResult {
+  status: string;
+  modelDir?: string;
+  sizeMb?: number;
+  error?: string;
+}
+
+export async function checkModel(): Promise<ModelStatus> {
+  return invoke<ModelStatus>("check_model");
+}
+
+export async function getModelInfo(): Promise<ModelInfo> {
+  return invoke<ModelInfo>("get_model_info");
+}
+
+export async function downloadModel(): Promise<DownloadResult> {
+  return invoke<DownloadResult>("download_model");
+}
+
 export async function getMeshData(
   options?: GetMeshDataOptions
 ): Promise<MeshData | null> {
