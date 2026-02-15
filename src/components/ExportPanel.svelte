@@ -1,20 +1,22 @@
 <script lang="ts">
   /**
-   * ExportPanel — UI-701 through UI-704.
-   * Export panel with format selector, export button, progress indicator, and success notification.
-   * Placed in the bottom footer bar of the workspace layout.
+   * ExportPanel — UI-701 through UI-704 (Sprint 1.8), UI-801 through UI-804 (Sprint 1.9).
+   * Export panel with format selector (STL/OBJ), export button, progress indicator,
+   * success notification, and settings persistence.
    */
   import Button from "./Button.svelte";
   import { save } from "@tauri-apps/plugin-dialog";
   import { open as shellOpen } from "@tauri-apps/plugin-shell";
-  import { exportStl } from "$lib/tauri";
+  import { exportStl, exportObj, getSettings, saveSettings } from "$lib/tauri";
+  import type { AppSettings } from "$lib/tauri";
+  import { onMount } from "svelte";
 
   /** Whether a depth map / mesh is available for export. */
   export let hasDepth = false;
   /** Source image filename (used for default export filename). */
   export let sourceFileName = "";
 
-  /** Selected export format. STL is active; OBJ is placeholder for Sprint 1.9. */
+  /** Selected export format. Both STL and OBJ are now active. */
   let selectedFormat: "stl" | "obj" = "stl";
   /** True while export is in progress. */
   let exporting = false;
@@ -26,11 +28,30 @@
   let showSuccess = false;
   /** Whether the format dropdown is open. */
   let dropdownOpen = false;
+  /** Whether the settings panel is open (UI-802). */
+  let showSettings = false;
+  /** Default export directory from settings (UI-803). */
+  let defaultExportDir = "";
 
   const formats = [
     { value: "stl" as const, label: "STL (Binary)", enabled: true },
-    { value: "obj" as const, label: "OBJ (ASCII)", enabled: false },
+    { value: "obj" as const, label: "OBJ (ASCII)", enabled: true },
   ];
+
+  /** Load saved settings on mount (BACK-804). */
+  onMount(async () => {
+    try {
+      const settings = await getSettings();
+      if (settings.exportFormat === "obj") {
+        selectedFormat = "obj";
+      }
+      if (settings.lastExportDir) {
+        defaultExportDir = settings.lastExportDir;
+      }
+    } catch {
+      // Settings not available; use defaults
+    }
+  });
 
   /** Generate a default filename from source image name + timestamp. */
   function defaultFileName(): string {
@@ -47,29 +68,31 @@
       String(now.getMinutes()).padStart(2, "0"),
       String(now.getSeconds()).padStart(2, "0"),
     ].join("");
-    return `${base}_${ts}.stl`;
+    return `${base}_${ts}.${selectedFormat}`;
   }
 
   /** Extract the containing directory from a file path. */
   function parentDir(filePath: string): string {
-    // Handle both forward and back slashes (cross-platform)
     const lastSep = Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\"));
     return lastSep > 0 ? filePath.substring(0, lastSep) : filePath;
   }
 
-  /** UI-702: Handle export button click — open save dialog, then call export_stl. */
+  /** UI-702: Handle export button click — open save dialog, then call export command. */
   async function handleExport() {
-    if (!hasDepth || exporting || selectedFormat !== "stl") return;
+    if (!hasDepth || exporting) return;
 
     exportError = "";
     exportedPath = "";
     showSuccess = false;
 
     try {
-      // Open native save dialog with STL filter
+      const ext = selectedFormat;
+      const filterName = ext === "stl" ? "STL files" : "OBJ files";
+
+      // Open native save dialog with format-appropriate filter
       const path = await save({
         defaultPath: defaultFileName(),
-        filters: [{ name: "STL files", extensions: ["stl"] }],
+        filters: [{ name: filterName, extensions: [ext] }],
       });
 
       // User cancelled the dialog
@@ -78,7 +101,20 @@
       // UI-703: Show progress and disable button during export
       exporting = true;
 
-      await exportStl(path);
+      if (ext === "stl") {
+        await exportStl(path);
+      } else {
+        await exportObj(path);
+      }
+
+      // Persist format preference (BACK-804)
+      try {
+        const settings = await getSettings();
+        settings.exportFormat = ext;
+        await saveSettings(settings);
+      } catch {
+        // Non-critical; continue
+      }
 
       // UI-704: Show success notification
       exportedPath = path;
@@ -98,7 +134,6 @@
     try {
       await shellOpen(parentDir(exportedPath));
     } catch (e) {
-      // Fallback: if opening the directory fails, try opening the file itself
       try {
         await shellOpen(exportedPath);
       } catch {
@@ -115,10 +150,21 @@
 
   /** Close dropdown when clicking outside. */
   function handleDropdownBlur(e: FocusEvent) {
-    // Delay to allow click on dropdown item to register
     setTimeout(() => {
       dropdownOpen = false;
     }, 150);
+  }
+
+  /** UI-804: Reset settings to defaults. */
+  async function handleResetSettings() {
+    try {
+      await saveSettings({});
+      selectedFormat = "stl";
+      defaultExportDir = "";
+      showSettings = false;
+    } catch (e) {
+      exportError = "Failed to reset settings: " + String(e);
+    }
   }
 </script>
 
@@ -127,7 +173,7 @@
   role="region"
   aria-label="Export panel"
 >
-  <!-- UI-702: Format dropdown -->
+  <!-- UI-702/UI-801: Format dropdown (both STL and OBJ active) -->
   <div class="relative" role="group" aria-label="Export format">
     <button
       type="button"
@@ -176,20 +222,17 @@
             }}
           >
             {fmt.label}
-            {#if !fmt.enabled}
-              <span class="text-xs text-slate-400 ml-1">(Sprint 1.9)</span>
-            {/if}
           </li>
         {/each}
       </ul>
     {/if}
   </div>
 
-  <!-- UI-702: Export button -->
+  <!-- UI-702: Export button (now works for both STL and OBJ) -->
   <Button
     variant="primary"
     title={!hasDepth ? "Generate a depth map first" : exporting ? "Exporting..." : "Export mesh as " + selectedFormat.toUpperCase()}
-    disabled={!hasDepth || exporting || selectedFormat !== "stl"}
+    disabled={!hasDepth || exporting}
     on:click={handleExport}
   >
     {#if exporting}
@@ -208,6 +251,20 @@
       Export
     {/if}
   </Button>
+
+  <!-- UI-802: Settings button -->
+  <button
+    type="button"
+    class="p-1.5 rounded text-slate-500 hover:text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-1"
+    on:click={() => (showSettings = !showSettings)}
+    title="Export settings"
+    aria-label="Toggle export settings"
+  >
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  </button>
 
   <!-- UI-703: Progress indicator (indeterminate bar during export) -->
   {#if exporting}
@@ -278,6 +335,62 @@
     </div>
   {/if}
 </div>
+
+<!-- UI-802: Settings panel (collapsible, positioned above the export bar) -->
+{#if showSettings}
+  <div
+    class="settings-panel absolute bottom-full mb-2 left-0 right-0 bg-white border border-slate-200 rounded-lg shadow-lg p-4 z-30"
+    role="dialog"
+    aria-label="Export settings"
+  >
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="text-sm font-medium text-slate-800">Export Settings</h3>
+      <button
+        type="button"
+        class="text-slate-400 hover:text-slate-600 focus:outline-none"
+        on:click={() => (showSettings = false)}
+        aria-label="Close settings"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- UI-803: Default export directory display -->
+    {#if defaultExportDir}
+      <div class="mb-3">
+        <label class="block text-xs text-slate-500 mb-1">Last export directory</label>
+        <p class="text-sm text-slate-700 truncate" title={defaultExportDir}>{defaultExportDir}</p>
+      </div>
+    {/if}
+
+    <!-- UI-801: Default format selector -->
+    <div class="mb-3">
+      <label class="block text-xs text-slate-500 mb-1" for="settings-format">Default format</label>
+      <select
+        id="settings-format"
+        class="w-full px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-slate-500"
+        bind:value={selectedFormat}
+      >
+        {#each formats as fmt}
+          <option value={fmt.value} disabled={!fmt.enabled}>{fmt.label}</option>
+        {/each}
+      </select>
+    </div>
+
+    <!-- UI-804: Reset settings button -->
+    <div class="flex justify-end">
+      <button
+        type="button"
+        class="px-3 py-1 text-xs text-slate-600 bg-slate-100 hover:bg-slate-200 rounded focus:outline-none focus:ring-2 focus:ring-slate-500"
+        on:click={handleResetSettings}
+      >
+        Reset to Defaults
+      </button>
+    </div>
+  </div>
+{/if}
 
 <style>
   /* UI-703: Indeterminate progress bar animation during export */

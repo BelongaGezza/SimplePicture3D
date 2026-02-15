@@ -25,12 +25,43 @@ export interface ExportStlArgs {
   path: string;
 }
 
+/** Arguments for export_obj command (BACK-801). */
+export interface ExportObjArgs {
+  path: string;
+}
+
+/** App settings persisted between sessions (BACK-804, BACK-805). */
+export interface AppSettings {
+  lastExportDir?: string | null;
+  exportFormat?: string | null;
+  depthBrightness?: number | null;
+  depthContrast?: number | null;
+  depthGamma?: number | null;
+  depthInvert?: boolean | null;
+  depthMinMm?: number | null;
+  depthMaxMm?: number | null;
+  windowWidth?: number | null;
+  windowHeight?: number | null;
+}
+
 export async function loadImage(path: string): Promise<LoadImageResult> {
   return invoke<LoadImageResult>("load_image", { path });
 }
 
 export async function exportStl(path: string): Promise<void> {
   return invoke("export_stl", { path });
+}
+
+export async function exportObj(path: string): Promise<void> {
+  return invoke("export_obj", { path });
+}
+
+export async function getSettings(): Promise<AppSettings> {
+  return invoke<AppSettings>("get_settings");
+}
+
+export async function saveSettings(newSettings: AppSettings): Promise<void> {
+  return invoke("save_settings", { newSettings });
 }
 
 /** Success response from generate_depth_map (BACK-303, BACK-304). Row-major depth array in [0, 1]. */
