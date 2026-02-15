@@ -4,6 +4,7 @@
   import DepthMapPreview from "./components/DepthMapPreview.svelte";
   import DepthControls from "./components/DepthControls.svelte";
   import ExportPanel from "./components/ExportPanel.svelte";
+  import FirstRunWizard from "./components/FirstRunWizard.svelte";
   import Button from "./components/Button.svelte";
   import {
     generateDepthMap,
@@ -11,6 +12,7 @@
     getDepthAdjustmentParams,
     setDepthAdjustmentParams,
     resetDepthAdjustments,
+    checkModel,
   } from "$lib/tauri";
   import type { LoadImageResult, DepthAdjustmentParams } from "$lib/tauri";
 
@@ -19,6 +21,20 @@
   let loading = false;
   let loadError = "";
   let loadedResult: LoadImageResult | null = null;
+
+  /** Sprint 1.10: Show first-run wizard if model is not installed (UI-901). */
+  let showWizard = false;
+  import { onMount } from "svelte";
+  onMount(async () => {
+    try {
+      const modelStatus = await checkModel();
+      if (!modelStatus.installed) {
+        showWizard = true;
+      }
+    } catch {
+      // Model check failed; don't block the app
+    }
+  });
 
   /** Depth map for preview (BACK-303, UI-301/302). Adjusted by backend when params change (UI-404). */
   let depthMap: { width: number; height: number; depth: number[] } | null = null;
@@ -143,6 +159,9 @@
     }
   }
 </script>
+
+<!-- Sprint 1.10: First-run wizard (UI-901) -->
+<FirstRunWizard visible={showWizard} on:close={() => (showWizard = false)} />
 
 <!-- UI-305: Side-by-side layout — original (left) and depth map (right) on same screen; min 1024×768 per prd -->
 <div class="app-layout min-h-screen flex flex-col bg-slate-50 text-slate-800">
