@@ -1,3 +1,6 @@
+// Copyright (c) 2026 SimplePicture3D Contributors
+// SPDX-License-Identifier: MIT
+
 /**
  * Component tests for ImageImport.svelte — JR1-502.
  * Tests default render, loading state, error state, Load button, unsupported format on drop.

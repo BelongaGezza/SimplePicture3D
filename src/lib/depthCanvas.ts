@@ -1,3 +1,6 @@
+// Copyright (c) 2026 SimplePicture3D Contributors
+// SPDX-License-Identifier: MIT
+
 /**
  * Canvas rendering for depth map (JR1-301).
  * Maps depth values 0–1 to grayscale (0→black, 1→white). Row-major order per architecture.

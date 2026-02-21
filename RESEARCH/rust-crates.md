@@ -26,17 +26,23 @@
 
 ---
 
+## As-built: STL/OBJ export
+
+**SimplePicture3D does not use `stl_io` or `obj-exporter`.** Binary STL and ASCII OBJ (with optional .mtl) are implemented as **custom** writers in `src-tauri/src/mesh_generator.rs` (Sprint 1.8/1.9, ADR-008). This keeps mesh and export logic in one module and avoids extra crate dependencies. If you need to swap to a crate later, the table below documents the standard options.
+
+---
+
 ## Crate Usage
 
 | Crate | Purpose |
 |-------|---------|
-| image | Load PNG/JPG, validate, downsample, convert to RGB; supports 8-bit and many formats (AVIF, BMP, GIF, JPEG, PNG, TIFF, WebP, etc.). Use `ImageReader::open()` / `decode()`, `resize()` for downsampling. |
-| stl_io | Read/write STL; **writes binary STL**; reads binary and ASCII. Minimal deps (byteorder, float-cmp). |
-| tokio | Async runtime (Tauri uses it). Use for non-blocking I/O and subprocess handling. |
-| serde | Serialize/deserialize (settings, IPC, depth map JSON). Use with `serde_json` for JSON. |
-| anyhow | Error handling with context (`anyhow::Result`, `.context()`, `?`). Prefer for application code; use `thiserror` for library error types. |
-| obj-exporter | **OBJ export:** Write Wavefront OBJ (e.g. `export_to_file()`). Depends on `wavefront_obj`. Crate is older but functional; alternative is building OBJ text manually from vertex/normal arrays. |
-| wavefront_obj | Parse OBJ; define `ObjSet`/`Object`/`Geometry` for export. Use with obj-exporter or hand-rolled OBJ writer. |
+| image | Load PNG/JPG, validate, downsample, convert to RGB; supports 8-bit and many formats (AVIF, BMP, GIF, JPEG, PNG, TIFF, WebP, etc.). Use `ImageReader::open()` / `decode()`, `resize()` for downsampling. **Used in this project.** |
+| stl_io | Read/write STL; **writes binary STL**; reads binary and ASCII. Minimal deps (byteorder, float-cmp). **Not used;** we use custom STL in mesh_generator.rs. |
+| tokio | Async runtime (Tauri uses it). Use for non-blocking I/O and subprocess handling. **Used.** |
+| serde | Serialize/deserialize (settings, IPC, depth map JSON). Use with `serde_json` for JSON. **Used.** |
+| anyhow | Error handling with context (`anyhow::Result`, `.context()`, `?`). Prefer for application code; use `thiserror` for library error types. **Used.** |
+| obj-exporter | **OBJ export:** Write Wavefront OBJ (e.g. `export_to_file()`). Depends on `wavefront_obj`. **Not used;** we use custom OBJ in mesh_generator.rs. |
+| wavefront_obj | Parse OBJ; define `ObjSet`/`Object`/`Geometry` for export. **Not used.** |
 
 ---
 

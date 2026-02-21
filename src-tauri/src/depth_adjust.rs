@@ -1,3 +1,6 @@
+// Copyright (c) 2026 SimplePicture3D Contributors
+// SPDX-License-Identifier: MIT
+
 //! Depth map adjustment pipeline (BACK-401–405).
 //!
 //! Transforms normalized depth [0, 1] with brightness, contrast, gamma, and invert.

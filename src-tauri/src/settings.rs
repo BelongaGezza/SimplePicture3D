@@ -1,3 +1,6 @@
+// Copyright (c) 2026 SimplePicture3D Contributors
+// SPDX-License-Identifier: MIT
+
 //! Persistent application settings (BACK-706).
 //!
 //! Settings are stored as JSON at `~/.simplepicture3d/settings.json`.

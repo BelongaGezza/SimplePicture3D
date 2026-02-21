@@ -1,3 +1,6 @@
+// Copyright (c) 2026 SimplePicture3D Contributors
+// SPDX-License-Identifier: MIT
+
 /**
  * Component tests for DepthControls.svelte — JR1-501.
  * Tests disabled/enabled state, slider interaction, invert, reset, clamping, keyboard.

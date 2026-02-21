@@ -80,9 +80,8 @@ jobs:
       - name: Coverage (tarpaulin)
         run: |
           cargo install cargo-tarpaulin --locked
-          cargo tarpaulin --manifest-path src-tauri/Cargo.toml --out Xml --output-dir coverage/
-        continue-on-error: true
-        # BACK-501: Advisory baseline; threshold enforcement in Sprint 1.6.
+          cargo tarpaulin --manifest-path src-tauri/Cargo.toml --out Xml --output-dir coverage/ --fail-under 63
+        # QA-506/507: Enforce coverage (Sprint 1.6A). Baseline 63%; raise to 65% then 70% per todo.md.
 
       - name: cargo audit
         run: |

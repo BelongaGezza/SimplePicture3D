@@ -1,3 +1,5 @@
+<!-- Copyright (c) 2026 SimplePicture3D Contributors
+     SPDX-License-Identifier: MIT -->
 <script lang="ts">
   import ImageImport from "./components/ImageImport.svelte";
   import Preview3D from "./components/Preview3D.svelte";

@@ -1,3 +1,5 @@
+<!-- Copyright (c) 2026 SimplePicture3D Contributors
+     SPDX-License-Identifier: MIT -->
 <script lang="ts">
   /**
    * DepthControls — UI-401–405. Sliders and controls for depth adjustment.

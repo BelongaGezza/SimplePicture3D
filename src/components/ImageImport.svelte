@@ -1,3 +1,5 @@
+<!-- Copyright (c) 2026 SimplePicture3D Contributors
+     SPDX-License-Identifier: MIT -->
 <script lang="ts">
   /**
    * ImageImport — file picker and drop zone for loading images (UI-101, UI-102, UI-105).

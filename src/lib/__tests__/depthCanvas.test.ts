@@ -1,3 +1,6 @@
+// Copyright (c) 2026 SimplePicture3D Contributors
+// SPDX-License-Identifier: MIT
+
 /**
  * Unit tests for depthCanvas.ts — JR2-501.
  * Tests renderDepthToCanvas: happy path, NaN, clamping, length mismatch, empty input.

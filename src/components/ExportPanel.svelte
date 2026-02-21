@@ -1,3 +1,5 @@
+<!-- Copyright (c) 2026 SimplePicture3D Contributors
+     SPDX-License-Identifier: MIT -->
 <script lang="ts">
   /**
    * ExportPanel — UI-701 through UI-704 (Sprint 1.8), UI-801 through UI-804 (Sprint 1.9).

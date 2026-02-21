@@ -15,9 +15,9 @@ SimplePicture3D is an open-source desktop application that transforms ordinary 2
 
 ## ✨ Features
 
-### Current Status: **In Development** 🚧
+### Current Status: **In Development — Phase 1 MVP (~65% complete)** 🚧
 
-SimplePicture3D is currently in the planning phase. We're building:
+SimplePicture3D is in active development. Delivered so far:
 
 - 🖼️ **Multi-Format Image Support** - PNG, JPG, TIFF, and more
 - 🤖 **AI-Powered Depth Estimation** - Depth-Anything-V2 and MiDaS models
@@ -57,14 +57,14 @@ See [TODO.md](TODO.md) for detailed development plan.
 
 ### Installation
 
-> **Note:** SimplePicture3D is not yet available for download. Watch this repository for release announcements!
+> **Note:** Pre-release builds are available by building from source (see below). Installers will be published at Phase 1 exit. Watch this repository for release announcements!
 
 Once released, you'll be able to download installers for:
 - **Windows**: `.msi` or `.exe` installer
 - **macOS**: `.dmg` disk image (Intel and Apple Silicon)
 - **Linux**: AppImage or `.deb` package
 
-### Usage (Planned)
+### Usage
 
 1. **Load an Image** - Drag and drop or browse for a PNG/JPG file
 2. **Generate Depth Map** - AI automatically estimates depth from your 2D image
@@ -260,24 +260,26 @@ We're looking for contributors in these areas:
 
 ## 📋 Project Status
 
-### Current Phase: **Planning & Setup**
+### Current Phase: **Phase 1 MVP (In Progress)**
 
 ✅ Product Requirements Document (PRD) complete  
-✅ Development roadmap (TODO.md) finalized  
-✅ GitHub repository created  
-⬜ Development environment setup  
-⬜ Sprint 1.1: Project foundations (starting soon)
+✅ Development roadmap (todo.md) finalized  
+✅ GitHub repository and CI (build, test, clippy, audit)  
+✅ Sprints 1.1–1.10 delivered (project setup, image load, Python bridge, depth generation, depth adjustments, mesh generation, 3D preview, STL/OBJ export, settings, model wizard)  
+🟡 Sprint 1.6A: QA hardening, coverage enforcement (in progress)  
+⬜ Sprint 1.11: E2E testing and bug fixes  
+⬜ Sprint 1.12: Documentation and beta preparation  
 
 ### Development Timeline
 
 | Phase | Status | Target |
 |-------|--------|--------|
-| Phase 1: MVP | 🟡 Planning | Q2 2026 |
-| Phase 2: Enhanced UX | ⬜ Not Started | Q3 2026 |
-| Phase 3: Cross-Platform | ⬜ Not Started | Q4 2026 |
-| Phase 4: Production | ⬜ Not Started | Q1 2027 |
+| Phase 1: MVP | 🟢 In progress (~65%) | Q2 2026 |
+| Phase 2: Enhanced UX | ⬜ Not started | Q3 2026 |
+| Phase 3: Cross-Platform | ⬜ Not started | Q4 2026 |
+| Phase 4: Production | ⬜ Not started | Q1 2027 |
 
-Track progress on our [GitHub Project Board](https://github.com/BelongaGezza/SimplePicture3D/projects) (coming soon).
+Track progress in [todo.md](todo.md) and [SPRINTS/](SPRINTS/).
 
 ---
 
@@ -362,18 +364,19 @@ Special thanks to early contributors and beta testers (you'll be listed here!).
 ## 🗺️ Roadmap Highlights
 
 ### v0.1.0 - MVP (Q2 2026)
-- [ ] Basic image loading and display
-- [ ] AI depth estimation (Depth-Anything-V2)
-- [ ] Manual depth adjustments (sliders)
-- [ ] Point cloud mesh generation
-- [ ] STL export
-- [ ] Windows installer
+- [x] Basic image loading and display
+- [x] AI depth estimation (Depth-Anything-V2 / MiDaS)
+- [x] Manual depth adjustments (sliders)
+- [x] Point cloud and triangulated mesh generation
+- [x] STL and OBJ export
+- [x] 3D preview (Three.js), settings persistence, first-run model wizard
+- [ ] Windows installer (Phase 1 exit)
+- [ ] E2E tests and beta-ready documentation
 
 ### v0.2.0 - Enhanced UX (Q3 2026)
 - [ ] Advanced depth controls (curves, masks)
 - [ ] Preset system
 - [ ] Undo/redo
-- [ ] OBJ export
 - [ ] Enhanced 3D preview
 
 ### v0.3.0 - Cross-Platform (Q4 2026)

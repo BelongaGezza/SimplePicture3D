@@ -1,3 +1,6 @@
+// Copyright (c) 2026 SimplePicture3D Contributors
+// SPDX-License-Identifier: MIT
+
 //! Mesh generation from depth map (BACK-501–506).
 //!
 //! Converts a row-major normalized depth map (0–1) into a point cloud with positions and normals

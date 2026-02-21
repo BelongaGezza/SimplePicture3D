@@ -1,3 +1,5 @@
+<!-- Copyright (c) 2026 SimplePicture3D Contributors
+     SPDX-License-Identifier: MIT -->
 <script lang="ts">
   /**
    * FirstRunWizard — UI-901 through UI-905, JR1-901/902 (Sprint 1.10).

@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 SimplePicture3D Contributors
+# SPDX-License-Identifier: MIT
+
 """
 Model downloader for SimplePicture3D (AI-401 through AI-405, Sprint 1.10).
 

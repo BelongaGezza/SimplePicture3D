@@ -1,3 +1,6 @@
+# Copyright (c) 2026 SimplePicture3D Contributors
+# SPDX-License-Identifier: MIT
+
 """
 Pytest suite for depth_estimator (AI-401).
 All tests run without downloading the AI model (use --no-model or SP3D_USE_STUB=1).

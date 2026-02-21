@@ -1,3 +1,5 @@
+<!-- Copyright (c) 2026 SimplePicture3D Contributors
+     SPDX-License-Identifier: MIT -->
 <script lang="ts">
   /**
    * DepthMapPreview — displays depth map as grayscale image (JR1-301, UI-301/302).

@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 SimplePicture3D Contributors
+# SPDX-License-Identifier: MIT
+
 """
 Depth estimator CLI: --input <path> → stdout JSON depth map, stderr progress (AI-201–AI-205).
 

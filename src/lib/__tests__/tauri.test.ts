@@ -1,3 +1,6 @@
+// Copyright (c) 2026 SimplePicture3D Contributors
+// SPDX-License-Identifier: MIT
+
 /**
  * Unit tests for tauri.ts type layer — JR2-502.
  * Mocks @tauri-apps/api/core invoke; verifies command names, return types, error propagation.

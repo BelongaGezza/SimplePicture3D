@@ -1,3 +1,6 @@
+// Copyright (c) 2026 SimplePicture3D Contributors
+// SPDX-License-Identifier: MIT
+
 /**
  * Smoke test — UI-502. Confirms Vitest + jsdom setup works.
  */

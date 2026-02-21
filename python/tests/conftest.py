@@ -1,3 +1,6 @@
+# Copyright (c) 2026 SimplePicture3D Contributors
+# SPDX-License-Identifier: MIT
+
 # Pytest conftest: make depth_estimator importable when running from repo root.
 # Run from repo root: SP3D_USE_STUB=1 pytest python/ -v
 # Or from python/: SP3D_USE_STUB=1 PYTHONPATH=python pytest tests/ -v

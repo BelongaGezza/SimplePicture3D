@@ -1,3 +1,6 @@
+// Copyright (c) 2026 SimplePicture3D Contributors
+// SPDX-License-Identifier: MIT
+
 //! Python subprocess bridge for depth estimation (BACK-201–205).
 //!
 //! Spawns `python -m python.depth_estimator --input <path>` with image bytes in a temp file;

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 SimplePicture3D Contributors
+// SPDX-License-Identifier: MIT
+
 //! Image loading for load_image Tauri command (BACK-101–105).
 //!
 //! Path validation (SEC-101), magic-byte validation (SEC-102), decode, downsampling,

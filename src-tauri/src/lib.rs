@@ -1,3 +1,6 @@
+// Copyright (c) 2026 SimplePicture3D Contributors
+// SPDX-License-Identifier: MIT
+
 pub mod depth_adjust;
 mod file_io;
 mod image_loading;

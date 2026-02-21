@@ -1,3 +1,6 @@
+# Copyright (c) 2026 SimplePicture3D Contributors
+# SPDX-License-Identifier: MIT
+
 """Tests for model_downloader (Sprint 1.10, AI-401 through AI-405)."""
 
 import json

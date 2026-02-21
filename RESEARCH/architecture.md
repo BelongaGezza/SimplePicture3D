@@ -326,20 +326,25 @@ SimplePicture3D/
 ├── src-tauri/              # Rust backend (Tauri shell)
 │   ├── src/
 │   │   ├── main.rs         # Tauri app entry point
-│   │   ├── lib.rs          # IPC command handlers (load_image, export_stl), integration tests
-│   │   ├── image_loading.rs # Image load, validate, downsample, RGB, preview (BACK-101–105)
-│   │   ├── file_io.rs       # Temp path utilities (future Python handoff)
-│   │   ├── (future: mesh_generator.rs, depth_map.rs, exporters/, python_bridge.rs)
+│   │   ├── lib.rs          # IPC command handlers, integration tests
+│   │   ├── image_loading.rs # Image load, validate, downsample, RGB (BACK-101–105)
+│   │   ├── file_io.rs       # Temp path utilities (Python handoff)
+│   │   ├── depth_adjust.rs  # Depth adjustments (gamma, range, invert)
+│   │   ├── mesh_generator.rs # Point cloud, grid triangulation, STL/OBJ export (no exporters/; consolidated here per ADR-008)
+│   │   ├── python_bridge.rs # Python subprocess, depth map I/O
+│   │   └── settings.rs      # App settings persistence
 │   ├── Cargo.toml
 │   └── tauri.conf.json
 │
-├── src/                    # Frontend (Svelte/React)
+├── src/                    # Frontend (Svelte)
 │   ├── components/
 │   │   ├── ImageImport.svelte
 │   │   ├── DepthControls.svelte
+│   │   ├── DepthMapPreview.svelte
 │   │   ├── Preview3D.svelte
-│   │   └── ExportPanel.svelte
-│   ├── stores/
+│   │   ├── ExportPanel.svelte
+│   │   ├── FirstRunWizard.svelte
+│   │   └── Button.svelte
 │   ├── lib/
 │   └── App.svelte
 │
@@ -441,6 +446,7 @@ SimplePicture3D/
 ## Key Interfaces
 
 - **Tauri commands:** `load_image`, `generate_depth_map`, `get_mesh_data`, `export_stl`, `export_obj`, `download_model`
+- **STL/OBJ export:** Implemented as **custom** binary STL and ASCII OBJ (with .mtl) writers in `src-tauri/src/mesh_generator.rs`. The project does **not** use the `stl_io` or `obj-exporter` crates; the PRD §5.4 notion of a separate `exporters/` module was consolidated into `mesh_generator.rs` (ADR-008, Sprint 1.8/1.9). See RESEARCH/rust-crates.md for crate guidance vs as-built.
 - **Python interface (Sprint 1.3):** See **docs/architecture.md** § "Rust–Python Bridge (Sprint 1.3)" for the full IPC contract:
   - **Image input:** Temp file path only (`--input <path>`); path validated, under system temp dir (ARCH-102).
   - **Depth output:** JSON `{"height", "width", "depth": [f32,...]}` to stdout (or file); 0–1 normalized, row-major.

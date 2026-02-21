@@ -1,3 +1,6 @@
+// Copyright (c) 2026 SimplePicture3D Contributors
+// SPDX-License-Identifier: MIT
+
 /**
  * Tauri IPC helpers (UI-004, JR1-003). Stub invoke calls for load_image, export_stl, generate_depth_map, get_depth_map.
  * Types match backend command signatures (src-tauri/src/lib.rs). See docs/architecture.md § Sprint 1.4 command contract.

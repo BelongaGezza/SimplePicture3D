@@ -1,3 +1,6 @@
+// Copyright (c) 2026 SimplePicture3D Contributors
+// SPDX-License-Identifier: MIT
+
 //! Safe temp file I/O for image → Python handoff and other backend use.
 //!
 //! Paths are restricted to the system temp directory; path traversal is rejected
