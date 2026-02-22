@@ -23,17 +23,21 @@ export interface LoadImageResult {
   previewBase64: string;
 }
 
-/** Arguments for export_stl command. */
+/** Arguments for export_stl command (ADR-009: optional target dimensions). */
 export interface ExportStlArgs {
   path: string;
+  target_width_mm?: number | null;
+  target_height_mm?: number | null;
 }
 
-/** Arguments for export_obj command (BACK-801). */
+/** Arguments for export_obj command (BACK-801, ADR-009). */
 export interface ExportObjArgs {
   path: string;
+  target_width_mm?: number | null;
+  target_height_mm?: number | null;
 }
 
-/** App settings persisted between sessions (BACK-804, BACK-805). */
+/** App settings persisted between sessions (BACK-804, BACK-805, ADR-009). */
 export interface AppSettings {
   lastExportDir?: string | null;
   exportFormat?: string | null;
@@ -43,6 +47,10 @@ export interface AppSettings {
   depthInvert?: boolean | null;
   depthMinMm?: number | null;
   depthMaxMm?: number | null;
+  /** Target output size in mm for mesh/export (ADR-009). When both set, mesh XY fits inside this rectangle. */
+  targetWidthMm?: number | null;
+  /** Target output size in mm for mesh/export (ADR-009). */
+  targetHeightMm?: number | null;
   windowWidth?: number | null;
   windowHeight?: number | null;
 }
@@ -51,12 +59,24 @@ export async function loadImage(path: string): Promise<LoadImageResult> {
   return invoke<LoadImageResult>("load_image", { path });
 }
 
-export async function exportStl(path: string): Promise<void> {
-  return invoke("export_stl", { path });
+/** Options for export (ADR-009: optional target size in mm). */
+export interface ExportOptions {
+  targetWidthMm?: number | null;
+  targetHeightMm?: number | null;
 }
 
-export async function exportObj(path: string): Promise<void> {
-  return invoke("export_obj", { path });
+export async function exportStl(path: string, options?: ExportOptions): Promise<void> {
+  const args: Record<string, unknown> = { path };
+  if (options?.targetWidthMm != null && options.targetWidthMm > 0) args.target_width_mm = options.targetWidthMm;
+  if (options?.targetHeightMm != null && options.targetHeightMm > 0) args.target_height_mm = options.targetHeightMm;
+  return invoke("export_stl", args);
+}
+
+export async function exportObj(path: string, options?: ExportOptions): Promise<void> {
+  const args: Record<string, unknown> = { path };
+  if (options?.targetWidthMm != null && options.targetWidthMm > 0) args.target_width_mm = options.targetWidthMm;
+  if (options?.targetHeightMm != null && options.targetHeightMm > 0) args.target_height_mm = options.targetHeightMm;
+  return invoke("export_obj", args);
 }
 
 export async function getSettings(): Promise<AppSettings> {

@@ -813,6 +813,75 @@ mod tests {
         );
     }
 
+    /// JR2-1001: When pixel_to_mm is derived from target dimensions (ADR-009), mesh XY bounds fit
+    /// inside target rectangle and aspect ratio is preserved.
+    #[test]
+    fn target_dimensions_mesh_xy_fits_and_aspect_preserved() {
+        let width_px = 100u32;
+        let height_px = 100u32;
+        let target_width_mm = 50.0f32;
+        let target_height_mm = 70.0f32;
+        let pixel_to_mm = (target_width_mm / width_px as f32)
+            .min(target_height_mm / height_px as f32);
+        let depth: Vec<f32> = (0..(width_px * height_px) as usize)
+            .map(|i| (i as f32) / ((width_px * height_px) as f32 - 1.0))
+            .collect();
+        let params = MeshParams {
+            step_x: 1,
+            step_y: 1,
+            depth_min_mm: 2.0,
+            depth_max_mm: 10.0,
+            pixel_to_mm,
+        };
+        let mesh = depth_to_point_cloud(&depth, width_px, height_px, &params).unwrap();
+        let (min_x, max_x) = mesh
+            .positions
+            .iter()
+            .fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), p| {
+                (min.min(p[0]), max.max(p[0]))
+            });
+        let (min_y, max_y) = mesh
+            .positions
+            .iter()
+            .fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), p| {
+                (min.min(p[1]), max.max(p[1]))
+            });
+        let mesh_width_mm = max_x - min_x;
+        let mesh_height_mm = max_y - min_y;
+        assert!(
+            mesh_width_mm <= target_width_mm + 0.01,
+            "mesh width {} must fit inside target {}",
+            mesh_width_mm,
+            target_width_mm
+        );
+        assert!(
+            mesh_height_mm <= target_height_mm + 0.01,
+            "mesh height {} must fit inside target {}",
+            mesh_height_mm,
+            target_height_mm
+        );
+        let aspect_mesh = mesh_width_mm / mesh_height_mm.max(1e-6);
+        let aspect_target = (width_px as f32) / (height_px as f32);
+        assert!(
+            (aspect_mesh - aspect_target).abs() < 0.01,
+            "aspect ratio preserved: mesh {} vs image {}",
+            aspect_mesh,
+            aspect_target
+        );
+    }
+
+    /// JR2-1001: When target dimensions are not set, pixel_to_mm default (1.0) gives unchanged behaviour.
+    #[test]
+    fn target_dimensions_unset_default_pixel_to_mm() {
+        let depth: Vec<f32> = (0..9).map(|i| (i as f32) / 8.0).collect();
+        let params = MeshParams::default();
+        assert_eq!(params.pixel_to_mm, 1.0, "default pixel_to_mm is 1.0");
+        let mesh = depth_to_point_cloud(&depth, 3, 3, &params).unwrap();
+        assert!((mesh.positions[0][0] - 0.0).abs() < 1e-5);
+        assert!((mesh.positions[8][0] - 2.0).abs() < 1e-5);
+        assert!((mesh.positions[8][1] - 2.0).abs() < 1e-5);
+    }
+
     #[test]
     fn point_cloud_constant_depth_all_half() {
         let depth: Vec<f32> = vec![0.5; 100];
@@ -841,6 +910,129 @@ mod tests {
         let right_z = mesh.positions[width - 1][2];
         assert!((left_z - 2.0).abs() < 1e-5, "left (depth 0) -> z=2 mm");
         assert!((right_z - 10.0).abs() < 1e-5, "right (depth 1) -> z=10 mm");
+    }
+
+    // --- JR2-1001: Unit tests for target dimensions (ADR-009) ---
+    //
+    // When target_width_mm and target_height_mm are set, backend uses
+    // pixel_to_mm = min(target_width_mm/width_px, target_height_mm/height_px)
+    // so mesh XY fits inside the target rectangle with aspect ratio preserved.
+
+    /// Helper: compute pixel_to_mm from target dimensions (same formula as lib.rs compute_pixel_to_mm).
+    fn target_to_pixel_to_mm(width_px: u32, height_px: u32, target_width_mm: f32, target_height_mm: f32) -> f32 {
+        let scale_w = target_width_mm / width_px as f32;
+        let scale_h = target_height_mm / height_px as f32;
+        scale_w.min(scale_h)
+    }
+
+    /// Helper: return (min_x, max_x, min_y, max_y) of mesh positions (XY only).
+    fn mesh_xy_bounds(positions: &[[f32; 3]]) -> (f32, f32, f32, f32) {
+        let (min_x, max_x) = positions
+            .iter()
+            .fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), p| {
+                (min.min(p[0]), max.max(p[0]))
+            });
+        let (min_y, max_y) = positions
+            .iter()
+            .fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), p| {
+                (min.min(p[1]), max.max(p[1]))
+            });
+        (min_x, max_x, min_y, max_y)
+    }
+
+    #[test]
+    fn target_dimensions_set_mesh_fits_inside_rectangle() {
+        // 100×100 depth map, target 50×70 mm → pixel_to_mm = min(0.5, 0.7) = 0.5.
+        // Mesh XY extent: 100*0.5 = 50 mm each → fits inside 50×70, aspect ratio 1:1 preserved.
+        let width_px = 100u32;
+        let height_px = 100u32;
+        let target_w = 50.0f32;
+        let target_h = 70.0f32;
+        let pixel_to_mm = target_to_pixel_to_mm(width_px, height_px, target_w, target_h);
+        assert!((pixel_to_mm - 0.5).abs() < 1e-6);
+
+        let depth: Vec<f32> = vec![0.5; (width_px * height_px) as usize];
+        let params = MeshParams {
+            step_x: 1,
+            step_y: 1,
+            depth_min_mm: 2.0,
+            depth_max_mm: 10.0,
+            pixel_to_mm,
+        };
+        let mesh = depth_to_point_cloud(&depth, width_px, height_px, &params).unwrap();
+        let (min_x, max_x, min_y, max_y) = mesh_xy_bounds(&mesh.positions);
+        let extent_w = max_x - min_x;
+        let extent_h = max_y - min_y;
+
+        assert!(extent_w <= target_w + 1e-5, "mesh width {} should fit in target {}", extent_w, target_w);
+        assert!(extent_h <= target_h + 1e-5, "mesh height {} should fit in target {}", extent_h, target_h);
+        // Scaled size (width_px * pixel_to_mm) fits in target; mesh extent is (n-1)*pixel_to_mm so slightly smaller
+        let scaled_w = width_px as f32 * pixel_to_mm;
+        let scaled_h = height_px as f32 * pixel_to_mm;
+        assert!(scaled_w <= target_w + 1e-5 && scaled_h <= target_h + 1e-5);
+    }
+
+    #[test]
+    fn target_dimensions_set_aspect_ratio_preserved() {
+        // 200×100 (landscape): pixel_to_mm = min(50/200, 70/100) = 0.25.
+        // Mesh extent: 200*0.25 = 50 mm, 100*0.25 = 25 mm → 50×25, fits in 50×70, aspect 2:1.
+        let width_px = 200u32;
+        let height_px = 100u32;
+        let target_w = 50.0f32;
+        let target_h = 70.0f32;
+        let pixel_to_mm = target_to_pixel_to_mm(width_px, height_px, target_w, target_h);
+        assert!((pixel_to_mm - 0.25).abs() < 1e-6);
+
+        let depth: Vec<f32> = vec![0.5; (width_px * height_px) as usize];
+        let params = MeshParams {
+            step_x: 1,
+            step_y: 1,
+            depth_min_mm: 2.0,
+            depth_max_mm: 10.0,
+            pixel_to_mm,
+        };
+        let mesh = depth_to_point_cloud(&depth, width_px, height_px, &params).unwrap();
+        let (min_x, max_x, min_y, max_y) = mesh_xy_bounds(&mesh.positions);
+        let extent_w = max_x - min_x;
+        let extent_h = max_y - min_y;
+
+        assert!(extent_w <= target_w + 1e-5);
+        assert!(extent_h <= target_h + 1e-5);
+        // Aspect ratio preserved: uniform pixel_to_mm gives mesh aspect (width_px-1)/(height_px-1) ≈ width_px/height_px
+        let mesh_aspect = extent_w / extent_h.max(1e-6);
+        let image_aspect = width_px as f32 / height_px as f32;
+        assert!(
+            (mesh_aspect - image_aspect).abs() < 0.02,
+            "aspect ratio preserved: mesh {} vs image {}",
+            mesh_aspect,
+            image_aspect
+        );
+    }
+
+    #[test]
+    fn target_dimensions_unset_default_behaviour() {
+        // When target dimensions are not set, pixel_to_mm = 1.0 (default).
+        // Mesh XY extent should equal pixel dimensions (width_px × height_px mm).
+        let width_px = 10u32;
+        let height_px = 8u32;
+        let depth: Vec<f32> = vec![0.5; (width_px * height_px) as usize];
+
+        let mesh_default = depth_to_point_cloud(&depth, width_px, height_px, &MeshParams::default()).unwrap();
+        let (min_x, max_x, min_y, max_y) = mesh_xy_bounds(&mesh_default.positions);
+        let extent_w = max_x - min_x;
+        let extent_h = max_y - min_y;
+
+        assert!((extent_w - (width_px - 1) as f32).abs() < 1e-5, "default: width extent = width_px - 1 (0-indexed)");
+        assert!((extent_h - (height_px - 1) as f32).abs() < 1e-5, "default: height extent = height_px - 1");
+        // Explicit pixel_to_mm 1.0 should match default
+        let params_explicit = MeshParams {
+            pixel_to_mm: 1.0,
+            ..MeshParams::default()
+        };
+        let mesh_explicit = depth_to_point_cloud(&depth, width_px, height_px, &params_explicit).unwrap();
+        let (min_x2, max_x2, min_y2, max_y2) = mesh_xy_bounds(&mesh_explicit.positions);
+        assert!((max_x - min_x - (max_x2 - min_x2)).abs() < 1e-5);
+        assert!((max_y - min_y - (max_y2 - min_y2)).abs() < 1e-5);
     }
 
     // --- JR2-502: Edge cases — empty/single pixel/row/column; no panic, graceful error or valid output ---

@@ -40,6 +40,13 @@ pub struct AppSettings {
     pub window_width: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub window_height: Option<u32>,
+
+    /// Target output size in mm for mesh/export (ADR-009, BACK-1006). When both set and positive,
+    /// mesh XY fits inside target_width_mm × target_height_mm with aspect ratio preserved.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_width_mm: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_height_mm: Option<f32>,
 }
 
 impl AppSettings {
@@ -176,6 +183,8 @@ mod tests {
         assert!(s.depth_max_mm.is_none());
         assert!(s.window_width.is_none());
         assert!(s.window_height.is_none());
+        assert!(s.target_width_mm.is_none());
+        assert!(s.target_height_mm.is_none());
     }
 
     #[test]
@@ -190,6 +199,8 @@ mod tests {
         s.depth_max_mm = Some(8.0);
         s.window_width = Some(1200);
         s.window_height = Some(800);
+        s.target_width_mm = Some(50.0);
+        s.target_height_mm = Some(70.0);
 
         let json = serde_json::to_string_pretty(&s).unwrap();
         let loaded: AppSettings = serde_json::from_str(&json).unwrap();
@@ -203,6 +214,8 @@ mod tests {
         assert_eq!(loaded.depth_max_mm, Some(8.0));
         assert_eq!(loaded.window_width, Some(1200));
         assert_eq!(loaded.window_height, Some(800));
+        assert_eq!(loaded.target_width_mm, Some(50.0));
+        assert_eq!(loaded.target_height_mm, Some(70.0));
     }
 
     #[test]

@@ -100,6 +100,8 @@ pip-audit
 
 **Python stub mode:** Set `SP3D_USE_STUB=1` (or use `--no-model` when invoking the CLI) to run depth estimation without downloading the AI model. All pytest tests use stub mode by default.
 
+**E2E (Sprint 1.11):** Phase 1 uses a repeatable manual checklist (see `SPRINTS/Sprint_1_11/TEST_PLAN_1_11.md` and `MANUAL_TEST_REPORT.md`). Automated E2E (e.g. Playwright) is deferred to Phase 2.
+
 ## Multi-Agent Development Workflow
 
 This project uses agent personas for development coordination:

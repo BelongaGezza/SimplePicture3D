@@ -21,6 +21,11 @@ When you hit a debugging gotcha:
 
 ## Entries
 
+### 2026-02-22 — Rust / Security — cargo audit when upgrading Tauri
+**Symptom:** After upgrading Tauri or wry, cargo audit may report new advisories (unmaintained gtk-rs, unic-*, glib unsoundness).  
+**Cause:** Transitive dependencies from Tauri’s Linux WebKit stack; current CI allows warnings.  
+**Fix:** Re-run `cargo audit` from src-tauri after any Tauri/wry upgrade. For stricter policy (fail on unmaintained), use `cargo audit` with config or `--deny unmaintained` when the toolchain supports it; see SECURITY_SIGNOFF §4 and docs/security-checklist.md §5.
+
 ### 2026-02-08 — Mesh / Sprint 1.8 — Grid triangulation winding order produces wrong normal direction
 **Symptom:** ADR-008 specified winding order tl->bl->tr for triangle 1, but unit test showed face normal pointing -Z instead of expected +Z.
 **Cause:** For the grid layout where Y increases downward (row-major), the cross product of edges (bl-tl) x (tr-tl) yields -Z. The ADR's winding diagram assumed a different vertex spatial arrangement.

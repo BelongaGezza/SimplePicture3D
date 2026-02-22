@@ -738,6 +738,8 @@ The Role Assignment table enables agents to claim roles:
 
 **Sprint Goal:** End-to-end testing of MVP workflow, fix critical bugs, and implement target dimensions for laser etching (ADR-009).
 
+**Sprint 1.11 Tasking:** Ready for execution — see `SPRINTS/Sprint_1_11/SPRINT_1_11_Task_Assignment.md` (created 2026-02-22). Roles: System Architect, Senior Engineer, UI Designer, Junior Engineer 3D, Quality Engineer, Security Specialist; All Engineers (bug triage/cleanup).
+
 #### Tasks
 
 **Senior Engineer (Target dimensions — ADR-009):**

@@ -81,9 +81,9 @@ Completed **2026-02-03**. Implementation: `src-tauri/src/python_bridge.rs`.
 |---------|------------|--------------------|
 | Rust    | `cargo audit --manifest-path src-tauri/Cargo.toml` | After adding a crate; before PR; before release |
 | Frontend| `npm audit` or `npm audit --audit-level=high`     | After adding a package; before PR; before release |
-| Python  | `pip-audit` (in project venv)                     | After adding a package; before PR; before release |
+| Python  | `pip install pip-audit && pip-audit -r python/requirements.txt` | After adding a package; before PR; before release |
 
-CI runs `cargo audit` and `npm audit` on every push/PR (see .github/workflows/ci.yml and docs/threat-model.md §4).
+CI runs `cargo audit`, `npm audit`, and `pip-audit` on every push/PR (see .github/workflows/ci.yml and docs/threat-model.md §4). Python: `pip-audit -r python/requirements.txt` (SECURITY_SIGNOFF §4, Sprint 1.11).
 
 ---
 
@@ -95,5 +95,13 @@ CI runs `cargo audit` and `npm audit` on every push/PR (see .github/workflows/ci
 
 ---
 
-**Document Version:** 1.2  
-**Status:** Sprint 1.1, SEC-003; image loading (path + magic bytes) items added (Sprint 1.2, SEC-101, SEC-102). Subprocess review criteria (SEC-201) and model download requirements (SEC-202) added (Sprint 1.3).
+## 5. Phase 2 / Ongoing (SECURITY_SIGNOFF §4)
+
+- **NPM:** Schedule `npm audit fix` or Vite/Svelte dependency upgrades in Phase 2 to reduce moderate advisories (esbuild, Svelte SSR). Do not use `npm audit fix --force` without assessing breaking changes.
+- **Rust:** When upgrading Tauri/wry, re-run `cargo audit`; consider stricter policy (e.g. deny unmaintained) if advisories persist. Monitor [RustSec Advisory DB](https://github.com/RustSec/advisory-db) and Tauri release notes.
+- **Model download:** When implementing (e.g. model wizard), follow **SEC-202** above: HTTPS only, SHA256 checksum verification, expected hash from trusted source (RESEARCH / repo), not from download response. See prd.md §8.2 (Model Security).
+
+---
+
+**Document Version:** 1.3  
+**Status:** Sprint 1.1, SEC-003; image loading (path + magic bytes) items added (Sprint 1.2, SEC-101, SEC-102). Subprocess review (SEC-201) and model download (SEC-202) added (Sprint 1.3). §5 Phase 2 / pip-audit in CI (Sprint 1.11).

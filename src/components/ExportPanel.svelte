@@ -34,13 +34,18 @@
   let showSettings = false;
   /** Default export directory from settings (UI-803). */
   let defaultExportDir = "";
+  /** UI-1001 / ADR-009: Output size (mm) — preset or custom. */
+  type TargetSizePreset = "default" | "50x70" | "40x60" | "custom";
+  let targetSizePreset: TargetSizePreset = "default";
+  let targetWidthMm = 50;
+  let targetHeightMm = 70;
 
   const formats = [
     { value: "stl" as const, label: "STL (Binary)", enabled: true },
     { value: "obj" as const, label: "OBJ (ASCII)", enabled: true },
   ];
 
-  /** Load saved settings on mount (BACK-804). */
+  /** Load saved settings on mount (BACK-804, UI-1001). */
   onMount(async () => {
     try {
       const settings = await getSettings();
@@ -50,10 +55,48 @@
       if (settings.lastExportDir) {
         defaultExportDir = settings.lastExportDir;
       }
+      if (settings.targetWidthMm != null && settings.targetHeightMm != null && settings.targetWidthMm > 0 && settings.targetHeightMm > 0) {
+        const w = settings.targetWidthMm;
+        const h = settings.targetHeightMm;
+        if (w === 50 && h === 70) targetSizePreset = "50x70";
+        else if (w === 40 && h === 60) targetSizePreset = "40x60";
+        else {
+          targetSizePreset = "custom";
+          targetWidthMm = w;
+          targetHeightMm = h;
+        }
+      }
     } catch {
       // Settings not available; use defaults
     }
   });
+
+  /** Effective target dimensions for export (from preset or custom). null = use backend default. */
+  function getEffectiveTargetMm(): { targetWidthMm: number; targetHeightMm: number } | null {
+    if (targetSizePreset === "default") return null;
+    if (targetSizePreset === "50x70") return { targetWidthMm: 50, targetHeightMm: 70 };
+    if (targetSizePreset === "40x60") return { targetWidthMm: 40, targetHeightMm: 60 };
+    if (targetWidthMm > 0 && targetHeightMm > 0) return { targetWidthMm, targetHeightMm };
+    return null;
+  }
+
+  /** Persist target size to settings (UI-1001). */
+  async function saveTargetSizeToSettings() {
+    const effective = getEffectiveTargetMm();
+    try {
+      const settings = await getSettings();
+      if (effective) {
+        settings.targetWidthMm = effective.targetWidthMm;
+        settings.targetHeightMm = effective.targetHeightMm;
+      } else {
+        settings.targetWidthMm = null;
+        settings.targetHeightMm = null;
+      }
+      await saveSettings(settings);
+    } catch {
+      // Non-critical
+    }
+  }
 
   /** Generate a default filename from source image name + timestamp. */
   function defaultFileName(): string {
@@ -100,13 +143,14 @@
       // User cancelled the dialog
       if (!path) return;
 
-      // UI-703: Show progress and disable button during export
+      // UI-703: Show progress and disable button during export. UI-1001: pass target size when set.
       exporting = true;
+      const targetOpts = getEffectiveTargetMm();
 
       if (ext === "stl") {
-        await exportStl(path);
+        await exportStl(path, targetOpts ?? undefined);
       } else {
-        await exportObj(path);
+        await exportObj(path, targetOpts ?? undefined);
       }
 
       // Persist format preference (BACK-804)
@@ -163,6 +207,9 @@
       await saveSettings({});
       selectedFormat = "stl";
       defaultExportDir = "";
+      targetSizePreset = "default";
+      targetWidthMm = 50;
+      targetHeightMm = 70;
       showSettings = false;
     } catch (e) {
       exportError = "Failed to reset settings: " + String(e);
@@ -379,6 +426,46 @@
           <option value={fmt.value} disabled={!fmt.enabled}>{fmt.label}</option>
         {/each}
       </select>
+    </div>
+
+    <!-- UI-1001 / ADR-009: Output size (mm) for mesh/export -->
+    <div class="mb-3" role="group" aria-label="Output size in millimetres">
+      <label class="block text-xs text-slate-500 mb-1" for="settings-target-size">Output size (mm)</label>
+      <select
+        id="settings-target-size"
+        class="w-full px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-slate-500 mb-2"
+        bind:value={targetSizePreset}
+        on:change={() => saveTargetSizeToSettings()}
+      >
+        <option value="default">Default (pixel size)</option>
+        <option value="50x70">50 × 70 mm</option>
+        <option value="40x60">40 × 60 mm</option>
+        <option value="custom">Custom</option>
+      </select>
+      {#if targetSizePreset === "custom"}
+        <div class="flex gap-2 items-center">
+          <input
+            type="number"
+            min="1"
+            max="999"
+            class="w-20 px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-slate-500"
+            bind:value={targetWidthMm}
+            on:change={() => saveTargetSizeToSettings()}
+            aria-label="Width in mm"
+          />
+          <span class="text-slate-500">×</span>
+          <input
+            type="number"
+            min="1"
+            max="999"
+            class="w-20 px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-slate-500"
+            bind:value={targetHeightMm}
+            on:change={() => saveTargetSizeToSettings()}
+            aria-label="Height in mm"
+          />
+          <span class="text-xs text-slate-500">mm</span>
+        </div>
+      {/if}
     </div>
 
     <!-- UI-804: Reset settings button -->

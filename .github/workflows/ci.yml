@@ -111,3 +111,9 @@ jobs:
           SP3D_USE_STUB: "1"
           PYTHONPATH: python/python
         run: pytest python/ -v --cov=depth_estimator --cov-report=term --cov-report=xml:coverage/python-coverage.xml
+
+      - name: pip-audit
+        run: |
+          python -m pip install pip-audit
+          pip-audit -r python/requirements.txt
+        # SECURITY_SIGNOFF §4: fail on known Python CVEs. See docs/security-checklist.md.

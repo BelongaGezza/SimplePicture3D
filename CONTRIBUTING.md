@@ -315,6 +315,8 @@ mod tests {
 
 Before **adding a new dependency** (Rust crate, npm package, or Python package) or before **release**, follow the [Security Checklist](docs/security-checklist.md). It covers license checks, `cargo audit` / `npm audit` / `pip-audit`, and release sign-off steps.
 
+**CI** runs all three audits on every push/PR: `cargo audit` (backend), `npm audit --audit-level=high` (frontend), and `pip-audit -r python/requirements.txt` (Python). See [.github/workflows/ci.yml](.github/workflows/ci.yml). To run locally: from project root, `cd src-tauri && cargo audit`; `npm audit --audit-level=high`; `pip install pip-audit && pip-audit -r python/requirements.txt`.
+
 ---
 
 ## Pull Request Process

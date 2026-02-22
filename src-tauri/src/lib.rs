@@ -14,9 +14,89 @@ use tauri::State;
 use depth_adjust::{apply_adjustments, DepthAdjustmentParams};
 use mesh_generator::{depth_to_point_cloud, MeshData, MeshParams};
 
+/// ADR-009: Compute pixel_to_mm from optional target dimensions. When both are present and positive,
+/// returns min(target_width_mm/width_px, target_height_mm/height_px) so mesh fits inside target rect.
+/// Otherwise returns 1.0 (default behaviour).
+pub(crate) fn compute_pixel_to_mm(
+    width_px: u32,
+    height_px: u32,
+    target_width_mm: Option<f32>,
+    target_height_mm: Option<f32>,
+) -> f32 {
+    match (target_width_mm, target_height_mm) {
+        (Some(tw), Some(th)) if tw > 0.0 && th > 0.0 && width_px > 0 && height_px > 0 => {
+            let scale_w = tw / width_px as f32;
+            let scale_h = th / height_px as f32;
+            scale_w.min(scale_h)
+        }
+        _ => 1.0,
+    }
+}
+
 // Error handling pattern (BACK-004): use anyhow inside commands for context chain;
 // Tauri IPC requires serializable errors, so we use Result<T, String> and map
 // anyhow::Error via .map_err(|e| e.to_string()) at the boundary.
+
+/// SEC-401/SEC-402: Validate export path (canonicalize, extension, block system dirs, writable).
+/// Returns (canonical PathBuf, path as String) for use in export commands.
+fn validate_export_path(path: &str, extension: &str) -> Result<(std::path::PathBuf, String), String> {
+    if path.trim().is_empty() {
+        return Err("Export path must be non-empty".to_string());
+    }
+    let canonical = std::fs::canonicalize(std::path::Path::new(path).parent().ok_or_else(|| {
+        "Invalid export path: no parent directory".to_string()
+    })?)
+    .map_err(|_| "Export directory does not exist or is not accessible".to_string())?;
+    let file_name = std::path::Path::new(path)
+        .file_name()
+        .ok_or_else(|| "Invalid export path: no filename".to_string())?;
+    let canonical_path = canonical.join(file_name);
+
+    match canonical_path.extension().and_then(|e| e.to_str()) {
+        Some(ext) if ext.eq_ignore_ascii_case(extension) => {}
+        _ => return Err(format!("Export file must have .{} extension", extension)),
+    }
+
+    let canonical_str = canonical.to_string_lossy();
+    #[cfg(target_os = "windows")]
+    {
+        let lower = canonical_str.to_lowercase();
+        let blocked = [
+            "c:\\windows",
+            "c:\\program files",
+            "c:\\program files (x86)",
+            "c:\\programdata",
+        ];
+        for prefix in &blocked {
+            if lower.starts_with(prefix) {
+                log::warn!("SEC-401: Blocked export to system directory: {}", canonical_str);
+                return Err("Cannot export to system directories".to_string());
+            }
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let blocked = ["/etc", "/usr", "/bin", "/sbin", "/boot", "/lib", "/proc", "/sys"];
+        for prefix in &blocked {
+            if canonical_str.starts_with(prefix) {
+                log::warn!("SEC-401: Blocked export to system directory: {}", canonical_str);
+                return Err("Cannot export to system directories".to_string());
+            }
+        }
+    }
+
+    let parent = canonical_path.parent().unwrap_or(&canonical);
+    let test_file = parent.join(".sp3d_write_test");
+    match std::fs::File::create(&test_file) {
+        Ok(_) => {
+            let _ = std::fs::remove_file(&test_file);
+        }
+        Err(_) => return Err("Export directory is not writable".to_string()),
+    }
+
+    let canonical_path_str = canonical_path.to_string_lossy().to_string();
+    Ok((canonical_path, canonical_path_str))
+}
 
 /// App-managed depth map state (BACK-302, BACK-405). Original depth from generate_depth_map;
 /// adjustment params applied on demand for get_depth_map; original preserved for reset.
@@ -59,74 +139,13 @@ fn load_image(path: String) -> Result<image_loading::LoadImageOut, String> {
 /// - Parent directory must exist and be writable (checked before write attempt)
 /// - Error messages do not leak full paths to the frontend
 #[tauri::command]
-fn export_stl(path: String, state: State<AppState>) -> Result<(), String> {
-    // SEC-401: Basic validation
-    if path.trim().is_empty() {
-        return Err("Export path must be non-empty".to_string());
-    }
-
-    // SEC-401: Canonicalize path to resolve `..`, `.`, and symlinks.
-    // This prevents path traversal attacks (e.g. `../../etc/passwd`).
-    let canonical = std::fs::canonicalize(std::path::Path::new(&path).parent().ok_or_else(|| {
-        "Invalid export path: no parent directory".to_string()
-    })?)
-    .map_err(|_| "Export directory does not exist or is not accessible".to_string())?;
-    let file_name = std::path::Path::new(&path)
-        .file_name()
-        .ok_or_else(|| "Invalid export path: no filename".to_string())?;
-    let canonical_path = canonical.join(file_name);
-
-    // SEC-401: Validate file extension is .stl
-    match canonical_path.extension().and_then(|e| e.to_str()) {
-        Some(ext) if ext.eq_ignore_ascii_case("stl") => {}
-        _ => return Err("Export file must have .stl extension".to_string()),
-    }
-
-    // SEC-401: Reject writes to system directories
-    let canonical_str = canonical.to_string_lossy();
-    #[cfg(target_os = "windows")]
-    {
-        let lower = canonical_str.to_lowercase();
-        let blocked = [
-            "c:\\windows",
-            "c:\\program files",
-            "c:\\program files (x86)",
-            "c:\\programdata",
-        ];
-        for prefix in &blocked {
-            if lower.starts_with(prefix) {
-                log::warn!("SEC-401: Blocked export to system directory: {}", canonical_str);
-                return Err("Cannot export to system directories".to_string());
-            }
-        }
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        let blocked = ["/etc", "/usr", "/bin", "/sbin", "/boot", "/lib", "/proc", "/sys"];
-        for prefix in &blocked {
-            if canonical_str.starts_with(prefix) {
-                log::warn!("SEC-401: Blocked export to system directory: {}", canonical_str);
-                return Err("Cannot export to system directories".to_string());
-            }
-        }
-    }
-
-    // SEC-402: Verify parent directory is writable before attempting export.
-    // This provides a clear error before any partial file is created.
-    {
-        let parent = canonical_path.parent().unwrap_or(&canonical);
-        let test_file = parent.join(".sp3d_write_test");
-        match std::fs::File::create(&test_file) {
-            Ok(_) => {
-                let _ = std::fs::remove_file(&test_file);
-            }
-            Err(_) => {
-                return Err("Export directory is not writable".to_string());
-            }
-        }
-    }
-
-    let canonical_path_str = canonical_path.to_string_lossy().to_string();
+fn export_stl(
+    path: String,
+    state: State<AppState>,
+    target_width_mm: Option<f32>,
+    target_height_mm: Option<f32>,
+) -> Result<(), String> {
+    let (canonical_path, canonical_path_str) = validate_export_path(&path, "stl")?;
 
     // Get current depth map
     let guard = state.depth.lock().map_err(|e| e.to_string())?;
@@ -136,6 +155,16 @@ fn export_stl(path: String, state: State<AppState>) -> Result<(), String> {
         .clone();
     drop(guard);
 
+    // ADR-009: Use passed target dimensions or fall back to settings
+    let (tw, th) = match (target_width_mm, target_height_mm) {
+        (Some(a), Some(b)) => (Some(a), Some(b)),
+        _ => {
+            let s = state.app_settings.lock().map_err(|e| e.to_string())?;
+            (s.target_width_mm, s.target_height_mm)
+        }
+    };
+    let pixel_to_mm = compute_pixel_to_mm(original.width, original.height, tw, th);
+
     // Apply adjustments
     let params_guard = state.adjustment_params.lock().map_err(|e| e.to_string())?;
     let adjusted = apply_adjustments(&original.depth, &params_guard);
@@ -144,7 +173,7 @@ fn export_stl(path: String, state: State<AppState>) -> Result<(), String> {
         step_y: 1,
         depth_min_mm: params_guard.depth_min_mm,
         depth_max_mm: params_guard.depth_max_mm,
-        pixel_to_mm: 1.0,
+        pixel_to_mm,
     };
     drop(params_guard);
 
@@ -178,72 +207,13 @@ fn export_stl(path: String, state: State<AppState>) -> Result<(), String> {
 ///
 /// Same security validation as export_stl. Writes OBJ file and optional companion MTL file.
 #[tauri::command]
-fn export_obj(path: String, state: State<AppState>) -> Result<(), String> {
-    // SEC-401: Basic validation
-    if path.trim().is_empty() {
-        return Err("Export path must be non-empty".to_string());
-    }
-
-    // SEC-401: Canonicalize path
-    let canonical = std::fs::canonicalize(std::path::Path::new(&path).parent().ok_or_else(|| {
-        "Invalid export path: no parent directory".to_string()
-    })?)
-    .map_err(|_| "Export directory does not exist or is not accessible".to_string())?;
-    let file_name = std::path::Path::new(&path)
-        .file_name()
-        .ok_or_else(|| "Invalid export path: no filename".to_string())?;
-    let canonical_path = canonical.join(file_name);
-
-    // SEC-401: Validate file extension is .obj
-    match canonical_path.extension().and_then(|e| e.to_str()) {
-        Some(ext) if ext.eq_ignore_ascii_case("obj") => {}
-        _ => return Err("Export file must have .obj extension".to_string()),
-    }
-
-    // SEC-401: Reject writes to system directories
-    let canonical_str = canonical.to_string_lossy();
-    #[cfg(target_os = "windows")]
-    {
-        let lower = canonical_str.to_lowercase();
-        let blocked = [
-            "c:\\windows",
-            "c:\\program files",
-            "c:\\program files (x86)",
-            "c:\\programdata",
-        ];
-        for prefix in &blocked {
-            if lower.starts_with(prefix) {
-                log::warn!("SEC-401: Blocked export to system directory: {}", canonical_str);
-                return Err("Cannot export to system directories".to_string());
-            }
-        }
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        let blocked = ["/etc", "/usr", "/bin", "/sbin", "/boot", "/lib", "/proc", "/sys"];
-        for prefix in &blocked {
-            if canonical_str.starts_with(prefix) {
-                log::warn!("SEC-401: Blocked export to system directory: {}", canonical_str);
-                return Err("Cannot export to system directories".to_string());
-            }
-        }
-    }
-
-    // SEC-402: Verify parent directory is writable
-    {
-        let parent = canonical_path.parent().unwrap_or(&canonical);
-        let test_file = parent.join(".sp3d_write_test");
-        match std::fs::File::create(&test_file) {
-            Ok(_) => {
-                let _ = std::fs::remove_file(&test_file);
-            }
-            Err(_) => {
-                return Err("Export directory is not writable".to_string());
-            }
-        }
-    }
-
-    let canonical_path_str = canonical_path.to_string_lossy().to_string();
+fn export_obj(
+    path: String,
+    state: State<AppState>,
+    target_width_mm: Option<f32>,
+    target_height_mm: Option<f32>,
+) -> Result<(), String> {
+    let (canonical_path, canonical_path_str) = validate_export_path(&path, "obj")?;
 
     // Get current depth map
     let guard = state.depth.lock().map_err(|e| e.to_string())?;
@@ -253,6 +223,16 @@ fn export_obj(path: String, state: State<AppState>) -> Result<(), String> {
         .clone();
     drop(guard);
 
+    // ADR-009: Use passed target dimensions or fall back to settings
+    let (tw, th) = match (target_width_mm, target_height_mm) {
+        (Some(a), Some(b)) => (Some(a), Some(b)),
+        _ => {
+            let s = state.app_settings.lock().map_err(|e| e.to_string())?;
+            (s.target_width_mm, s.target_height_mm)
+        }
+    };
+    let pixel_to_mm = compute_pixel_to_mm(original.width, original.height, tw, th);
+
     // Apply adjustments
     let params_guard = state.adjustment_params.lock().map_err(|e| e.to_string())?;
     let adjusted = apply_adjustments(&original.depth, &params_guard);
@@ -261,7 +241,7 @@ fn export_obj(path: String, state: State<AppState>) -> Result<(), String> {
         step_y: 1,
         depth_min_mm: params_guard.depth_min_mm,
         depth_max_mm: params_guard.depth_max_mm,
-        pixel_to_mm: 1.0,
+        pixel_to_mm,
     };
     drop(params_guard);
 
@@ -574,6 +554,8 @@ fn reset_depth_adjustments(state: State<AppState>) -> Result<(), String> {
 fn get_mesh_data(
     state: State<AppState>,
     preview_step: Option<u32>,
+    target_width_mm: Option<f32>,
+    target_height_mm: Option<f32>,
 ) -> Result<Option<MeshData>, String> {
     let guard = state.depth.lock().map_err(|e| e.to_string())?;
     let original = match guard.as_ref() {
@@ -581,6 +563,17 @@ fn get_mesh_data(
         None => return Ok(None),
     };
     drop(guard);
+
+    // ADR-009: Use passed target dimensions or fall back to settings
+    let (tw, th) = match (target_width_mm, target_height_mm) {
+        (Some(a), Some(b)) => (Some(a), Some(b)),
+        _ => {
+            let s = state.app_settings.lock().map_err(|e| e.to_string())?;
+            (s.target_width_mm, s.target_height_mm)
+        }
+    };
+    let pixel_to_mm = compute_pixel_to_mm(original.width, original.height, tw, th);
+
     let params_guard = state.adjustment_params.lock().map_err(|e| e.to_string())?;
     let adjusted = apply_adjustments(&original.depth, &params_guard);
     let step = preview_step.unwrap_or(1).max(1);
@@ -589,7 +582,7 @@ fn get_mesh_data(
         step_y: step,
         depth_min_mm: params_guard.depth_min_mm,
         depth_max_mm: params_guard.depth_max_mm,
-        pixel_to_mm: 1.0,
+        pixel_to_mm,
     };
     drop(params_guard);
     let mesh = depth_to_point_cloud(&adjusted, original.width, original.height, &mesh_params)
@@ -878,6 +871,69 @@ mod tests {
             depth_out.depth.len(),
             (w as usize) * (h as usize),
             "depth array length must be width × height"
+        );
+    }
+
+    // --- JR2-1001: Unit tests for target dimensions (ADR-009) ---
+
+    /// When target_width_mm and target_height_mm are set, pixel_to_mm = min(tw/width_px, th/height_px)
+    /// so mesh fits inside target rectangle and aspect ratio is preserved.
+    #[test]
+    fn compute_pixel_to_mm_target_dimensions_fit_and_aspect_preserved() {
+        let width_px = 100u32;
+        let height_px = 100u32;
+        let target_width_mm = 50.0f32;
+        let target_height_mm = 70.0f32;
+        let pixel_to_mm =
+            compute_pixel_to_mm(width_px, height_px, Some(target_width_mm), Some(target_height_mm));
+        let scale_w = target_width_mm / width_px as f32;
+        let scale_h = target_height_mm / height_px as f32;
+        assert_eq!(pixel_to_mm, scale_w.min(scale_h), "pixel_to_mm = min(scale_w, scale_h)");
+        assert!((pixel_to_mm - 0.5).abs() < 1e-5, "100x100 px → 50x70 mm gives 0.5 mm/px");
+        let mesh_width_mm = (width_px - 1) as f32 * pixel_to_mm;
+        let mesh_height_mm = (height_px - 1) as f32 * pixel_to_mm;
+        assert!(
+            mesh_width_mm <= target_width_mm + 0.01 && mesh_height_mm <= target_height_mm + 0.01,
+            "mesh XY fits inside target: {}x{} <= {}x{}",
+            mesh_width_mm,
+            mesh_height_mm,
+            target_width_mm,
+            target_height_mm
+        );
+    }
+
+    /// When target dimensions are not set, behaviour unchanged (pixel_to_mm default 1.0).
+    #[test]
+    fn compute_pixel_to_mm_default_when_absent() {
+        assert_eq!(
+            compute_pixel_to_mm(100, 50, None, None),
+            1.0,
+            "None, None → 1.0"
+        );
+        assert_eq!(
+            compute_pixel_to_mm(100, 50, Some(50.0), None),
+            1.0,
+            "only width set → 1.0"
+        );
+        assert_eq!(
+            compute_pixel_to_mm(100, 50, None, Some(70.0)),
+            1.0,
+            "only height set → 1.0"
+        );
+    }
+
+    /// When target dimensions are zero or negative, default 1.0 (treated as absent).
+    #[test]
+    fn compute_pixel_to_mm_default_when_zero_or_negative() {
+        assert_eq!(
+            compute_pixel_to_mm(100, 100, Some(0.0), Some(70.0)),
+            1.0,
+            "zero width → 1.0"
+        );
+        assert_eq!(
+            compute_pixel_to_mm(100, 100, Some(50.0), Some(-1.0)),
+            1.0,
+            "negative height → 1.0"
         );
     }
 }

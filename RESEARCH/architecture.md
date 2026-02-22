@@ -71,7 +71,7 @@
 1. Document Python requirements in README.md and first-run wizard
 2. Provide `pip install -r python/requirements.txt` instructions
 3. App checks for Python availability on startup; shows helpful error if missing
-4. Model download wizard (Sprint 1.10) handles Hugging Face model installation
+4. Model download wizard (Sprint 1.10) handles Hugging Face model installation. **Security (SEC-202):** When implementing download, use HTTPS only and verify SHA256 checksum against a trusted source (repo/RESEARCH); see docs/security-checklist.md §2.2 and §5.
 
 **Rationale:**
 - Lowest implementation effort for MVP
@@ -339,6 +339,32 @@ Tauri desktop app: Rust backend, Svelte/React frontend, Python subprocess for AI
 │  Input: Image → Output: Depth map (JSON/binary)         │
 └─────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## As-built (Sprint 1.11)
+
+*Snapshot of the codebase as of Sprint 1.11 Phase 1 pre–exit gate. Kept in sync with implementation.*
+
+### Rust backend modules (src-tauri/src/)
+
+| Module | Purpose |
+|--------|---------|
+| `lib.rs` | Tauri app entry, command handlers, `AppState`, export path validation (SEC-401/SEC-402) |
+| `image_loading.rs` | Load/validate image (BACK-101–105), path validation (SEC-101), downsampling |
+| `file_io.rs` | Temp file I/O for Python handoff; paths restricted to system temp dir |
+| `depth_adjust.rs` | Gamma, contrast, brightness, invert, depth range (BACK-402) |
+| `mesh_generator.rs` | Point cloud, grid triangulation (ADR-008), STL/OBJ writers, validation (BACK-501–506, BACK-700–702, BACK-801–803) |
+| `python_bridge.rs` | Subprocess depth estimation (BACK-201–205), progress protocol |
+| `settings.rs` | AppSettings load/save (BACK-706, BACK-804–805) |
+
+**STL/OBJ export:** Implemented as **custom** binary STL and ASCII OBJ (+ MTL) writers in `mesh_generator.rs`; the project does **not** use `stl_io` or `obj-exporter` crates (see Key Interfaces below).
+
+**Target dimensions (ADR-009):** Backend support (optional `target_width_mm`, `target_height_mm` on get_mesh_data/export and in settings) is in progress (BACK-1005, BACK-1006). When set, `pixel_to_mm = min(target_width_mm/width_px, target_height_mm/height_px)`; when absent, current default (`pixel_to_mm = 1.0`) is unchanged.
+
+### Data flow (as-built)
+
+Unchanged from design: Load image → Validate → Depth (Python) → Depth processing (Rust) → Mesh generation (Rust) → Preview (Three.js) → Export (STL/OBJ). Export path validation is centralized in `lib.rs::validate_export_path` (extension, canonicalize, block system dirs, writable check).
 
 ---
 
