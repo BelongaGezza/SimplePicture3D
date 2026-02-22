@@ -862,20 +862,21 @@ The Role Assignment table enables agents to claim roles:
 
 ### Full 3D Reconstruction Mode (Phase 2, optional track)
 
-**Context:** RESEARCH/3d-reconstruction.md and RESEARCH/3d-reconstruction-models.md evaluate single-image → full 3D mesh (watertight, closed geometry) for use alongside the existing 2.5D relief pipeline. **Recommended model: TripoSR** (MIT, 6 GB VRAM, ~0.5 s, direct OBJ). This is an **optional** Phase 2 track; core Phase 2 (advanced depth, presets, undo) remains independent.
+**Context:** RESEARCH/3d-reconstruction.md (last checked 2026-02-22). Internal UV laser engraving uses **point clouds** (XYZ coordinates), not meshes. Full 3D mode therefore produces a **dimensioned point cloud** like 2.5D, but from **surface sampling** an AI-generated mesh (TripoSR). **Recommended model: TripoSR** (MIT, 6 GB VRAM, ~0.5 s). Optional Phase 2 track; core Phase 2 (advanced depth, presets, undo) remains independent.
 
-**User-facing behaviour:** Mode toggle "2.5D Relief" (default) vs "Full 3D". In Full 3D mode: one image → AI produces watertight mesh (OBJ); user can scale/post-process and export STL/OBJ. Depth adjustment controls N/A; 3D-specific controls (scale, smoothing, decimation). Preview orbits around object center.
+**User-facing behaviour:** Mode toggle "2.5D Relief" (default) vs "Full 3D". In Full 3D: one image → TripoSR mesh → Poisson-disk surface sampling → point cloud → scale to **crystal blank dimensions** (width × height × depth mm) → export **XYZ/PLY/CSV** (direct engraver) or STL/OBJ. Blank size inputs, **point spacing** (mm), optional estimated point count. Preview: crystal blank wireframe, orbit camera. Document that back/sides are AI-hallucinated.
 
-**Implementation outline (~4 sprints):**
+**Implementation outline (~4–5 sprints):**
 
 | Sprint | Focus | Key tasks |
 |--------|--------|-----------|
-| **2.F3D-1** | Python TripoSR integration | New script `python/reconstruction_3d.py` (or equivalent); subprocess contract (image in → OBJ path out); model download (~500MB–1GB) via existing wizard pattern; stub mode for tests. |
-| **2.F3D-2** | Rust mesh import path | Parse OBJ from Python output (vertices, faces); populate existing `MeshData`; scale to physical dimensions (reuse target dimensions logic ADR-009); optional decimation/smoothing; STL/OBJ export unchanged. |
-| **2.F3D-3** | UI mode toggle and 3D flow | Mode selector "2.5D Relief" / "Full 3D"; in Full 3D hide depth controls, show 3D-specific controls (scale, smoothing); preview camera defaults (orbit around center); progress for 3D inference. |
-| **2.F3D-4** | Testing and integration | Model download wizard extension for 3D model; manual/automated tests; docs; hardware note (6 GB VRAM min, CPU fallback slow). |
+| **2.F3D-1** | Python: TripoSR + surface sampling | New script `python/reconstruction_3d.py`: TripoSR inference → OBJ mesh → trimesh `sample_surface_even` (Poisson disk) → output **point cloud** (not mesh) to Rust. Subprocess contract; model download via wizard; stub mode for tests. |
+| **2.F3D-2** | Rust: blank dimensioning, import, point cloud export | `BlankParams` (blank_w/h/d_mm, margin_mm); `scale_to_blank` (3D bbox → crystal volume); `import_point_cloud`; new exporters **XYZ, PLY, CSV**; optional `MeshData.intensities`. Keep STL/OBJ for mesh path. |
+| **2.F3D-3** | UI: mode toggle, blank dimensions, point spacing | Mode selector; blank dimension inputs; point spacing (mm); estimated point count; crystal blank wireframe in preview; orbit camera; progress for 3D inference. |
+| **2.F3D-4** | Testing and integration | Model download wizard extension; manual/automated tests; docs; 6 GB VRAM / CPU fallback note; format compatibility (XYZ/PLY/CSV) with engraver software. |
+| **2.F3D-5** | Optional: per-point intensity | Per-point intensity from texture or shading for variable laser power; PLY/CSV intensity channel. |
 
-**Risks (from research):** torchmcubes CUDA compilation on Windows (mitigate: pre-built wheels or CPU marching cubes); 6 GB VRAM excludes some users (2.5D remains default, no GPU required). **License:** TripoSR code and weights MIT — compatible with SimplePicture3D.
+**Risks (from research):** torchmcubes on Windows; 6 GB VRAM; hallucinated back surfaces visible in crystal (document); point cloud format compatibility (support XYZ/PLY/CSV + STL/OBJ). **License:** TripoSR MIT — compatible with SimplePicture3D.
 
 ---
 

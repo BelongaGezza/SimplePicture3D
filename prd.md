@@ -1,7 +1,7 @@
 # SimplePicture3D - Product Requirements Document
 
-**Version:** 1.3  
-**Date:** February 21, 2026  
+**Version:** 1.4  
+**Date:** February 22, 2026  
 **Status:** In Development (Phase 1 MVP — ~60–65% complete)  
 **License:** MIT  
 
@@ -1241,7 +1241,7 @@ The following are valuable but not required for v1.0:
 8. **Video Input** - Convert video frames to animated depth sequences
 9. **3D Scanning Integration** - Import depth maps from structured light scanners
 10. **Commercial Material Library** - Paid presets from professional engravers
-11. **Full 3D Reconstruction Mode** - Optional pipeline: single image → AI-generated **watertight 3D mesh** (closed geometry, back faces) alongside the existing 2.5D relief pipeline. Use cases: 3D printing, rotary/multi-angle engraving, full 3D export. Recommended model: **TripoSR** (MIT, 6 GB VRAM, ~0.5 s, direct OBJ). Implementation: new Python script (e.g. `reconstruction_3d.py`), subprocess like depth estimator; Rust imports OBJ into existing `MeshData`; UI mode toggle "2.5D Relief" vs "Full 3D". See RESEARCH/3d-reconstruction.md and RESEARCH/3d-reconstruction-models.md. Planned for Phase 2 (~4 sprints).
+11. **Full 3D Reconstruction Mode** - Optional pipeline: single image → AI mesh (TripoSR) → **surface-sampled point cloud** → scale to crystal blank dimensions → export **point cloud** (XYZ/PLY/CSV) or mesh (STL/OBJ). Laser engravers consume point clouds; Full 3D output is a dimensioned point cloud in mm, like 2.5D, but from Poisson-disk sampling the mesh. Use cases: 3D crystal engraving, 3D printing, multi-angle viewing. Recommended model: **TripoSR** (MIT, 6 GB VRAM, ~0.5 s). Implementation: Python `reconstruction_3d.py` (TripoSR + trimesh sampling → point cloud); Rust blank dimensioning, point cloud import, XYZ/PLY/CSV exporters; UI mode toggle, blank size and point spacing. See RESEARCH/3d-reconstruction.md (last checked 2026-02-22). Planned for Phase 2 (~4–5 sprints).
 
 ### 11.2 Non-Goals
 These will NOT be pursued:
@@ -1335,6 +1335,7 @@ The following are **not** scheduled for Phases 1–4 but are candidates for a fu
 | 1.1 | 2026-02-07 | System Architect | Updated status to Phase 1 ~60–65% complete. Added timeline progress (Sprints 1.1–1.6 delivered). Updated F1.4 with IPC transfer dependency (ADR-007). Updated F1.5 with mesh generation implementation status and ADR-006 (triangulation deferred). Updated F1.6 with triangulation dependency for STL export. Referenced third Consultant Report (7 Feb 2026). Added §9.2 commercial use resolution for model licensing (ADR-004/005). |
 | 1.2 | 2026-02-21 | System Architect | F1.5: Added acceptance criterion and implementation note for target dimensions (ADR-009). F1.6: Exported mesh respects target size when set. Target dimensions planned for Sprint 1.11 (backend, settings, optional UI). See RESEARCH/architecture.md ADR-009. |
 | 1.3 | 2026-02-21 | System Architect | §11.1: Added deferred feature "Full 3D Reconstruction Mode" (single image → watertight mesh via TripoSR; Phase 2, ~4 sprints). §11.2: Clarified non-goal "Full 3D modeling suite" = Blender-like editor; distinguished from AI full 3D reconstruction. todo.md: Phase 2 optional track and RESEARCH/architecture.md "Future: Full 3D mode" added per RESEARCH/3d-reconstruction.md and 3d-reconstruction-models.md. |
+| 1.4 | 2026-02-22 | System Architect | §11.1 Full 3D: Revised to align with RESEARCH/3d-reconstruction.md (2026-02-22). Pipeline is point-cloud-centric: TripoSR → surface sampling (Poisson) → dimensioned point cloud; crystal blank dimensioning; XYZ/PLY/CSV export for engravers; ~4–5 sprints. todo.md and RESEARCH/architecture.md "Future: Full 3D" updated to match. |
 
 ---
 
