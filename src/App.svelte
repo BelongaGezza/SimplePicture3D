@@ -183,7 +183,7 @@
         <div class="rounded border border-slate-200 overflow-hidden bg-slate-100 flex-1 min-h-0 flex flex-col">
           <img
             src={previewUrl}
-            alt="Loaded image preview"
+            alt="Loaded preview"
             class="w-full h-auto max-h-[240px] object-contain"
           />
           <!-- UI-104: image metadata -->

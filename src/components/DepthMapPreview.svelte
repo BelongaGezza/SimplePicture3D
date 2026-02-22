@@ -102,12 +102,14 @@
   });
 </script>
 
+<!-- svelte-ignore a11y-no-noninteractive-tabindex a11y-no-noninteractive-element-interactions -->
 <div
   class="depth-preview-wrapper w-full h-full min-h-[200px] flex items-center justify-center bg-slate-100 rounded overflow-hidden select-none cursor-grab"
   class:cursor-grabbing={isDragging}
   bind:this={container}
   role="application"
   aria-label="Depth map preview: scroll to zoom, drag to pan"
+  tabindex="0"
   on:wheel|preventDefault={handleWheel}
   on:mousedown={handleMouseDown}
   on:mousemove={handleMouseMove}
@@ -131,7 +133,6 @@
         class="depth-canvas"
         style="image-rendering: pixelated; image-rendering: crisp-edges;"
         aria-label="Depth map (grayscale: near dark, far light)"
-        role="img"
       />
     </div>
     <button

@@ -409,7 +409,7 @@
     <!-- UI-803: Default export directory display -->
     {#if defaultExportDir}
       <div class="mb-3">
-        <label class="block text-xs text-slate-500 mb-1">Last export directory</label>
+        <span class="block text-xs text-slate-500 mb-1">Last export directory</span>
         <p class="text-sm text-slate-700 truncate" title={defaultExportDir}>{defaultExportDir}</p>
       </div>
     {/if}
