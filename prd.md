@@ -1,7 +1,7 @@
 # SimplePicture3D - Product Requirements Document
 
-**Version:** 1.1  
-**Date:** February 7, 2026  
+**Version:** 1.3  
+**Date:** February 21, 2026  
 **Status:** In Development (Phase 1 MVP — ~60–65% complete)  
 **License:** MIT  
 
@@ -210,6 +210,7 @@ See `todo.md` Phase Overview, `Consultant_Recommendations_Report_7Feb2026.md`, a
 - Z-axis depth mapped to 2-10mm range
 - Mesh topology suitable for laser engraving (no overhangs)
 - Process completes in <2 minutes for 4K image
+- **Target dimensions (ADR-009):** User can specify target physical size (width × height in mm) so the mesh fits the laser-etched blank; mesh XY extent fits inside that rectangle with aspect ratio preserved. When not specified, current default (e.g. 1 pixel = 1 mm) applies. See RESEARCH/architecture.md ADR-009.
 
 **Technical Notes:**
 - Rust implementation for performance
@@ -225,6 +226,7 @@ See `todo.md` Phase Overview, `Consultant_Recommendations_Report_7Feb2026.md`, a
 - **Delaunay triangulation deferred** to Sprint 1.8 per ADR-006. Point cloud sufficient for Three.js preview (Sprint 1.7). STL/OBJ export (Sprint 1.8) requires triangulated faces — see F1.6 note.
 - 18 unit tests, security review (SEC-301/302) complete
 - Benchmark: 1K ~9.3ms, 4K ~73ms (well under targets)
+- **Target dimensions (ADR-009):** Planned for Sprint 1.11. Backend will accept optional `target_width_mm` / `target_height_mm`; derive `pixel_to_mm = min(target_width_mm/width_px, target_height_mm/height_px)` so mesh fits blank. UI (output size inputs/presets) optional for MVP.
 
 **Performance Targets:**
 - 1920×1080 image: <15 seconds
@@ -244,6 +246,7 @@ See `todo.md` Phase Overview, `Consultant_Recommendations_Report_7Feb2026.md`, a
 - Filename auto-generated from source image + timestamp
 - User can override filename before export
 - Progress indicator for large files
+- Exported mesh physical dimensions respect target size (width × height in mm) when set (ADR-009); otherwise use current scale (e.g. 1 px = 1 mm).
 
 **Technical Notes:**
 - Use `stl_io` crate for STL writing
@@ -1238,11 +1241,12 @@ The following are valuable but not required for v1.0:
 8. **Video Input** - Convert video frames to animated depth sequences
 9. **3D Scanning Integration** - Import depth maps from structured light scanners
 10. **Commercial Material Library** - Paid presets from professional engravers
+11. **Full 3D Reconstruction Mode** - Optional pipeline: single image → AI-generated **watertight 3D mesh** (closed geometry, back faces) alongside the existing 2.5D relief pipeline. Use cases: 3D printing, rotary/multi-angle engraving, full 3D export. Recommended model: **TripoSR** (MIT, 6 GB VRAM, ~0.5 s, direct OBJ). Implementation: new Python script (e.g. `reconstruction_3d.py`), subprocess like depth estimator; Rust imports OBJ into existing `MeshData`; UI mode toggle "2.5D Relief" vs "Full 3D". See RESEARCH/3d-reconstruction.md and RESEARCH/3d-reconstruction-models.md. Planned for Phase 2 (~4 sprints).
 
 ### 11.2 Non-Goals
 These will NOT be pursued:
 
-- ❌ Full 3D modeling suite (use Blender instead)
+- ❌ Full 3D modeling suite (interactive modeling/editing like Blender; use Blender instead). *Note: "Full 3D reconstruction" from a single image via AI (deferred feature §11.1) is a separate, planned option.*
 - ❌ Laser hardware control (safety/liability concerns)
 - ❌ Image editing beyond depth adjustment (use GIMP/Photoshop)
 - ❌ Marketplace for selling models (focus on creation tool)
@@ -1329,6 +1333,8 @@ The following are **not** scheduled for Phases 1–4 but are candidates for a fu
 |---------|------|--------|---------|
 | 1.0 | 2026-01-31 | AI Assistant + User | Initial PRD creation |
 | 1.1 | 2026-02-07 | System Architect | Updated status to Phase 1 ~60–65% complete. Added timeline progress (Sprints 1.1–1.6 delivered). Updated F1.4 with IPC transfer dependency (ADR-007). Updated F1.5 with mesh generation implementation status and ADR-006 (triangulation deferred). Updated F1.6 with triangulation dependency for STL export. Referenced third Consultant Report (7 Feb 2026). Added §9.2 commercial use resolution for model licensing (ADR-004/005). |
+| 1.2 | 2026-02-21 | System Architect | F1.5: Added acceptance criterion and implementation note for target dimensions (ADR-009). F1.6: Exported mesh respects target size when set. Target dimensions planned for Sprint 1.11 (backend, settings, optional UI). See RESEARCH/architecture.md ADR-009. |
+| 1.3 | 2026-02-21 | System Architect | §11.1: Added deferred feature "Full 3D Reconstruction Mode" (single image → watertight mesh via TripoSR; Phase 2, ~4 sprints). §11.2: Clarified non-goal "Full 3D modeling suite" = Blender-like editor; distinguished from AI full 3D reconstruction. todo.md: Phase 2 optional track and RESEARCH/architecture.md "Future: Full 3D mode" added per RESEARCH/3d-reconstruction.md and 3d-reconstruction-models.md. |
 
 ---
 

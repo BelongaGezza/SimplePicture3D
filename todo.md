@@ -736,9 +736,19 @@ The Role Assignment table enables agents to claim roles:
 
 ### Sprint 1.11: Integration Testing & Bug Fixes (2 weeks)
 
-**Sprint Goal:** End-to-end testing of MVP workflow, fix critical bugs.
+**Sprint Goal:** End-to-end testing of MVP workflow, fix critical bugs, and implement target dimensions for laser etching (ADR-009).
 
 #### Tasks
+
+**Senior Engineer (Target dimensions — ADR-009):**
+- [ ] **BACK-1005:** Implement target dimensions: accept optional `target_width_mm`, `target_height_mm` in `get_mesh_data` and export commands; compute `pixel_to_mm = min(target_width_mm/width_px, target_height_mm/height_px)` when both are present and positive; pass to `MeshParams`. If absent, keep current default (e.g. 1.0). See RESEARCH/architecture.md ADR-009 and § Target dimensions for laser etching.
+- [ ] **BACK-1006:** Add optional `target_width_mm` and `target_height_mm` to `AppSettings`; load/save in settings persistence so target size is remembered between sessions.
+
+**UI Specialist (Target dimensions — optional for Phase 1):**
+- [ ] **UI-1001:** Output size (mm): add width × height inputs or preset dropdown (e.g. 50×70 mm, 40×60 mm, Custom) in mesh/export area or settings; pass values to backend. Defer to Phase 2 if scope pressure; backend (BACK-1005/1006) still implemented so UI can be added later.
+
+**Junior Engineer #2 (Target dimensions tests):**
+- [ ] **JR2-1001:** Unit test: when target_width_mm and target_height_mm are set, mesh XY bounds fit inside target rectangle and aspect ratio is preserved; when not set, behaviour unchanged (pixel_to_mm default).
 
 **Quality Engineer:**
 - [ ] **QA-1001:** Create end-to-end test suite (Playwright or manual)
@@ -746,6 +756,7 @@ The Role Assignment table enables agents to claim roles:
 - [ ] **QA-1003:** Regression testing: all previous sprint features
 - [ ] **QA-1004:** Performance benchmarking: meet all PRD targets
 - [ ] **QA-1005:** Create bug report template (GitHub Issues)
+- [ ] **QA-1006:** Manual test target dimensions: set 50×70 mm, export STL, verify mesh fits (e.g. in MeshLab) when BACK-1005 is done.
 
 **All Engineers:**
 - [ ] **BUG-1001:** Triage and fix P0 (critical) bugs
@@ -769,6 +780,7 @@ The Role Assignment table enables agents to claim roles:
 - ✅ Performance targets met (see PRD §7.1)
 - ✅ Security review complete, no critical vulnerabilities
 - ✅ Code coverage >70% on core logic
+- ✅ Target dimensions (ADR-009): backend and settings support optional target width/height in mm; mesh/export use derived pixel_to_mm when set. UI (UI-1001) optional for Phase 1.
 
 ---
 
@@ -845,6 +857,25 @@ The Role Assignment table enables agents to claim roles:
 - ✅ Enhanced 3D preview (lighting, measurements, cross-section)
 - ✅ 90% user satisfaction rating from beta testers
 - ✅ Performance maintained or improved
+
+---
+
+### Full 3D Reconstruction Mode (Phase 2, optional track)
+
+**Context:** RESEARCH/3d-reconstruction.md and RESEARCH/3d-reconstruction-models.md evaluate single-image → full 3D mesh (watertight, closed geometry) for use alongside the existing 2.5D relief pipeline. **Recommended model: TripoSR** (MIT, 6 GB VRAM, ~0.5 s, direct OBJ). This is an **optional** Phase 2 track; core Phase 2 (advanced depth, presets, undo) remains independent.
+
+**User-facing behaviour:** Mode toggle "2.5D Relief" (default) vs "Full 3D". In Full 3D mode: one image → AI produces watertight mesh (OBJ); user can scale/post-process and export STL/OBJ. Depth adjustment controls N/A; 3D-specific controls (scale, smoothing, decimation). Preview orbits around object center.
+
+**Implementation outline (~4 sprints):**
+
+| Sprint | Focus | Key tasks |
+|--------|--------|-----------|
+| **2.F3D-1** | Python TripoSR integration | New script `python/reconstruction_3d.py` (or equivalent); subprocess contract (image in → OBJ path out); model download (~500MB–1GB) via existing wizard pattern; stub mode for tests. |
+| **2.F3D-2** | Rust mesh import path | Parse OBJ from Python output (vertices, faces); populate existing `MeshData`; scale to physical dimensions (reuse target dimensions logic ADR-009); optional decimation/smoothing; STL/OBJ export unchanged. |
+| **2.F3D-3** | UI mode toggle and 3D flow | Mode selector "2.5D Relief" / "Full 3D"; in Full 3D hide depth controls, show 3D-specific controls (scale, smoothing); preview camera defaults (orbit around center); progress for 3D inference. |
+| **2.F3D-4** | Testing and integration | Model download wizard extension for 3D model; manual/automated tests; docs; hardware note (6 GB VRAM min, CPU fallback slow). |
+
+**Risks (from research):** torchmcubes CUDA compilation on Windows (mitigate: pre-built wheels or CPU marching cubes); 6 GB VRAM excludes some users (2.5D remains default, no GPU required). **License:** TripoSR code and weights MIT — compatible with SimplePicture3D.
 
 ---
 

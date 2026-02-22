@@ -257,6 +257,66 @@ Returns the index buffer for the grid. Called after `depth_to_point_cloud` to po
 
 ---
 
+### ADR-009: Target Dimensions for Laser Etching (Point Cloud XY Size)
+
+**Status:** Accepted  
+**Date:** 2026-02-21  
+**Context:** Mesh output must match the physical size of the laser-etched blank (e.g. 50×70mm crystal). Currently `pixel_to_mm` is fixed at 1.0, so physical size equals pixel dimensions (e.g. 1920×1080 px → 1920×1080 mm), which is not useful for typical blanks. We need a clear way to specify **target physical dimensions** for the generated point cloud.
+
+**Decision: Specify target size in mm; derive uniform scale.**
+
+1. **User-facing concept: Target size (width × height) in mm**
+   - The user specifies the **physical XY extent** of the engraved area: `target_width_mm`, `target_height_mm` (e.g. 50 mm × 70 mm for a common crystal blank).
+   - **Depth** is already specified separately: `depth_min_mm` and `depth_max_mm` (PRD: 2–10 mm). No change.
+   - The mesh generator produces vertices in mm; XY extent of the mesh will **fit inside** the target rectangle with aspect ratio preserved (uniform scale).
+
+2. **Derivation of `pixel_to_mm` from target dimensions**
+   - Depth map has pixel dimensions `width_px × height_px`. We use a **single** scale factor (uniform scaling) so the design is not stretched.
+   - **Formula:** `pixel_to_mm = min(target_width_mm / width_px, target_height_mm / height_px)`.
+   - Effect: The mesh fits inside a rectangle of size `target_width_mm × target_height_mm`. One of the two edges will exactly match the target; the other may be smaller (letterboxing). Aspect ratio of the image is preserved.
+   - **Edge case:** If the user wants "exact width" or "exact height" only, that is equivalent to setting the other target dimension large enough that the min is driven by the desired dimension (e.g. exact width 70 mm → use target 70×9999, then pixel_to_mm = 70/width_px).
+
+3. **API and data flow**
+   - **Option A (recommended):** Add optional `target_width_mm` and `target_height_mm` to the mesh/export request (or to persisted settings). If present, backend computes `pixel_to_mm` from depth map dimensions and target size; if absent, keep current behaviour (`pixel_to_mm = 1.0` or a default).
+   - **Option B:** Add `target_width_mm` and `target_height_mm` to `MeshParams`; mesh_generator receives depth dimensions and params and computes `pixel_to_mm` internally when target is set. This keeps the "fit inside" logic in one place (mesh or lib.rs).
+   - **Implementation note:** `MeshParams.pixel_to_mm` remains the single scale used in `depth_to_point_cloud`. The caller (e.g. lib.rs) can compute `pixel_to_mm` from `target_width_mm`, `target_height_mm`, and `(width_px, height_px)` before building `MeshParams`, so no change to `mesh_generator.rs` function signature is strictly required; only the way lib.rs (or settings) sets `pixel_to_mm` changes.
+
+4. **Defaults and presets**
+   - **Default:** If target dimensions are not specified, retain current behaviour: `pixel_to_mm = 1.0` (physical size = pixel size). Alternatively, a product default such as 50×70 mm can be documented so "fit to common blank" works out of the box.
+   - **Presets (Phase 2):** e.g. "50×70 mm", "40×60 mm", "Custom" with width/height inputs. Presets set `target_width_mm` / `target_height_mm`; backend derives `pixel_to_mm` as above.
+
+5. **UI**
+   - Optional for MVP: expose "Output size (mm): width × height" in the mesh/export area or settings (two numeric inputs, or preset dropdown). If not in MVP, backend and settings are still extended so that when the UI is added, it only passes target dimensions.
+
+**Rationale:**
+- Laser etchers work with physical blanks; specifying "50×70 mm" is intuitive and avoids manual `pixel_to_mm` calculation.
+- Uniform scale preserves aspect ratio and avoids distorted engravings.
+- Single formula keeps behaviour predictable and testable.
+
+**Consequences:**
+- Backend (lib.rs or mesh layer) accepts optional target dimensions and computes `pixel_to_mm` when building `MeshParams`.
+- Settings may store `target_width_mm` / `target_height_mm` (optional) for persistence.
+- Documentation and UI copy should use "Output size" or "Target size (mm)" to match user mental model.
+- Existing behaviour (fixed `pixel_to_mm`) remains valid when target dimensions are not provided.
+
+---
+
+### Future: Full 3D Reconstruction Mode (Phase 2, optional)
+
+**Context:** Single-image **full 3D** reconstruction produces a watertight, closed mesh (with back faces and occluded surfaces), unlike the current 2.5D heightfield. Use cases: 3D printing, rotary/multi-angle laser engraving, full 3D export.
+
+**Decision (research 2026-02-21):** Offer as a **secondary mode** alongside the existing depth-map pipeline. Recommended model: **TripoSR** (MIT code + weights, 6 GB VRAM, ~0.5 s, direct OBJ). See RESEARCH/3d-reconstruction.md and RESEARCH/3d-reconstruction-models.md for model comparison, licensing, and risks.
+
+**High-level design:**
+- **Python:** New script (e.g. `reconstruction_3d.py`); same subprocess pattern as `depth_estimator.py`; input image → output OBJ file path (mesh pre-built by AI).
+- **Rust:** New mesh **import** path: parse OBJ from Python output → populate `MeshData` (positions, normals, indices); reuse scaling (e.g. ADR-009 target dimensions), optional decimation/smoothing; existing STL/OBJ writers unchanged.
+- **Frontend:** Mode toggle "2.5D Relief" (default) vs "Full 3D"; in Full 3D hide depth-adjustment controls; add 3D-specific controls (scale, smoothing, decimation); preview camera orbit around object center.
+- **Hardware:** 6 GB VRAM minimum for TripoSR; CPU fallback supported but slow. 2.5D pipeline remains default and does not require a GPU.
+
+**Planning:** prd.md §11.1 (deferred feature #11); todo.md Phase 2 "Full 3D Reconstruction Mode" optional track (~4 sprints: Python integration, Rust import, UI, testing).
+
+---
+
 ## Overview
 
 Tauri desktop app: Rust backend, Svelte/React frontend, Python subprocess for AI inference.
@@ -420,6 +480,16 @@ SimplePicture3D/
 - **Color:** Not required for MVP. Omitted; can be added later if texture/heightmap color is needed.
 - **Serialization (Tauri IPC):** Struct with flat arrays: `positions: Vec<[f32;3]>`, `normals: Vec<[f32;3]>`. Optional `indices: Vec<u32>` for triangulated mesh (triangle list). Compatible with Three.js `BufferGeometry` (setAttribute position, normal) and with `stl_io` (vertices + face normals).
 - **Backend type:** `MeshData` (or equivalent): `positions`, `normals`, and optionally `indices`. All coordinates and normals in mm / unit length.
+
+### Target dimensions for laser etching (ADR-009)
+
+To match the physical size of the engraved blank (e.g. 50×70 mm crystal), the user can specify **target size** in mm. The mesh XY extent is then scaled to **fit inside** that rectangle with aspect ratio preserved.
+
+- **Input (optional):** `target_width_mm`, `target_height_mm` (e.g. 50, 70). Depth is already `depth_min_mm`..`depth_max_mm`.
+- **Derivation:** `pixel_to_mm = min(target_width_mm / width_px, target_height_mm / height_px)`. Caller (e.g. lib.rs) computes this from depth map dimensions and target size, then passes `pixel_to_mm` in `MeshParams`. If target is not set, use current default (e.g. `pixel_to_mm = 1.0`).
+- **Result:** Mesh physical size fits inside `target_width_mm × target_height_mm`; one dimension matches the target, the other is ≤ target. No stretch.
+
+See **ADR-009** above for full decision, API options, and UI/preset notes.
 
 ### Mesh data IPC contract (get_mesh_data, BACK-601, BACK-602)
 
