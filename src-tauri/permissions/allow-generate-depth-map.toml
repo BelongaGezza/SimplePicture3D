@@ -4,6 +4,7 @@ description = "Enables depth map generation, retrieval, adjustment, and mesh gen
 commands.allow = [
     "generate_depth_map",
     "get_depth_map",
+    "get_depth_histogram",
     "set_depth_adjustment_params",
     "get_depth_adjustment_params",
     "reset_depth_adjustments",

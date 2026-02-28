@@ -14,6 +14,8 @@
   export let depth: number[] = [];
   /** When true, show loading skeleton (JR1-304; estimating state from UI-304). */
   export let estimating = false;
+  /** When true, an image is loaded but depth not yet generated — show hint to click Generate. */
+  export let hasImage = false;
 
   let canvas: HTMLCanvasElement;
   let container: HTMLDivElement;
@@ -63,6 +65,9 @@
     scheduleFitToView();
   }
 
+  /** Re-fit when container is resized so depth map stays fitted. */
+  let resizeObserver: ResizeObserver | null = null;
+
   function handleWheel(e: WheelEvent) {
     e.preventDefault();
     const delta = e.deltaY > 0 ? -0.1 : 0.1;
@@ -99,6 +104,12 @@
   onMount(() => {
     draw();
     if (width > 0 && height > 0 && depth.length > 0) scheduleFitToView();
+    const ro = new ResizeObserver(() => {
+      if (width > 0 && height > 0 && depth.length > 0) scheduleFitToView();
+    });
+    const el = container;
+    if (el) ro.observe(el);
+    return () => ro.disconnect();
   });
 </script>
 
@@ -107,6 +118,7 @@
   class="depth-preview-wrapper w-full h-full min-h-[200px] flex items-center justify-center bg-slate-100 rounded overflow-hidden select-none cursor-grab"
   class:cursor-grabbing={isDragging}
   bind:this={container}
+  style="contain: layout;"
   role="application"
   aria-label="Depth map preview: scroll to zoom, drag to pan"
   tabindex="0"
@@ -127,11 +139,15 @@
       <p class="text-slate-500 text-sm mt-2">Estimating depth…</p>
     </div>
   {:else if width > 0 && height > 0 && depth.length > 0}
-    <div class="depth-zoom-pan" style={transformStyle}>
+    <div
+      class="depth-zoom-pan"
+      style="width: {width}px; height: {height}px; {transformStyle}"
+      aria-hidden="true"
+    >
       <canvas
         bind:this={canvas}
         class="depth-canvas"
-        style="image-rendering: pixelated; image-rendering: crisp-edges;"
+        style="image-rendering: pixelated; image-rendering: crisp-edges; display: block;"
         aria-label="Depth map (grayscale: near dark, far light)"
       />
     </div>
@@ -142,6 +158,8 @@
       on:click={() => applyFitToView()}
       on:mousedown|stopPropagation
     >Fit</button>
+  {:else if hasImage}
+    <p class="text-slate-500 text-sm text-center px-2">Image loaded. Click <strong>Generate Depth Map</strong> below to create the depth map.</p>
   {:else}
     <p class="text-slate-500 text-sm">No depth map</p>
   {/if}
@@ -157,6 +175,9 @@
     outline-offset: 2px;
   }
   .depth-zoom-pan {
+    position: absolute;
+    top: 0;
+    left: 0;
     transform-origin: 0 0;
     will-change: transform;
   }

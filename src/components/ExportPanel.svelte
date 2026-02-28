@@ -17,6 +17,9 @@
   export let hasDepth = false;
   /** Source image filename (used for default export filename). */
   export let sourceFileName = "";
+  /** Optional target dimensions from App (scaling: default 40×40 mm; overrides preset when set). */
+  export let effectiveTargetWidthMm: number | undefined = undefined;
+  export let effectiveTargetHeightMm: number | undefined = undefined;
 
   /** Selected export format. Both STL and OBJ are now active. */
   let selectedFormat: "stl" | "obj" = "stl";
@@ -71,8 +74,11 @@
     }
   });
 
-  /** Effective target dimensions for export (from preset or custom). null = use backend default. */
+  /** Effective target dimensions for export. When parent passes effectiveTarget* (scaling), use those; else preset/custom. */
   function getEffectiveTargetMm(): { targetWidthMm: number; targetHeightMm: number } | null {
+    if (effectiveTargetWidthMm != null && effectiveTargetHeightMm != null && effectiveTargetWidthMm > 0 && effectiveTargetHeightMm > 0) {
+      return { targetWidthMm: effectiveTargetWidthMm, targetHeightMm: effectiveTargetHeightMm };
+    }
     if (targetSizePreset === "default") return null;
     if (targetSizePreset === "50x70") return { targetWidthMm: 50, targetHeightMm: 70 };
     if (targetSizePreset === "40x60") return { targetWidthMm: 40, targetHeightMm: 60 };

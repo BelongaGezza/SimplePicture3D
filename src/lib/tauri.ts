@@ -108,7 +108,13 @@ export interface DepthMapData {
   depth: number[];
 }
 
-/** Depth adjustment params (BACK-401–405). Matches Rust DepthAdjustmentParams (camelCase). */
+/** Single curve control point (BACK-1102). x/y in [0, 1]. */
+export interface CurvePoint {
+  x: number;
+  y: number;
+}
+
+/** Depth adjustment params (BACK-401–405, BACK-1102). Matches Rust DepthAdjustmentParams (camelCase). */
 export interface DepthAdjustmentParams {
   brightness: number;
   contrast: number;
@@ -116,6 +122,8 @@ export interface DepthAdjustmentParams {
   invert: boolean;
   depthMinMm: number;
   depthMaxMm: number;
+  /** Optional curve control points (BACK-1102). When null/undefined or length < 2, no curve. */
+  curveControlPoints?: CurvePoint[] | null;
 }
 
 export async function generateDepthMap(path: string): Promise<DepthMapResult> {
@@ -124,6 +132,11 @@ export async function generateDepthMap(path: string): Promise<DepthMapResult> {
 
 export async function getDepthMap(): Promise<DepthMapData | null> {
   return invoke<DepthMapData | null>("get_depth_map");
+}
+
+/** Histogram of current (adjusted) depth map, 256 bins over [0, 1] (BACK-1101). Returns null if no depth. */
+export async function getDepthHistogram(): Promise<number[] | null> {
+  return invoke<number[] | null>("get_depth_histogram");
 }
 
 export async function getDepthAdjustmentParams(): Promise<DepthAdjustmentParams> {
@@ -146,9 +159,11 @@ export interface MeshData {
   normals: [number, number, number][];
 }
 
-/** Optional preview_step for reduced-detail preview (BACK-603). Omit for full resolution. */
+/** Optional preview_step for reduced-detail preview (BACK-603). Optional target dimensions in mm (ADR-009, scaling). */
 export interface GetMeshDataOptions {
   previewStep?: number;
+  targetWidthMm?: number | null;
+  targetHeightMm?: number | null;
 }
 
 // --- Sprint 1.10: Model management ---
@@ -198,9 +213,15 @@ export async function downloadModel(): Promise<DownloadResult> {
 export async function getMeshData(
   options?: GetMeshDataOptions
 ): Promise<MeshData | null> {
-  const args =
-    options?.previewStep != null
-      ? { preview_step: Math.max(1, options.previewStep) }
-      : {};
+  const args: Record<string, unknown> = {};
+  if (options?.previewStep != null) {
+    args.preview_step = Math.max(1, options.previewStep);
+  }
+  if (options?.targetWidthMm != null && options.targetWidthMm > 0) {
+    args.target_width_mm = options.targetWidthMm;
+  }
+  if (options?.targetHeightMm != null && options.targetHeightMm > 0) {
+    args.target_height_mm = options.targetHeightMm;
+  }
   return invoke<MeshData | null>("get_mesh_data", args);
 }

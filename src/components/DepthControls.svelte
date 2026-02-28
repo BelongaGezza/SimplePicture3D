@@ -2,14 +2,19 @@
      SPDX-License-Identifier: MIT -->
 <script lang="ts">
   /**
-   * DepthControls — UI-401–405. Sliders and controls for depth adjustment.
+   * DepthControls — UI-401–405, UI-1105. Sliders and controls for depth adjustment.
    * Depth Range (min/max mm), Brightness, Gamma, Invert, Reset.
+   * UI-1105: Advanced mode toggle shows HistogramPanel + CurvesTool (BACK-1101–1104).
    * Disabled when no depth map; parent debounces param changes for preview (UI-404).
    */
   import Button from "./Button.svelte";
+  import HistogramPanel from "./HistogramPanel.svelte";
+  import CurvesTool from "./CurvesTool.svelte";
   import type { DepthAdjustmentParams } from "$lib/tauri";
 
   export let hasDepth = false;
+  /** Histogram data from get_depth_histogram (BACK-1101). Pass when hasDepth and advancedMode. */
+  export let histogram: number[] | null = null;
   export let params: DepthAdjustmentParams = {
     brightness: 0,
     contrast: 1,
@@ -17,10 +22,15 @@
     invert: false,
     depthMinMm: 2,
     depthMaxMm: 10,
+    curveControlPoints: undefined,
   };
 
   export let onParamsChange: (p: DepthAdjustmentParams) => void = () => {};
   export let onReset: () => void = () => {};
+
+  /** UI-1105: Advanced mode (histogram + curves). Default off for simplicity. */
+  export let advancedMode = false;
+  export let onAdvancedModeChange: (v: boolean) => void = () => {};
 
   const DEPTH_MM_MIN = 1;
   const DEPTH_MM_MAX = 20;
@@ -73,6 +83,10 @@
 
   function handleReset() {
     onReset();
+  }
+
+  function handleAdvancedModeChange(e: Event) {
+    onAdvancedModeChange((e.target as HTMLInputElement).checked);
   }
 
   /** JR1-403: Arrow keys change slider value by step when range input is focused. */
@@ -274,6 +288,24 @@
       />
       <label for="invert-depth" class="text-sm text-slate-700 select-none cursor-pointer">Invert depth</label>
     </div>
+
+    <!-- UI-1105: Advanced mode toggle -->
+    <div class="flex items-center gap-2" role="group" aria-label="Advanced depth controls">
+      <input
+        id="advanced-mode"
+        type="checkbox"
+        checked={advancedMode}
+        on:change={handleAdvancedModeChange}
+        class="h-4 w-4 rounded border-slate-300 text-slate-600 focus:ring-slate-400"
+        aria-label="Show histogram and curves (advanced)"
+      />
+      <label for="advanced-mode" class="text-sm text-slate-700 select-none cursor-pointer">Advanced (histogram & curve)</label>
+    </div>
+
+    {#if advancedMode}
+      <HistogramPanel histogram={histogram} width={200} height={60} />
+      <CurvesTool params={params} onParamsChange={onParamsChange} />
+    {/if}
 
     <!-- Reset - UI-405 -->
     <Button

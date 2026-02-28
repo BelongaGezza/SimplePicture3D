@@ -17,7 +17,7 @@ pub mod settings;
 use std::sync::Mutex;
 use tauri::State;
 
-use depth_adjust::{apply_adjustments, DepthAdjustmentParams};
+use depth_adjust::{apply_adjustments, compute_histogram, DepthAdjustmentParams};
 use mesh_generator::{depth_to_point_cloud, MeshData, MeshParams};
 
 /// ADR-009: Compute pixel_to_mm from optional target dimensions. When both are present and positive,
@@ -502,6 +502,22 @@ fn generate_depth_map(
     })
 }
 
+/// Returns histogram of current (adjusted) depth map for UI (BACK-1101).
+/// Bins = 256 over [0, 1]. Returns None if no depth map loaded.
+#[tauri::command]
+fn get_depth_histogram(state: State<AppState>) -> Result<Option<Vec<u32>>, String> {
+    const BINS: usize = 256;
+    let guard = state.depth.lock().map_err(|e| e.to_string())?;
+    let original = match guard.as_ref() {
+        Some(d) => d.clone(),
+        None => return Ok(None),
+    };
+    drop(guard);
+    let params = state.adjustment_params.lock().map_err(|e| e.to_string())?;
+    let adjusted = apply_adjustments(&original.depth, &params);
+    Ok(Some(compute_histogram(&adjusted, BINS)))
+}
+
 /// Returns the current depth map from app state with adjustments applied (BACK-302, BACK-402).
 /// Original depth is preserved; display = apply_adjustments(original, adjustment_params).
 #[tauri::command]
@@ -617,6 +633,7 @@ pub fn run() {
             get_export_defaults,
             generate_depth_map,
             get_depth_map,
+            get_depth_histogram,
             set_depth_adjustment_params,
             get_depth_adjustment_params,
             reset_depth_adjustments,

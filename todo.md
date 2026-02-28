@@ -790,40 +790,40 @@ The Role Assignment table enables agents to claim roles:
 
 **Sprint Goal:** Prepare MVP for beta testing with comprehensive documentation.
 
-**Sprint 1.12 Tasking:** Ready for execution — see `SPRINTS/Sprint_1_12/SPRINT_1_12_Task_Assignment.md`. Roles: UI Designer, Senior Engineer, System Architect, Quality Engineer, Documentation Specialist.
+**Sprint Status:** Complete. See `SPRINTS/Sprint_1_12/VERIFICATION_CHECKLIST.md` and `SPRINTS/Sprint_1_12/SPRINT_1_12_Task_Assignment.md`.
 
 #### Tasks
 
 **UI Specialist:**
-- [ ] **DOC-101:** Write user guide (docs/user-guide.md)
+- [x] **DOC-101:** Write user guide (docs/user-guide.md)
   - Installation instructions
   - First conversion walkthrough
   - Troubleshooting FAQ
-- [ ] **DOC-102:** Create video tutorial script (3-5 min)
-- [ ] **DOC-103:** Screenshot all UI states for docs
+- [x] **DOC-102:** Create video tutorial script (3-5 min)
+- [x] **DOC-103:** Screenshot all UI states for docs
 
 **Senior Engineer:**
-- [ ] **DOC-201:** Write developer guide (docs/developer-guide.md)
+- [x] **DOC-201:** Write developer guide (docs/developer-guide.md)
   - Build from source instructions
   - Architecture overview
   - Contribution guidelines
-- [ ] **DOC-202:** API documentation (Rust docs, JSDoc)
-- [ ] **DOC-203:** Generate docs with `cargo doc`
+- [x] **DOC-202:** API documentation (Rust docs, JSDoc)
+- [x] **DOC-203:** Generate docs with `cargo doc`
 
 **System Architect:**
-- [ ] **DOC-301:** Review and finalize architecture.md
-- [ ] **DOC-302:** Create CONTRIBUTING.md
-- [ ] **DOC-303:** Write README.md with badges (build status, license)
+- [x] **DOC-301:** Review and finalize architecture.md
+- [x] **DOC-302:** Create CONTRIBUTING.md
+- [x] **DOC-303:** Write README.md with badges (build status, license)
 
 **Quality Engineer:**
-- [ ] **DOC-401:** Document test procedures (manual testing checklist)
-- [ ] **DOC-402:** Create bug report template
-- [ ] **DOC-403:** Beta tester onboarding guide
+- [x] **DOC-401:** Document test procedures (manual testing checklist)
+- [x] **DOC-402:** Create bug report template
+- [x] **DOC-403:** Beta tester onboarding guide
 
 **All Team:**
-- [ ] **DOC-501:** Code comments and inline documentation
-- [ ] **DOC-502:** Update CHANGELOG.md for MVP release
-- [ ] **DOC-503:** Prepare release notes (GitHub release draft)
+- [x] **DOC-501:** Code comments and inline documentation
+- [x] **DOC-502:** Update CHANGELOG.md for MVP release
+- [x] **DOC-503:** Prepare release notes (GitHub release draft)
 
 #### Exit Criteria
 - ✅ User guide complete with screenshots
@@ -884,9 +884,13 @@ The Role Assignment table enables agents to claim roles:
 
 ---
 
-### Sprint 2.1: Advanced Depth Controls - Histogram & Curves (2 weeks)
+### Sprint 2.1: Advanced Depth Controls - Histogram, Curves & Scaling (2 weeks)
 
-**Sprint Goal:** Add power-user tools for precise depth manipulation.
+**Sprint Goal:** Add power-user tools for precise depth manipulation and default output scaling (40×40 mm target with zoom).
+
+**Sprint 2.1 Tasking:** See `SPRINTS/Sprint_2_1/SPRINT_2_1_Task_Assignment.md`. Roles: Senior Engineer, UI Designer, Junior Engineer 2D, Quality Engineer.
+
+**Scaling (added):** On image import, target dimensions are set to 40×40 mm by default so depth-map and 3D preview are dimensioned; zoom control (50%, 100%, 150%, 200%) scales the target (20–80 mm); output is zoomed to fit.
 
 #### Tasks
 
@@ -913,12 +917,18 @@ The Role Assignment table enables agents to claim roles:
 - [ ] **QA-1102:** Test preset curves (apply, verify result)
 - [ ] **QA-1103:** Performance test: curve application on large depth maps
 
+**Scaling (Sprint 2.1):**
+- [x] **SCALE-001:** On image import set default target 40×40 mm; dimension depth-map and 3D preview
+- [x] **SCALE-002:** Zoom control (50%, 100%, 150%, 200%) to scale target
+- [x] **SCALE-003:** Output zoomed to fit once dimension set (mesh + export use target)
+
 #### Exit Criteria
 - ✅ Histogram displays depth distribution
 - ✅ Curves tool functional with draggable points
 - ✅ Preset curves apply correctly
 - ✅ Advanced mode toggle works
 - ✅ Real-time preview updates (<200ms)
+- ✅ On image import target defaults to 40×40 mm; zoom scales target; preview and export zoomed to fit
 
 ---
 

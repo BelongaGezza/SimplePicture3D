@@ -12,6 +12,10 @@
   import type { MeshData } from "$lib/tauri";
 
   let container: HTMLDivElement;
+  /** Target dimensions in mm from App (scaling: mesh and preview dimension to fit). When set, getMeshData uses these. */
+  export let targetWidthMm: number | undefined = undefined;
+  export let targetHeightMm: number | undefined = undefined;
+
   let scene: THREE.Scene;
   let camera: THREE.PerspectiveCamera;
   let renderer: THREE.WebGLRenderer;
@@ -60,26 +64,51 @@
   $: if (ambientLight) ambientLight.intensity = ambientIntensity;
   $: if (directionalLight) directionalLight.intensity = directionalIntensity;
 
+  /** When target dimensions change and we already have a mesh, reload so preview is zoomed to fit new scale. */
+  let prevTargetKey = "";
+  $: targetKey = [targetWidthMm, targetHeightMm].join(",");
+  $: if (targetKey && targetKey !== prevTargetKey && pointCloud && scene && !meshLoading) {
+    prevTargetKey = targetKey;
+    loadMesh();
+  }
+  $: if (targetKey && !prevTargetKey) prevTargetKey = targetKey;
+
   /**
    * Build BufferGeometry and THREE.Points from mesh data (UI-504).
    * Flips Y so image top (row 0) appears at top in Three.js (Y-up). Backend uses row-major with y = row.
+   * Guards against missing/short normals and empty positions to avoid range errors.
    */
   function buildPointCloud(meshData: MeshData): THREE.Points {
-    const n = meshData.positions.length;
-    const maxY = n > 0
-      ? Math.max(...meshData.positions.map((p) => p[1]))
-      : 0;
+    const posList = meshData.positions ?? [];
+    const normList = meshData.normals ?? [];
+    const n = posList.length;
+    if (n === 0) {
+      const emptyGeo = new THREE.BufferGeometry();
+      return new THREE.Points(
+        emptyGeo,
+        new THREE.PointsMaterial({ size: 0.5, color: 0x4a90d9 })
+      );
+    }
+    const maxY =
+      n > 0 ? Math.max(...posList.map((p) => (p && p[1] != null ? p[1] : 0))) : 0;
     const positions = new Float32Array(n * 3);
     const normals = new Float32Array(n * 3);
+    const defaultNormal = [0, 0, 1] as const;
     for (let i = 0; i < n; i++) {
-      const p = meshData.positions[i];
-      const q = meshData.normals[i];
-      positions[i * 3 + 0] = p[0];
-      positions[i * 3 + 1] = maxY - p[1]; // flip Y: image top → Three.js top
-      positions[i * 3 + 2] = p[2];
-      normals[i * 3 + 0] = q[0];
-      normals[i * 3 + 1] = -q[1]; // flip normal to match
-      normals[i * 3 + 2] = q[2];
+      const p = posList[i];
+      const q = normList[i] ?? defaultNormal;
+      const px = p && p[0] != null ? p[0] : 0;
+      const py = p && p[1] != null ? p[1] : 0;
+      const pz = p && p[2] != null ? p[2] : 0;
+      positions[i * 3 + 0] = px;
+      positions[i * 3 + 1] = maxY - py; // flip Y: image top → Three.js top
+      positions[i * 3 + 2] = pz;
+      const qx = q[0] != null && !Number.isNaN(q[0]) ? q[0] : 0;
+      const qy = q[1] != null && !Number.isNaN(q[1]) ? q[1] : 0;
+      const qz = q[2] != null && !Number.isNaN(q[2]) ? q[2] : 1;
+      normals[i * 3 + 0] = qx;
+      normals[i * 3 + 1] = -qy; // flip normal to match
+      normals[i * 3 + 2] = qz;
     }
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
@@ -148,12 +177,15 @@
     return String(n);
   }
 
-  /** UI-503: Load mesh from backend and add to scene (UI-504). */
+  /** UI-503: Load mesh from backend and add to scene (UI-504). Uses target dimensions when set (scaling: zoom to fit). */
   async function loadMesh() {
     meshLoading = true;
     meshError = "";
     try {
-      const data = await getMeshData();
+      const opts: { targetWidthMm?: number; targetHeightMm?: number } = {};
+      if (targetWidthMm != null && targetWidthMm > 0) opts.targetWidthMm = targetWidthMm;
+      if (targetHeightMm != null && targetHeightMm > 0) opts.targetHeightMm = targetHeightMm;
+      const data = await getMeshData(opts);
       if (pointCloud) {
         scene.remove(pointCloud);
         pointCloud.geometry.dispose();

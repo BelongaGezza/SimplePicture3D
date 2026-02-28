@@ -11,10 +11,13 @@
   import {
     generateDepthMap,
     getDepthMap,
+    getDepthHistogram,
     getDepthAdjustmentParams,
     setDepthAdjustmentParams,
     resetDepthAdjustments,
     checkModel,
+    getSettings,
+    saveSettings,
   } from "$lib/tauri";
   import type { LoadImageResult, DepthAdjustmentParams } from "$lib/tauri";
 
@@ -45,7 +48,7 @@
   /** Backend error from generate_depth_map (timeout, Python, etc.). */
   let depthError = "";
 
-  /** Current depth adjustment params; synced with backend (UI-401–405). */
+  /** Current depth adjustment params; synced with backend (UI-401–405, BACK-1102). */
   let adjustmentParams: DepthAdjustmentParams = {
     brightness: 0,
     contrast: 1,
@@ -53,7 +56,19 @@
     invert: false,
     depthMinMm: 2,
     depthMaxMm: 10,
+    curveControlPoints: undefined,
   };
+
+  /** BACK-1101: Histogram of current adjusted depth (for HistogramPanel). Fetched with preview. */
+  let histogramData: number[] | null = null;
+  /** UI-1105: Advanced mode (histogram + curves). */
+  let advancedMode = false;
+
+  /** Scaling (Sprint 2.1): default 40×40 mm target; on image load dimension depth-map and 3D preview to this. */
+  const TARGET_BASE_MM = 40;
+  let effectiveTargetWidthMm = 40;
+  let effectiveTargetHeightMm = 40;
+  let zoomScale = 1; // 1 = 100%; 0.5 = 50%, 1.5 = 150%, 2 = 200%
 
   /** UI-404: Debounce interval for preview updates (ms). */
   const DEBOUNCE_MS = 80;
@@ -82,13 +97,26 @@
     loadedResult = null;
     depthMap = null;
     depthError = "";
+    histogramData = null;
   }
 
-  function handleLoadSuccess(result: LoadImageResult) {
+  async function handleLoadSuccess(result: LoadImageResult) {
     loading = false;
     loadedResult = result;
     loadError = "";
     status = result.downsampled ? "Loaded (downsampled)" : "Loaded";
+    // Scaling: on image import set default target 40×40 mm so depth-map and 3D preview are dimensioned (zoom to fit).
+    effectiveTargetWidthMm = TARGET_BASE_MM;
+    effectiveTargetHeightMm = TARGET_BASE_MM;
+    zoomScale = 1;
+    try {
+      const settings = await getSettings();
+      settings.targetWidthMm = TARGET_BASE_MM;
+      settings.targetHeightMm = TARGET_BASE_MM;
+      await saveSettings(settings);
+    } catch {
+      // Non-critical
+    }
   }
 
   function handleLoadError(message: string) {
@@ -109,6 +137,8 @@
       depthMap = { width: result.width, height: result.height, depth: result.depth };
       const params = await getDepthAdjustmentParams();
       adjustmentParams = params;
+      const hist = await getDepthHistogram();
+      histogramData = hist;
       status = "Depth ready";
     } catch (e) {
       depthError = String(e);
@@ -118,19 +148,20 @@
     }
   }
 
-  /** UI-404: Apply params to backend and refresh preview (debounced). */
+  /** UI-404: Apply params to backend and refresh preview (debounced). BACK-1101: also fetch histogram. */
   async function applyParamsToBackend() {
     debounceTimer = null;
     if (!depthMap) return;
     try {
       await setDepthAdjustmentParams(adjustmentParams);
       if (import.meta.env.DEV) console.time("getDepthMap");
-      const result = await getDepthMap();
+      const [result, hist] = await Promise.all([getDepthMap(), getDepthHistogram()]);
       if (import.meta.env.DEV) {
         console.timeEnd("getDepthMap");
         if (result) console.debug("getDepthMap dimensions:", result.width, "x", result.height);
       }
       if (result) depthMap = { width: result.width, height: result.height, depth: result.depth };
+      histogramData = hist;
     } catch (e) {
       status = "Adjustment error: " + String(e);
     }
@@ -143,18 +174,34 @@
     debounceTimer = setTimeout(applyParamsToBackend, DEBOUNCE_MS);
   }
 
+  /** Scaling: change zoom (50%, 100%, 150%, 200%); effective target = 40 * scale. */
+  async function setZoom(scale: number) {
+    zoomScale = scale;
+    effectiveTargetWidthMm = Math.round(TARGET_BASE_MM * scale);
+    effectiveTargetHeightMm = Math.round(TARGET_BASE_MM * scale);
+    try {
+      const settings = await getSettings();
+      settings.targetWidthMm = effectiveTargetWidthMm;
+      settings.targetHeightMm = effectiveTargetHeightMm;
+      await saveSettings(settings);
+    } catch {
+      // Non-critical
+    }
+  }
+
   /** UI-405: Reset adjustments and refresh preview from original depth. */
   async function handleResetDepth() {
     try {
       await resetDepthAdjustments();
       adjustmentParams = await getDepthAdjustmentParams();
       if (import.meta.env.DEV) console.time("getDepthMap");
-      const result = await getDepthMap();
+      const [result, hist] = await Promise.all([getDepthMap(), getDepthHistogram()]);
       if (import.meta.env.DEV) {
         console.timeEnd("getDepthMap");
         if (result) console.debug("getDepthMap dimensions:", result.width, "x", result.height);
       }
       if (result) depthMap = { width: result.width, height: result.height, depth: result.depth };
+      histogramData = hist;
       status = "Depth reset";
     } catch (e) {
       status = "Reset error: " + String(e);
@@ -210,20 +257,24 @@
     <section class="flex-1 min-w-0 flex flex-col p-4">
       <h2 class="text-sm font-semibold text-slate-600 uppercase tracking-wide mb-2">3D Preview</h2>
       <div class="flex-1 min-h-0 rounded overflow-hidden">
-        <Preview3D />
+        <Preview3D
+          targetWidthMm={effectiveTargetWidthMm}
+          targetHeightMm={effectiveTargetHeightMm}
+        />
       </div>
     </section>
 
-    <!-- Right sidebar: depth preview + controls (UI-301–305, JR1-301) -->
-    <aside class="w-64 shrink-0 border-l border-slate-200 bg-white p-4 flex flex-col gap-4" aria-label="Depth map and controls">
-      <h2 class="text-sm font-semibold text-slate-600 uppercase tracking-wide">Depth map</h2>
-      <div class="flex-1 min-h-0 flex flex-col gap-2 rounded border border-slate-200 overflow-hidden">
-        <div class="min-h-[200px] flex-1 min-h-0">
+    <!-- Right sidebar: depth preview + controls (UI-301–305, JR1-301). min-h-0 + overflow so column doesn't extend page. -->
+    <aside class="w-64 shrink-0 min-h-0 border-l border-slate-200 bg-white p-4 flex flex-col gap-4 overflow-hidden" aria-label="Depth map and controls">
+      <h2 class="text-sm font-semibold text-slate-600 uppercase tracking-wide shrink-0">Depth map</h2>
+      <div class="flex-1 min-h-0 flex flex-col gap-2 rounded border border-slate-200 overflow-y-auto overflow-x-hidden">
+        <div class="depth-map-slot min-h-[200px] max-h-[40vh] h-[280px] shrink-0 overflow-hidden rounded">
           <DepthMapPreview
             width={depthMap?.width ?? 0}
             height={depthMap?.height ?? 0}
             depth={depthMap?.depth ?? []}
             estimating={depthEstimating}
+            hasImage={!!loadPath}
           />
         </div>
         <!-- UI-303: Generate Depth Map button; UI-304: progress during inference -->
@@ -261,20 +312,43 @@
         <!-- UI-401–405: Depth adjustment controls (debounced preview in App) -->
         <DepthControls
           hasDepth={depthMap != null && depthMap.depth.length > 0}
+          histogram={histogramData}
           params={adjustmentParams}
           onParamsChange={handleParamsChange}
           onReset={handleResetDepth}
+          advancedMode={advancedMode}
+          onAdvancedModeChange={(v) => (advancedMode = v)}
         />
       </div>
     </aside>
   </main>
 
-  <!-- Bottom: export panel + status bar (UI-701–704) -->
-  <footer class="shrink-0 border-t border-slate-200 bg-white px-4 py-2 flex items-center justify-between gap-4">
+  <!-- Bottom: output scale (zoom) + export panel + status bar (UI-701–704, scaling) -->
+  <footer class="shrink-0 border-t border-slate-200 bg-white px-4 py-2 flex items-center justify-between gap-4 flex-wrap">
     <div class="text-sm text-slate-500" role="status" aria-live="polite" aria-label={status}>{status}</div>
+    <!-- Scaling: default 40×40 mm; zoom to scale target (depth-map and 3D preview dimension to fit). -->
+    <div class="flex items-center gap-2" role="group" aria-label="Output scale and target size">
+      <span class="text-xs text-slate-500">Target:</span>
+      <span class="text-sm text-slate-700 font-medium">{effectiveTargetWidthMm}×{effectiveTargetHeightMm} mm</span>
+      <span class="text-xs text-slate-400">Zoom:</span>
+      <div class="flex gap-0.5">
+        {#each [0.5, 1, 1.5, 2] as scale}
+          <button
+            type="button"
+            class="px-2 py-0.5 text-xs rounded border {zoomScale === scale ? 'bg-slate-200 border-slate-400 font-medium' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}"
+            title="{scale * 100}% — target {Math.round(TARGET_BASE_MM * scale)}×{Math.round(TARGET_BASE_MM * scale)} mm"
+            on:click={() => setZoom(scale)}
+          >
+            {scale * 100}%
+          </button>
+        {/each}
+      </div>
+    </div>
     <ExportPanel
       hasDepth={depthMap != null && depthMap.depth.length > 0}
       sourceFileName={sourceFileName}
+      effectiveTargetWidthMm={effectiveTargetWidthMm}
+      effectiveTargetHeightMm={effectiveTargetHeightMm}
     />
   </footer>
 </div>

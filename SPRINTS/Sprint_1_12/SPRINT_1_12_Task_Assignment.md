@@ -108,7 +108,7 @@ An agent can **read this task assignment, find unassigned roles, and create one 
 | QA & beta materials (DOC-401–403) | ✅ Complete | 100% |
 | Team-wide docs (DOC-501–503) | ✅ Complete | 100% |
 
-**Overall Sprint Progress:** [ ] Not Started / [x] In Progress / [ ] Complete
+**Overall Sprint Progress:** [ ] Not Started / [ ] In Progress / [x] Complete
 
 ---
 
