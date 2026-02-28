@@ -21,6 +21,11 @@ When you hit a debugging gotcha:
 
 ## Entries
 
+### 2026-02-28 — Rust / CI — Export filename tests pass on Windows, fail on Linux (starts_with "my_image_")
+**Symptom:** CI fails with `assertion failed: name.starts_with("my_image_")` in `generate_export_filename_from_image_path` and `jr2_803_generate_export_filename_obj`; tests pass locally on Windows.  
+**Cause:** Tests use a Windows-style path `C:\photos\my_image.png`. On Linux, `std::path::Path` only treats `/` as a separator, so the whole string is one component; `file_stem()` then yields the stem of that single "filename" (e.g. `C:\photos\my_image`), which after sanitization becomes `C_photos_my_image_` — not `my_image_`.  
+**Fix:** In `generate_export_filename_with_ext`, normalize the path by replacing backslashes with forward slashes before calling `Path`, so the last path segment is the real filename on all platforms: `let normalized: String = path_str.chars().map(|c| if c == '\\' { '/' } else { c }).collect();` then `Path::new(&normalized).file_stem()...`. When adding path logic that must work in CI (Linux) with Windows-style paths, normalize separators first.
+
 ### 2026-02-22 — Rust / Security — cargo audit when upgrading Tauri
 **Symptom:** After upgrading Tauri or wry, cargo audit may report new advisories (unmaintained gtk-rs, unic-*, glib unsoundness).  
 **Cause:** Transitive dependencies from Tauri’s Linux WebKit stack; current CI allows warnings.  

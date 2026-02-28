@@ -620,7 +620,16 @@ pub fn generate_export_filename_with_ext(source_image_path: &str, ext: &str) -> 
     let stem = if source_image_path.trim().is_empty() {
         "mesh".to_string()
     } else {
-        std::path::Path::new(source_image_path)
+        // Normalize backslashes to forward slashes so Windows-style paths
+        // (e.g. "C:\photos\my_image.png") yield the correct filename stem
+        // when run on Unix (e.g. CI). Otherwise Path treats the whole string
+        // as one component and stem becomes "C:\photos\my_image".
+        let normalized: String = source_image_path
+            .trim()
+            .chars()
+            .map(|c| if c == '\\' { '/' } else { c })
+            .collect();
+        std::path::Path::new(&normalized)
             .file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("mesh")
