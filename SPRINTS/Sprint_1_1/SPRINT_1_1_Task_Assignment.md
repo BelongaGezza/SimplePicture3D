@@ -67,7 +67,7 @@ Look at the Role Assignment table below. Find a role where:
 | Senior Researcher (AI/ML) | `.agents/researcher.md` | In Progress | Cursor Agent | AI-001, AI-002, AI-003, AI-004, AI-005 | Depth estimation, RESEARCH updates |
 | Junior Engineer 2D | `.agents/junior-engineer-2d.md` | In Progress | Cursor Agent | JR1-001, JR1-002, JR1-003, JR1-004 | Frontend-focused (wireframes, buttons, types) |
 | Junior Engineer 3D | `.agents/junior-engineer-3d.md` | In Progress | Cursor Agent | JR2-001, JR2-002, JR2-003, JR2-004 | Backend-focused (env, file I/O, logging) |
-| Quality Engineer | (see todo.md Team Roles) | In Progress | Cursor Agent | QA-001, QA-002, QA-003, QA-004 | CI, test plan, coverage, docs |
+| Quality Engineer | `.agents/quality-engineer.md` | In Progress | Cursor Agent | QA-001, QA-002, QA-003, QA-004 | CI, test plan, coverage, docs |
 | Security Specialist | `.agents/security-specialist.md` | In Progress | Cursor Agent | SEC-001, SEC-002, SEC-003 | Threat model, audit in CI, checklist |
 
 **Status values:** `Available` | `In Progress` | `Complete` | `Blocked`

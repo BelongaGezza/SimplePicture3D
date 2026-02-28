@@ -38,7 +38,7 @@ Example: For Sprint 1.1 → `SPRINTS/Sprint_1_1/`
 - **Output file:** `SPRINTS/Sprint_X_Y/SPRINT_X_Y_Task_Assignment.md`
 - Copy the template and populate it with:
   - Sprint goal, duration, phase (from the relevant Sprint N.X section below)
-  - Role Assignment table — map each task from the sprint to a role (System Architect, Senior Engineer, UI Designer, Researcher, Junior Engineer 2D, Junior Engineer 3D, Security Specialist, Documentation Specialist)
+  - Role Assignment table — map each task from the sprint to a role (System Architect, Senior Engineer, UI Designer, Researcher, Junior Engineer 2D, Junior Engineer 3D, Quality Engineer, Security Specialist, Documentation Specialist)
   - Task Breakdown — one block per task, with Task ID, Assigned Role, Dependencies, Acceptance Criteria
   - Auto-allocation: Each task in todo.md has a suggested role (e.g. "Senior Engineer:", "UI Specialist:"); use these to populate the Role Assignment "Owned Tasks" column
 
@@ -147,6 +147,7 @@ The Role Assignment table enables agents to claim roles:
 - **Ownership:** Security checklist sign-off per phase
 
 ### Quality Engineer (QA Lead)
+- **Persona file:** `.agents/quality-engineer.md` (use this in sprint Role Assignment "Persona File" column for QA tasks)
 - **Primary:** Test planning, automated test implementation, manual testing
 - **Secondary:** CI/CD pipeline maintenance, bug triage
 - **Tools:** Cursor IDE, pytest, Cargo test, Playwright (UI tests)

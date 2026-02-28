@@ -112,7 +112,7 @@ Look at the Role Assignment table below. Find a role where:
 | Junior Engineer 3D | `.agents/junior-engineer-3d.md` | Complete | Claude-Code-JR3D | JR2-701–704 | STL tests, validation, benchmarks |
 | Security Specialist | `.agents/security-specialist.md` | Complete | Claude-Code-Security | SEC-401–402 | File path and permissions review |
 | Documentation Specialist | `.agents/documentation-specialist.md` | Available | - | — | No 1.8 tasks |
-| Quality Engineer | (todo.md) | Complete | Claude-Code-QA | QA-701–704 | Procedures documented; automated tests verified; manual execution pending |
+| Quality Engineer | `.agents/quality-engineer.md` | Complete | Claude-Code-QA | QA-701–704 | Procedures documented; automated tests verified; manual execution pending |
 
 **Status values:** `Available` | `In Progress` | `Complete` | `Blocked`
 

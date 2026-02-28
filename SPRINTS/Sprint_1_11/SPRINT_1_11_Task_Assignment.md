@@ -83,7 +83,7 @@ An agent can **read this task assignment, find unassigned roles, and create one 
 | Junior Engineer 2D | `.agents/junior-engineer-2d.md` | Available | - | — | No 1.11-specific tasks |
 | Junior Engineer 3D | `.agents/junior-engineer-3d.md` | Complete | session-jr3d-20260222 | JR2-1001 | Target dimensions unit tests |
 | Security Specialist | `.agents/security-specialist.md` | Complete | session-sec-20260222 | SEC-601, SEC-602, SEC-603 | MVP security sign-off |
-| Quality Engineer | `.agents/junior-engineer-2d.md` | Complete | session-qa-20260222, session-qa-cursor-20260222 | QA-1001–1006 | E2E, manual tests, bug template, target-dimensions |
+| Quality Engineer | `.agents/quality-engineer.md` | Complete | session-qa-20260222, session-qa-cursor-20260222 | QA-1001–1006 | E2E, manual tests, bug template, target-dimensions |
 | Documentation Specialist | `.agents/documentation-specialist.md` | Available | - | — | No 1.11-specific tasks |
 
 **Status values:** `Available` | `In Progress` | `Complete` | `Blocked`

@@ -77,7 +77,7 @@ Find a role where Status = `Available` and no agent is assigned.
 | Senior Researcher (AI/ML) | `.agents/researcher.md` | Complete | Cursor-Auto-20260206 | AI-401–403 | pytest suite, CI integration (Consultant Priority 1) |
 | Junior Engineer 2D | `.agents/junior-engineer-2d.md` | Complete | Cursor-Auto-20260206-JR2D | JR2-401–403 | Unit tests for adjustments, boundary tests, benchmark |
 | Junior Engineer 3D | `.agents/junior-engineer-3d.md` | Complete | Cursor-Auto-20260206-JR3D | JR1-401–404 | Slider styling, numeric inputs, keyboard controls, responsiveness |
-| Quality Engineer | (see todo.md) | In Progress | Cursor-Auto-20260206-QA | QA-401–405 | Manual/automated tests, clippy CI (Consultant Priority 1) |
+| Quality Engineer | `.agents/quality-engineer.md` | In Progress | Cursor-Auto-20260206-QA | QA-401–405 | Manual/automated tests, clippy CI (Consultant Priority 1) |
 | Security Specialist | `.agents/security-specialist.md` | Complete | Cursor-Auto-20260206-SEC | — | Ad-hoc review + dependency audits; no dedicated 1.5 tasks |
 | Documentation Specialist | `.agents/documentation-specialist.md` | Complete | Cursor-Auto-20260206-DOC | — | Supporting docs if needed |
 

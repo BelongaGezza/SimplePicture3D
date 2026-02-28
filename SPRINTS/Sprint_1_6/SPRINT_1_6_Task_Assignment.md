@@ -84,10 +84,11 @@ Look at the Role Assignment table below. Find a role where:
 | Junior Engineer 3D | `.agents/junior-engineer-3d.md` | Available | - | — | Mesh/Three.js in Sprint 1.7 |
 | Security Specialist | `.agents/security-specialist.md` | Complete | cursor-session-2026-02-07-security | SEC-301, SEC-302 | Integer overflow, depth map input validation |
 | Documentation Specialist | `.agents/documentation-specialist.md` | Complete | cursor-session-2026-02-07-doc | — | Algorithm docs added to docs/architecture.md |
+| Quality Engineer | `.agents/quality-engineer.md` | Available | - | QA-501, QA-502, QA-503, QA-504 | Manual/automated mesh tests, dimensions, performance |
 
 **Status values:** `Available` | `In Progress` | `Complete` | `Blocked`
 
-*Note: Junior Engineer #1 (frontend) = Junior Engineer 3D; Junior Engineer #2 (backend) = Junior Engineer 2D. Quality Engineer (QA) is from todo.md; no separate persona — QA tasks listed under Task Breakdown.*
+*Note: Junior Engineer #1 (frontend) = Junior Engineer 3D; Junior Engineer #2 (backend) = Junior Engineer 2D. Quality Engineer: use `.agents/quality-engineer.md`; QA tasks in Task Breakdown.*
 
 ---
 

@@ -77,7 +77,7 @@ An agent can **read this task assignment, find unassigned roles, and create one 
 | UI Designer | `.agents/ui-designer.md` | Complete | UI Designer (Sprint 1.12) | DOC-101, DOC-102, DOC-103 | User-facing docs, screenshots |
 | Senior Engineer | `.agents/senior-engineer.md` | Complete | Senior Engineer (Sprint 1.12) | DOC-201, DOC-202, DOC-203 | Developer guide, API, cargo doc |
 | System Architect | `.agents/system-architect.md` | Complete | System Architect (Sprint 1.12) | DOC-301, DOC-302, DOC-303 | Architecture, CONTRIBUTING, README |
-| Quality Engineer | `.agents/junior-engineer-2d.md` | Complete | Quality Engineer (Sprint 1.12) | DOC-401, DOC-402, DOC-403 | Test docs, bug template, beta guide |
+| Quality Engineer | `.agents/quality-engineer.md` | Complete | Quality Engineer (Sprint 1.12) | DOC-401, DOC-402, DOC-403 | Test docs, bug template, beta guide |
 | Documentation Specialist | `.agents/documentation-specialist.md` | Complete | Documentation Specialist (Sprint 1.12) | DOC-501, DOC-502, DOC-503 | Coordinates CHANGELOG, release notes; all team contributes |
 | Senior Researcher (AI/ML) | `.agents/researcher.md` | Complete | Senior Researcher (Sprint 1.12) | DOC-501 (Python subtask) | Verified Python docstrings; sufficient for MVP |
 | Junior Engineer 2D | `.agents/junior-engineer-2d.md` | Available | - | — | No 1.12-specific tasks |

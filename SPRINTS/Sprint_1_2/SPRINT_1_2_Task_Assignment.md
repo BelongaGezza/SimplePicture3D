@@ -79,7 +79,7 @@ Find a role where Status = `Available` and no agent is assigned.
 | Senior Researcher (AI/ML) | `.agents/researcher.md` | Available | - | — | Sprint 1.1 carry-over (AI-001–005) if desired |
 | Junior Engineer 2D | `.agents/junior-engineer-2d.md` | Complete | Junior 2D session 2026-02-03 | JR1-101–104 | File picker style, filters, drag feedback, tests |
 | Junior Engineer 3D | `.agents/junior-engineer-3d.md` | Complete | Junior 3D session 2026-02-03 | JR2-101–104 | Unit tests, path edge cases, downsampling test |
-| Quality Engineer | (see todo.md) | Complete | Quality Engineer session 2026-02-03 | QA-101–104 | Test dataset, manual/automated/negative tests |
+| Quality Engineer | `.agents/quality-engineer.md` | Complete | Quality Engineer session 2026-02-03 | QA-101–104 | Test dataset, manual/automated/negative tests |
 | Security Specialist | `.agents/security-specialist.md` | Complete | Security Specialist session 2026-02-03 | SEC-101, SEC-102 | Path traversal, magic-byte validation |
 
 **Status values:** `Available` | `In Progress` | `Complete` | `Blocked`

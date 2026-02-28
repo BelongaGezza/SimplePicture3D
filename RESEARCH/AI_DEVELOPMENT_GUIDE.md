@@ -76,6 +76,12 @@ When Task A depends on Task B completion:
 - **Review:** `RESEARCH/frontend.md`, `RESEARCH/threejs.md`
 - **Record:** UI/frontend gotchas in `RESEARCH/GOTCHAS.md`
 
+### Quality Engineer
+- **Review:** `RESEARCH/GOTCHAS.md` before test runs; `RESEARCH/architecture.md` for E2E scenario design
+- **Deliverables:** Sprint test plans (from `SPRINTS/TEST_PLAN_TEMPLATE.md`), `MANUAL_TEST_REPORT.md`, `VERIFICATION_CHECKLIST.md` in each sprint folder
+- **Tools:** cargo test, cargo clippy, npm test, pytest (stub mode: `SP3D_USE_STUB=1`); coordinate with Security for cargo audit, npm audit, pip-audit
+- **Record:** Test-environment and reproducibility gotchas in `RESEARCH/GOTCHAS.md`; keep `CLAUDE.md` Testing Commands in sync when new test commands are added
+
 ---
 
 ## Tech Stack (SimplePicture3D)

@@ -123,11 +123,11 @@ Roles that have **Owned Tasks** (non-empty) for Sprint 1.7. These must be staffe
 | Junior Engineer 3D | `.agents/junior-engineer-3d.md` | In Progress | Cursor-Agent | JR1-501–JR1-505 | Camera presets, grid, mesh stats, performance, lighting |
 | Security Specialist | `.agents/security-specialist.md` | Available | - | — | No 1.7 tasks |
 | Documentation Specialist | `.agents/documentation-specialist.md` | Available | - | — | No 1.7 tasks |
-| Quality Engineer | (todo.md) | In Progress | Cursor-Agent | QA-601–QA-604 | Manual + performance testing |
+| Quality Engineer | `.agents/quality-engineer.md` | In Progress | Cursor-Agent | QA-601–QA-604 | Manual + performance testing |
 
 **Status values:** `Available` | `In Progress` | `Complete` | `Blocked`
 
-*Note: Junior Engineer #1 (frontend) = Junior Engineer 3D; Quality Engineer has no separate persona — QA tasks in Task Breakdown.*
+*Note: Junior Engineer #1 (frontend) = Junior Engineer 3D; Quality Engineer: `.agents/quality-engineer.md`; QA tasks in Task Breakdown.*
 
 ---
 

@@ -76,7 +76,7 @@ Find a role where Status = `Available` and no agent is assigned.
 | Senior Researcher (AI/ML) | `.agents/researcher.md` | Complete | Cursor Agent | AI-301–304 | Normalize/contract, benchmark, docs |
 | Junior Engineer 2D | `.agents/junior-engineer-2d.md` | Complete | Cursor Agent | JR2-301–303 | Depth normalization test, edge cases, stats |
 | Junior Engineer 3D | `.agents/junior-engineer-3d.md` | Complete | Cursor Agent | JR1-301–304 | Canvas rendering, zoom/pan, loading skeleton |
-| Quality Engineer | (see todo.md) | Complete | Cursor Agent | QA-301–304 | Manual/automated depth tests, performance |
+| Quality Engineer | `.agents/quality-engineer.md` | Complete | Cursor Agent | QA-301–304 | Manual/automated depth tests, performance |
 | Security Specialist | `.agents/security-specialist.md` | Available | — | — | No dedicated 1.4 tasks; ad-hoc if needed |
 | Documentation Specialist | `.agents/documentation-specialist.md` | Available | — | — | Supporting docs if needed |
 

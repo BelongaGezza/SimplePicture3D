@@ -77,7 +77,7 @@ Find a role where Status = `Available` and no agent is assigned.
 | UI Designer | `.agents/ui-designer.md` | In Progress | Cursor-Agent | — | No tasks in 1.3; assumed for supporting work, review, 1.4 prep |
 | Junior Engineer 2D | `.agents/junior-engineer-2d.md` | In Progress | Cursor-Agent | — | No tasks in 1.3; supporting work, review, 1.4 prep |
 | Junior Engineer 3D | `.agents/junior-engineer-3d.md` | Complete | Cursor-Agent | JR2-201–204 | Integration test roundtrip, crash handling test, serialization benchmark, Python setup docs |
-| Quality Engineer | (see todo.md) | In Progress | Cursor-Agent | QA-201–204 | Windows subprocess test, model download/checksum, GPU vs no-GPU, manual depth test |
+| Quality Engineer | `.agents/quality-engineer.md` | In Progress | Cursor-Agent | QA-201–204 | Windows subprocess test, model download/checksum, GPU vs no-GPU, manual depth test |
 | Security Specialist | `.agents/security-specialist.md` | In Progress | Cursor-Agent | SEC-201–202 | Subprocess command injection review, model download URL/checksum validation |
 | Documentation Specialist | `.agents/documentation-specialist.md` | In Progress | Cursor-Agent | — | No dedicated 1.3 tasks; supporting docs, README, handover |
 

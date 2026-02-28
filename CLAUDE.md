@@ -123,6 +123,7 @@ This project uses agent personas for development coordination:
 | Researcher | `.agents/researcher.md` | RESEARCH/ maintenance, tech verification |
 | Junior Engineer 2D | `.agents/junior-engineer-2d.md` | Image/depth processing |
 | Junior Engineer 3D | `.agents/junior-engineer-3d.md` | Mesh, STL/OBJ, Three.js |
+| Quality Engineer | `.agents/quality-engineer.md` | Test plans, manual/automated QA, verification, E2E |
 | Security Specialist | `.agents/security-specialist.md` | Security review, audits |
 | Documentation Specialist | `.agents/documentation-specialist.md` | User/dev docs |
 

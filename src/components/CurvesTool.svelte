@@ -51,6 +51,23 @@
     return { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) };
   }
 
+  /** JR1-1102: Catmull-Rom to cubic Bezier; returns control points for segment from pts[i] to pts[i+1]. */
+  function getBezierSegment(pts: CurvePoint[], i: number): { c1: CurvePoint; c2: CurvePoint } {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    const c1: CurvePoint = {
+      x: p1.x + (p2.x - p0.x) / 6,
+      y: p1.y + (p2.y - p0.y) / 6,
+    };
+    const c2: CurvePoint = {
+      x: p2.x - (p3.x - p1.x) / 6,
+      y: p2.y - (p3.y - p1.y) / 6,
+    };
+    return { c1, c2 };
+  }
+
   function drawCurve(ctx: CanvasRenderingContext2D) {
     ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
     ctx.fillStyle = "#f8fafc";
@@ -71,13 +88,19 @@
     }
     ctx.strokeStyle = "#334155";
     ctx.lineWidth = 2;
-    ctx.beginPath();
-    for (let i = 0; i < points.length; i++) {
-      const s = toScreen(points[i]);
-      if (i === 0) ctx.moveTo(s.x, s.y);
-      else ctx.lineTo(s.x, s.y);
+    if (points.length >= 2) {
+      ctx.beginPath();
+      const s0 = toScreen(points[0]);
+      ctx.moveTo(s0.x, s0.y);
+      for (let i = 0; i < points.length - 1; i++) {
+        const { c1, c2 } = getBezierSegment(points, i);
+        const s1 = toScreen(points[i + 1]);
+        const sc1 = toScreen(c1);
+        const sc2 = toScreen(c2);
+        ctx.bezierCurveTo(sc1.x, sc1.y, sc2.x, sc2.y, s1.x, s1.y);
+      }
+      ctx.stroke();
     }
-    ctx.stroke();
     ctx.fillStyle = "#475569";
     for (const p of points) {
       const s = toScreen(p);

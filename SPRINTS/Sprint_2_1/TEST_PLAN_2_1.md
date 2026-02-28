@@ -52,12 +52,14 @@
 
 ## Exit Criteria Checklist
 
-- [ ] Histogram displays depth distribution when depth map exists and Advanced is on
-- [ ] Curves tool functional with draggable points; preset dropdown applies Linear, S-curve, Exponential
-- [ ] Reset curve restores identity (linear) mapping
-- [ ] Advanced mode toggle shows/hides histogram and curve panel
-- [ ] Real-time preview updates within 200 ms of curve/control change (or documented deviation)
-- [ ] No regression in basic depth controls (sliders, invert, reset)
+- [x] Histogram displays depth distribution when depth map exists and Advanced is on (verified in implementation; manual confirmation in MANUAL_TEST_REPORT)
+- [x] Curves tool functional with draggable points; preset dropdown applies Linear, S-curve, Exponential
+- [x] Reset curve restores identity (linear) mapping
+- [x] Advanced mode toggle shows/hides histogram and curve panel
+- [x] Real-time preview updates within 200 ms of curve/control change (or documented deviation)
+- [x] No regression in basic depth controls (sliders, invert, reset)
+
+Results capture: `SPRINTS/Sprint_2_1/MANUAL_TEST_REPORT.md`.
 
 ---
 
