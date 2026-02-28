@@ -1,0 +1,15 @@
+# Normalize line endings: store and checkout as LF (cross-platform).
+# Stops "LF will be replaced by CRLF" warnings on Windows when committing.
+* text=auto eol=lf
+
+# Explicit binaries (do not normalize)
+*.png -text
+*.ico -text
+*.jpg -text
+*.jpeg -text
+*.gif -text
+*.woff -text
+*.woff2 -text
+*.ttf -text
+*.wasm -text
+*.pyc -text

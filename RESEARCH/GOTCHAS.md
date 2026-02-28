@@ -32,6 +32,14 @@ These capture recurring cross-cutting rules that apply to all sprints. Unlike th
 - **TypeScript / Tauri IPC:** File paths from dialog pickers are OS-native strings. On Windows these contain `\`. Pass them as-is to Rust IPC commands and let the Rust handler normalise with `PathBuf::from()` — do not manipulate path strings on the frontend.
 - **Tests:** Hard-coded test paths like `"C:\\photos\\image.png"` fail in Linux CI because `std::path::Path` does not split on `\` there. Construct portable paths with `Path::new("photos").join("image.png")`, or normalise the separator before asserting on path components.
 
+### Git line endings (Windows / cross-platform)
+
+**Rule:** Keep line endings consistent so CI and all platforms see the same content. The repo uses **LF** in the index and working tree for text files.
+
+- **Symptom:** On Windows, `git add` or `git commit` prints "warning: in the working copy of 'path', LF will be replaced by CRLF the next time Git touches it".
+- **Cause:** Without `.gitattributes`, Git may use `core.autocrlf` (e.g. `true` on Windows), so it plans to convert LF → CRLF on checkout, and the warning appears when staging files that currently have LF.
+- **Fix:** This repo has `.gitattributes` with `* text=auto eol=lf` so that all text files are stored and checked out as LF. After adding or changing `.gitattributes`, run `git add --renormalize .` once to normalize existing tracked files, then commit. New clones and checkouts will then use LF and the warning should stop.
+
 ---
 
 ## Entries
