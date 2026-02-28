@@ -1,8 +1,8 @@
 # SimplePicture3D - Product Requirements Document
 
 **Version:** 1.4  
-**Date:** February 22, 2026  
-**Status:** In Development (Phase 1 MVP — ~60–65% complete)  
+**Date:** February 28, 2026  
+**Status:** Phase 1 MVP complete (Sprint 1.12 exit gate: GO); Phase 2 in progress (Sprint 2.1 delivered)  
 **License:** MIT  
 
 ---
@@ -60,12 +60,10 @@ SimplePicture3D is an open-source desktop application that converts 2D images in
 - Integration testing and bug fixes: +2 sprints
 - Buffer for unknowns: +2 sprints
 
-**Current progress (as of 2026-02-07, post Sprint 1.6):**
-- Phase 1 MVP approximately **60–65% complete** (consultant assessment)
-- Sprints 1.1–1.6 delivered: project setup, image loading, Python bridge, depth map generation/preview, manual depth adjustments, mesh generation algorithm
-- Sprint 1.5A delivered hardening pass (frontend tests, coverage, security fixes)
-- **6 sprints remain** before Phase 1 exit: Sprint 1.6A (QA/hardening, 1 week), 1.7 (3D preview), 1.8 (STL/OBJ export), 1.9 (settings), 1.10 (model wizard), 1.11 (E2E/polish)
-- Sprints 1.7 and 1.8 are technically most challenging (Three.js integration, triangulation for STL)
+**Current progress (as of 2026-02-28, post Phase 1 exit):**
+- **Phase 1 MVP complete** (13 delivery events: Sprints 1.1–1.12 + 1.5A). Exit gate: GO.
+- Sprint 2.1 delivered (histogram, curves, default 40×40 mm target, zoom).
+- Phase 2 sequencing and technical debt per Consultant_Critical_Review_28Feb2026; todo.md v1.3 updated accordingly.
 
 **Alternative (scope reduction for faster MVP):**
 - Defer OBJ export to Phase 2
@@ -249,7 +247,7 @@ See `todo.md` Phase Overview, `Consultant_Recommendations_Report_7Feb2026.md`, a
 - Exported mesh physical dimensions respect target size (width × height in mm) when set (ADR-009); otherwise use current scale (e.g. 1 px = 1 mm).
 
 **Technical Notes:**
-- Use `stl_io` crate for STL writing
+- Custom binary STL and ASCII OBJ writers in `mesh_generator.rs` (ADR-008). No external export crate.
 - Validate mesh integrity before export
 - Option to include metadata (generator, date, source image)
 
@@ -604,7 +602,7 @@ See `todo.md` Phase Overview, `Consultant_Recommendations_Report_7Feb2026.md`, a
 ┌─────────────────────────────────────────────────────────┐
 │                     Tauri Frontend                      │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │ Svelte/React │  │  Three.js    │  │  TailwindCSS │  │
+│  │ Svelte 4     │  │  Three.js    │  │  TailwindCSS │  │
 │  │   Components │  │  3D Preview  │  │    Styling   │  │
 │  └──────┬───────┘  └──────┬───────┘  └──────────────┘  │
 │         │                 │                             │
@@ -624,7 +622,8 @@ See `todo.md` Phase Overview, `Consultant_Recommendations_Report_7Feb2026.md`, a
 │           │                           │                  │
 │  ┌────────▼──────────┐       ┌────────▼──────────┐      │
 │  │  Python Bridge    │       │   Settings & State│      │
-│  │  (PyO3/subprocess)│       │   (serde JSON)    │      │
+│  │ (subprocess,      │       │   (serde JSON)    │      │
+│  │  temp file→stdout)│       │                   │      │
 │  └────────┬──────────┘       └───────────────────┘      │
 └───────────┼──────────────────────────────────────────────┘
             │
@@ -1336,6 +1335,7 @@ The following are **not** scheduled for Phases 1–4 but are candidates for a fu
 | 1.2 | 2026-02-21 | System Architect | F1.5: Added acceptance criterion and implementation note for target dimensions (ADR-009). F1.6: Exported mesh respects target size when set. Target dimensions planned for Sprint 1.11 (backend, settings, optional UI). See RESEARCH/architecture.md ADR-009. |
 | 1.3 | 2026-02-21 | System Architect | §11.1: Added deferred feature "Full 3D Reconstruction Mode" (single image → watertight mesh via TripoSR; Phase 2, ~4 sprints). §11.2: Clarified non-goal "Full 3D modeling suite" = Blender-like editor; distinguished from AI full 3D reconstruction. todo.md: Phase 2 optional track and RESEARCH/architecture.md "Future: Full 3D mode" added per RESEARCH/3d-reconstruction.md and 3d-reconstruction-models.md. |
 | 1.4 | 2026-02-22 | System Architect | §11.1 Full 3D: Revised to align with RESEARCH/3d-reconstruction.md (2026-02-22). Pipeline is point-cloud-centric: TripoSR → surface sampling (Poisson) → dimensioned point cloud; crystal blank dimensioning; XYZ/PLY/CSV export for engravers; ~4–5 sprints. todo.md and RESEARCH/architecture.md "Future: Full 3D" updated to match. |
+| 1.5 | 2026-02-28 | System Architect | Consultant_Critical_Review_28Feb2026 response: Status header → Phase 1 complete, Phase 2 in progress. §2.4 timeline → as-built 13 sprints. F1.6 Technical Notes → custom STL/OBJ writers (ADR-008), no stl_io crate. §5.2 diagram → Svelte 4, subprocess (temp file → stdout). |
 
 ---
 

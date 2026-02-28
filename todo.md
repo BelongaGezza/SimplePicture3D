@@ -1,9 +1,11 @@
 # SimplePicture3D - Development TODO & Sprint Planning
 
-**Version:** 1.2  
-**Last Updated:** February 7, 2026  
+**Version:** 1.3  
+**Last Updated:** February 28, 2026  
 **Repository:** https://github.com/[org]/SimplePicture3D  
 **Project Board:** GitHub Projects (Kanban)
+
+**Phase 1 as-built:** 13 delivery events (Sprints 1.1–1.12 + Sprint 1.5A hardening). Revised overall estimate: ~28–35 sprints total using actual velocity (~1 sprint per 2 weeks). See Consultant_Critical_Review_28Feb2026.md §1.
 
 ---
 
@@ -75,12 +77,12 @@ The Role Assignment table enables agents to claim roles:
 
 | Phase | Focus | Deliverable | Est. Duration |
 |-------|-------|-------------|---------------|
-| **Phase 1** | MVP | Functional Windows app with core features | 8-10 sprints (16-20 weeks) |
-| **Phase 2** | Enhanced UX | Advanced controls, presets, undo/redo | 4-6 sprints (8-12 weeks) |
+| **Phase 1** | MVP | Functional Windows app with core features | **13 sprints (as-built)** |
+| **Phase 2** | Enhanced UX | Advanced controls, presets, undo/redo | 6-8 sprints (see Phase 2 sequencing below) |
 | **Phase 3** | Cross-Platform | macOS and Linux builds | 3-4 sprints (6-8 weeks) |
 | **Phase 4** | Production | Performance, docs, installers, v1.0 release | 4-5 sprints (8-10 weeks) |
 
-**Total Estimated Timeline:** 19-25 sprints (38-50 weeks / ~9-12 months)
+**Total Estimated Timeline:** ~28-35 sprints (consultant recommendation; actual velocity ~1 sprint per 2 weeks).
 
 **Sprint Duration:** 2 weeks (10 working days)
 
@@ -854,6 +856,10 @@ The Role Assignment table enables agents to claim roles:
 
 **Goal:** Polish user experience with advanced controls, presets, and improved workflow.
 
+**Recommended sequencing (Consultant_Critical_Review_28Feb2026 §5):** Sprint 2.2 = Undo/Redo (F2.4) + Curve persistence + State management ADR + Wireframe/Solid fix. Then 2.3 Presets, 2.4 Progress streaming, 2.5 Masking, 2.6 Enhanced 3D, 2.7 Material Presets, 2.8 Async export + progress. Undo/Redo is a prerequisite for further state-mutation features (masking, brushes).
+
+**Phase 2 security (SEC-202):** Model download currently uses Hugging Face library integrity; there is no explicit SHA256 verification against a trusted source in repo/RESEARCH. Treat as **Phase 2 security task (not optional):** either add post-download SHA256 check against RESEARCH-documented hashes or formally document acceptance and get security sign-off. See RESEARCH/architecture.md ADR-003 “SEC-202 verification status” and Consultant_Critical_Review_28Feb2026 §2.5.
+
 **Exit Criteria:**
 - ✅ Advanced mode toggle functional with all controls
 - ✅ Preset system implemented (save/load/import/export)
@@ -932,38 +938,45 @@ The Role Assignment table enables agents to claim roles:
 
 ---
 
-### Sprint 2.2: Masking & Regional Adjustments (2 weeks)
+### Sprint 2.2: Undo/Redo, Curve Persistence, State ADR, Wireframe/Solid (2 weeks)
 
-**Sprint Goal:** Enable selective depth adjustments via masking tools.
+**Sprint Goal:** Implement F2.4 Undo/Redo, persist curve control points, author state management ADR, and fix or remove Wireframe/Solid UI (per Consultant_Critical_Review_28Feb2026 §2.2, §2.6).
 
 #### Tasks
 
+**System Architect:**
+- [ ] **ARCH-401:** Design undo/redo architecture (command pattern)
+- [ ] **ARCH-402:** Define mutable operations to track
+- [ ] **ARCH-403:** Memory budget for history stack (last 20 actions)
+- [ ] **ARCH-404:** Author Svelte store / state management ADR (before further state-mutation features; TD-01)
+
 **Senior Engineer:**
-- [ ] **BACK-1201:** Implement mask data structure (2D boolean array)
-- [ ] **BACK-1202:** Apply adjustments to masked regions only
-- [ ] **BACK-1203:** Blend masked and unmasked regions (feathering)
+- [ ] **BACK-1401:** Implement command trait (execute, undo)
+- [ ] **BACK-1402:** History stack data structure
+- [ ] **BACK-1403:** Wrap depth adjustments in commands
+- [ ] **BACK-1404:** Tauri commands: undo, redo, clear_history
 
 **UI Specialist:**
-- [ ] **UI-1201:** Create MaskingTools component (brush, eraser, select)
-- [ ] **UI-1202:** Canvas-based mask painting
-- [ ] **UI-1203:** Mask opacity overlay on depth preview
-- [ ] **UI-1204:** Brush size/hardness controls
+- [ ] **UI-1401:** Undo/Redo buttons in toolbar
+- [ ] **UI-1402:** Keyboard shortcuts (Ctrl+Z, Ctrl+Y)
+- [ ] **UI-1403:** Wireframe/Solid: either wire `MeshData.indices` to THREE.Mesh (WireframeGeometry / MeshPhongMaterial) or remove buttons until implemented (TD-02)
+- [ ] **UI-1404:** Remove or replace sprint-number reference in overlay message ("Sprint 1.8")
 
-**Junior Engineer #1:**
-- [ ] **JR1-1201:** Implement brush stroke smoothing (interpolation)
-- [ ] **JR1-1202:** Add selection tools (rectangle, lasso)
-- [ ] **JR1-1203:** Mask save/load functionality
+**Junior Engineer #2:**
+- [ ] **CURVE-001:** Add `curveControlPoints` to `AppSettings`; persist and load in settings (Consultant §2.6)
+- [ ] **JR2-1401:** Write tests for command execution/undo
+- [ ] **JR2-1402:** Test history stack limits (>20 actions)
 
 **Quality Engineer:**
-- [ ] **QA-1201:** Manual test: paint mask, adjust depth, verify isolation
-- [ ] **QA-1202:** Test mask feathering (soft edges)
-- [ ] **QA-1203:** Test undo/redo with masking
+- [ ] **QA-1401:** Manual test: perform actions, undo, redo, verify state
+- [ ] **QA-1402:** Start macOS smoke tests (TD-05; document)
 
 #### Exit Criteria
-- ✅ Brush tool paints mask on depth preview
-- ✅ Adjustments apply only to masked regions
-- ✅ Mask feathering works (no hard edges)
-- ✅ Undo/redo compatible with masking
+- ✅ Undo/Redo functional for depth adjustments (and curve when persisted)
+- ✅ Curve control points persisted in AppSettings
+- ✅ State management ADR documented
+- ✅ Wireframe/Solid either working or removed from UI
+- ✅ Keyboard shortcuts work; no internal sprint numbers in user-facing messages
 
 ---
 
@@ -1003,47 +1016,64 @@ The Role Assignment table enables agents to claim roles:
 
 ---
 
-### Sprint 2.4: Undo/Redo System (2 weeks)
+### Sprint 2.4: Progress Streaming for Depth Estimation (2 weeks)
 
-**Sprint Goal:** Implement command pattern for reverting actions.
+**Sprint Goal:** Close the 5-minute UX gap: stream depth estimation progress from Python stderr to frontend (Consultant_Critical_Review_28Feb2026 §2.3).
 
 #### Tasks
 
-**System Architect:**
-- [ ] **ARCH-401:** Design undo/redo architecture (command pattern)
-- [ ] **ARCH-402:** Define mutable operations to track
-- [ ] **ARCH-403:** Memory budget for history stack (last 20 actions)
-
 **Senior Engineer:**
-- [ ] **BACK-1401:** Implement command trait (execute, undo)
-- [ ] **BACK-1402:** History stack data structure
-- [ ] **BACK-1403:** Wrap depth adjustments in commands
-- [ ] **BACK-1404:** Tauri commands: undo, redo, clear_history
+- [ ] **BACK-205-STREAM:** Convert Python stderr reader to background thread; emit Tauri events (`tauri::Emitter`) on each `PROGRESS` line
+- [ ] **BACK-205-IPC:** Frontend listens for progress events; update `depthEstimating` and show percentage (no longer hardcoded 100)
 
 **UI Specialist:**
-- [ ] **UI-1401:** Undo/Redo buttons in toolbar
-- [ ] **UI-1402:** Keyboard shortcuts (Ctrl+Z, Ctrl+Y)
-- [ ] **UI-1403:** Optional: Action history panel (list of commands)
-
-**Junior Engineer #2:**
-- [ ] **JR2-1401:** Write tests for command execution/undo
-- [ ] **JR2-1402:** Test undo/redo with various actions
-- [ ] **JR2-1403:** Test history stack limits (>20 actions)
+- [ ] **UI-304:** Progress bar shows real percentage during depth estimation (not just spinner)
 
 **Quality Engineer:**
-- [ ] **QA-1401:** Manual test: perform actions, undo, redo, verify state
-- [ ] **QA-1402:** Test undo/redo with complex sequences
-- [ ] **QA-1403:** Verify history cleared on new image load
+- [ ] **QA-304-STREAM:** Manual test: 4K image depth run shows increasing % on CPU
 
 #### Exit Criteria
-- ✅ Undo/Redo functional for all depth adjustments
-- ✅ Keyboard shortcuts work
-- ✅ History stack limits enforced
-- ✅ State consistency after undo/redo sequences
+- ✅ User sees progress percentage during depth estimation (not silent 5-min wait for 4K)
+- ✅ Progress protocol (ADR-002, BACK-205) fully plumbed: subprocess stderr → Tauri event → frontend
 
 ---
 
-### Sprint 2.5: Enhanced 3D Preview (2 weeks)
+### Sprint 2.5: Masking & Regional Adjustments (2 weeks)
+
+**Sprint Goal:** Enable selective depth adjustments via masking tools (depends on Sprint 2.2 undo/redo).
+
+#### Tasks
+
+**Senior Engineer:**
+- [ ] **BACK-1201:** Implement mask data structure (2D boolean array)
+- [ ] **BACK-1202:** Apply adjustments to masked regions only
+- [ ] **BACK-1203:** Blend masked and unmasked regions (feathering)
+
+**UI Specialist:**
+- [ ] **UI-1201:** Create MaskingTools component (brush, eraser, select)
+- [ ] **UI-1202:** Canvas-based mask painting
+- [ ] **UI-1203:** Mask opacity overlay on depth preview
+- [ ] **UI-1204:** Brush size/hardness controls
+
+**Junior Engineer #1:**
+- [ ] **JR1-1201:** Implement brush stroke smoothing (interpolation)
+- [ ] **JR1-1202:** Add selection tools (rectangle, lasso)
+- [ ] **JR1-1203:** Mask save/load functionality
+
+**Quality Engineer:**
+- [ ] **QA-1201:** Manual test: paint mask, adjust depth, verify isolation
+- [ ] **QA-1202:** Test mask feathering (soft edges)
+- [ ] **QA-1203:** Test undo/redo with masking
+
+#### Exit Criteria
+- ✅ Brush tool paints mask on depth preview
+- ✅ Adjustments apply only to masked regions
+- ✅ Mask feathering works (no hard edges)
+- ✅ Undo/redo compatible with masking
+
+---
+
+### Sprint 2.6: Enhanced 3D Preview (2 weeks)
 
 **Sprint Goal:** Improve 3D visualization with lighting, measurements, cross-sections.
 
@@ -1055,6 +1085,7 @@ The Role Assignment table enables agents to claim roles:
 - [ ] **UI-1503:** Measure tool (click two points, show distance)
 - [ ] **UI-1504:** Cross-section view (slice mesh at depth plane)
 - [ ] **UI-1505:** Export preview as PNG (screenshot function)
+- [ ] **UI-1506:** Wireframe/Solid via THREE.Mesh + indices (if deferred from 2.2)
 
 **Junior Engineer #1:**
 - [ ] **JR1-1501:** Implement camera projection toggle (orthographic/perspective)
@@ -1108,6 +1139,51 @@ The Role Assignment table enables agents to claim roles:
 - ✅ Tooltips on all controls
 - ✅ Dark mode functional (if implemented)
 - ✅ 90% user satisfaction score
+
+---
+
+### Sprint 2.7: Material Presets (F2.6) (2 weeks)
+
+**Sprint Goal:** Material presets for export/visualization (per Phase 2 sequencing).
+
+#### Tasks
+
+**Senior Engineer:**
+- [ ] **BACK-1601:** Define material preset schema and defaults
+- [ ] **BACK-1602:** Save/load material presets with settings or preset system
+
+**UI Specialist:**
+- [ ] **UI-1601:** Material preset dropdown or list in export/preview area
+- [ ] **UI-1602:** Apply preset to preview and export options
+
+**Quality Engineer:**
+- [ ] **QA-1601:** Manual test: apply presets, export, verify output
+
+#### Exit Criteria
+- ✅ User can select and apply material presets
+- ✅ Presets affect preview and export behaviour as designed
+
+---
+
+### Sprint 2.8: Async Export + Progress Indicators (2 weeks)
+
+**Sprint Goal:** Avoid UI freeze during large exports (Consultant_Critical_Review_28Feb2026 §2.4).
+
+#### Tasks
+
+**Senior Engineer:**
+- [ ] **BACK-1701:** Wrap `export_stl` and `export_obj` in `tokio::task::spawn_blocking` or async Tauri command
+- [ ] **BACK-1702:** Optional: progress events during export (e.g. chunks written)
+
+**UI Specialist:**
+- [ ] **UI-1701:** Progress indicator in UI during export (not just blocking spinner)
+
+**Quality Engineer:**
+- [ ] **QA-1701:** Manual test: export 4K mesh, verify UI remains responsive
+
+#### Exit Criteria
+- ✅ Export does not block main thread; UI stays responsive
+- ✅ User sees export progress or clear “exporting…” state
 
 ---
 
@@ -1777,6 +1853,22 @@ Coverage:  tarpaulin XML + pytest-cov XML (advisory — continue-on-error: true)
 - [ ] Monitor issue tracker for critical bugs
 - [ ] Prepare hotfix process (if needed)
 - [ ] Plan next release (v1.1) with community feedback
+
+---
+
+## Technical Debt Register (Consultant 2026-02-28)
+
+See **Consultant_Critical_Review_28Feb2026.md §4** for full table. Summary of where items are scheduled:
+
+| ID | Issue | Scheduled / Action |
+|----|--------|-------------------|
+| TD-01 | State management ADR (no Svelte store design) | Sprint 2.2 (ARCH-404) |
+| TD-02 | Wireframe/Solid dead UI | Sprint 2.2 fix or remove (UI-1403) |
+| TD-03 | docs/architecture.md vs RESEARCH/architecture.md policy | Addressed: docs/architecture.md now states canonical source is RESEARCH/architecture.md |
+| TD-04 | python/setup.py vs pyproject.toml | Phase 4 pre-work |
+| TD-05 | macOS/Linux manual testing | Sprint 2.2 start macOS smoke (QA-1402) |
+| TD-06 | Export path TOCTOU write-test | Phase 3 |
+| TD-07 | ONNX migration for "5 min" success metric | Phase 4 scope decision |
 
 ---
 

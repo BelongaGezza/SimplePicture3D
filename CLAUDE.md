@@ -131,7 +131,7 @@ This project uses agent personas for development coordination:
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                     Tauri Frontend                      │
-│  Svelte/React │ Three.js 3D Preview │ TailwindCSS       │
+│  Svelte 4 │ Three.js 3D Preview │ TailwindCSS           │
 └───────────────────────┬─────────────────────────────────┘
                         │ Tauri Commands (IPC)
 ┌───────────────────────▼─────────────────────────────────┐
@@ -139,7 +139,7 @@ This project uses agent personas for development coordination:
 │  Image loading │ Depth processing │ Mesh generation     │
 │  STL/OBJ export │ Settings │ Python subprocess bridge   │
 └───────────────────────┬─────────────────────────────────┘
-                        │ subprocess (stdin/temp file)
+                        │ subprocess (temp file → stdout)
 ┌───────────────────────▼─────────────────────────────────┐
 │                  Python AI Backend                      │
 │  Depth-Anything-V2 / MiDaS │ PyTorch                    │

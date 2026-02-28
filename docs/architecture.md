@@ -4,13 +4,15 @@
 **Source:** `prd.md` §5.2, §5.3, §5.4; `RESEARCH/architecture.md`  
 **Audience:** Developers, contributors, technical reviewers
 
+**Relationship to RESEARCH/architecture.md:** This file is the **user- and contributor-facing** summary. The **canonical** architecture (ADRs, as-built module list, data flow, SEC-202 status) lives in [RESEARCH/architecture.md](../RESEARCH/architecture.md). Keep this doc in sync with RESEARCH/architecture.md for diagrams and high-level decisions; detailed ADRs and implementation notes are maintained only in RESEARCH/architecture.md.
+
 ---
 
 ## Overview
 
-SimplePicture3D is a Tauri desktop application with a Rust backend, Svelte/React frontend, and a Python subprocess for AI depth estimation. All processing runs locally (100% offline).
+SimplePicture3D is a Tauri desktop application with a Rust backend, **Svelte 4** frontend, and a Python subprocess for AI depth estimation. All processing runs locally (100% offline).
 
-**Architecture decisions** are recorded as ADRs in [RESEARCH/architecture.md](../RESEARCH/architecture.md): ADR-001 (Svelte), ADR-002 (Subprocess), ADR-003 (Python distribution), ADR-004 (Depth models), ADR-005 (Model licensing), ADR-006 (Mesh generation), ADR-008 (Grid triangulation for STL), ADR-009 (Target dimensions for laser etching).
+**Architecture decisions** are recorded as ADRs in [RESEARCH/architecture.md](../RESEARCH/architecture.md): ADR-001 (Svelte 4), ADR-002 (Subprocess), ADR-003 (Python distribution), ADR-004 (Depth models), ADR-005 (Model licensing), ADR-006 (Mesh generation), ADR-008 (Grid triangulation for STL), ADR-009 (Target dimensions for laser etching).
 
 ---
 
@@ -20,7 +22,7 @@ SimplePicture3D is a Tauri desktop application with a Rust backend, Svelte/React
 ┌─────────────────────────────────────────────────────────────────┐
 │                     Tauri Frontend                               │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
-│  │ Svelte/React │  │  Three.js    │  │  TailwindCSS         │   │
+│  │ Svelte 4     │  │  Three.js    │  │  TailwindCSS         │   │
 │  │ Components   │  │  3D Preview  │  │  Styling             │   │
 │  └──────┬───────┘  └──────┬───────┘  └──────────────────────┘   │
 │         │                 │                                       │
@@ -33,23 +35,21 @@ SimplePicture3D is a Tauri desktop application with a Rust backend, Svelte/React
 │  ┌─────────────────────────────────────────────────────────────┐ │
 │  │  Core Logic                                                  │ │
 │  │  • Image loading (image crate)                               │ │
-│  │  • Depth map processing (gamma, range, invert)               │ │
+│  │  • Depth map processing (gamma, contrast, brightness, curve) │ │
 │  │  • Mesh generation (point cloud, triangulation)              │ │
 │  │  • STL/OBJ export (custom writers in mesh_generator.rs)       │ │
 │  │  • Settings & state (serde JSON)                             │ │
 │  └─────────────────────────────────────────────────────────────┘ │
 │  ┌─────────────────────────────────────────────────────────────┐ │
 │  │  Python Bridge (subprocess)                                  │ │
-│  │  Spawns Python child; passes image via temp file; receives   │ │
-│  │  depth map via stdout or output file                         │ │
+│  │  Spawns Python child; image via temp file; depth map stdout  │ │
 │  └─────────────────────────────────────────────────────────────┘ │
 └───────────────────┬───────────────────────────────────────────────┘
-                    │ subprocess (stdin/temp file)
+                    │ subprocess (temp file → stdout)
 ┌───────────────────▼───────────────────────────────────────────────┐
 │                     Python AI Backend                             │
 │  • Depth-Anything-V2 / MiDaS (PyTorch)                            │
-│  • Input: Image bytes (file path or stdin)                        │
-│  • Output: Depth map (JSON or binary)                             │
+│  • Input: Image (temp file path); Output: Depth map (JSON)       │
 └───────────────────────────────────────────────────────────────────┘
 ```
 
@@ -63,7 +63,7 @@ SimplePicture3D is a Tauri desktop application with a Rust backend, Svelte/React
 │  Image       │ ──► │  (Rust)      │ ──► │  Estimation  │ ──► │  Depth       │
 │  (Frontend)  │     │  Format,     │     │  (Python)    │     │  (Rust)      │
 │  File picker │     │  size, 8K    │     │  NN infer    │     │  Gamma,      │
-└──────────────┘     └──────────────┘     └──────────────┘     │  range       │
+└──────────────┘     └──────────────┘     └──────────────┘     │  curve       │
                                                                 └──────┬───────┘
                                                                        │
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐             │
@@ -79,7 +79,7 @@ SimplePicture3D is a Tauri desktop application with a Rust backend, Svelte/React
 1. **Load image** (Frontend → Rust): File picker → `load_image` Tauri command
 2. **Validate** (Rust): Format, dimensions, downsample if >8K
 3. **Depth estimation** (Rust → Python): Image bytes → subprocess → depth map
-4. **Depth processing** (Rust): Gamma, range, invert per user controls
+4. **Depth processing** (Rust): Invert → gamma → contrast → brightness → curve (Sprint 2.1); optional histogram for UI
 5. **Mesh generation** (Rust): Depth map → point cloud / triangulated mesh
 6. **Preview** (Frontend): Vertex data → Three.js BufferGeometry
 7. **Export** (Rust): STL/OBJ to user-selected path
@@ -120,17 +120,24 @@ SimplePicture3D is a Tauri desktop application with a Rust backend, Svelte/React
 | `load_image`      | File path             | Image metadata (width, height, fileSizeBytes, downsampled) + base64 preview PNG for UI |
 | `generate_depth_map` | Image path (string) | `{ width, height, depth: number[], progress?, stages? }` or error (see § Sprint 1.4 command contract) |
 | `get_depth_map`   | —                     | Current depth map (adjusted by stored params) or `null` |
+| `get_depth_histogram` | —                  | 256-bin histogram of current adjusted depth (Sprint 2.1) |
 | `set_depth_adjustment_params` | `DepthAdjustmentParams` | — |
-| `get_depth_adjustment_params` | —                  | Current params (brightness, contrast, gamma, invert, depthMinMm, depthMaxMm) |
+| `get_depth_adjustment_params` | —                  | Current params (brightness, contrast, gamma, invert, curveControlPoints, depthMinMm, depthMaxMm) |
 | `reset_depth_adjustments` | —                  | — (params set to defaults) |
-| `get_mesh_data`   | —                     | Vertex/normal data  |
+| `get_mesh_data`   | Optional: `targetWidthMm`, `targetHeightMm` | Vertex/normal data (mesh scaled to target when provided) |
 | `export_stl`      | Path, mesh data       | Success/error       |
 | `export_obj`      | Path, mesh data       | Success/error       |
 | `download_model`  | Model ID              | Progress/result     |
 
-### Depth map adjustments (Sprint 1.5)
+### Depth map adjustments (Sprint 1.5, Sprint 2.1)
 
-Adjustments are applied in the backend. Order of operations: **invert → gamma → contrast → brightness**. All operations work on normalized depth [0, 1]; output is clamped to [0, 1]. Formulas: brightness `v' = clamp(v + b)`, contrast `v' = clamp((v - 0.5)*c + 0.5)`, gamma `v' = v^g` (0 stays 0). Original depth is stored unchanged; `get_depth_map` returns the result of applying current params to the original. Range params `depthMinMm`/`depthMaxMm` (e.g. 2–10 mm) are stored for future mesh/export; mapping `z_mm = min_mm + v*(max_mm - min_mm)`.
+Adjustments are applied in the backend. **Order of operations:** invert → gamma → contrast → brightness → **curve**. All operations work on normalized depth [0, 1]; output is clamped to [0, 1]. Formulas: brightness `v' = clamp(v + b)`, contrast `v' = clamp((v - 0.5)*c + 0.5)`, gamma `v' = v^g` (0 stays 0). **Curve (Sprint 2.1):** optional piecewise remap via control points; presets: Linear, S-curve, Exponential. Original depth is stored unchanged; `get_depth_map` returns the result of applying current params to the original. **Histogram:** `get_depth_histogram` returns a 256-bin histogram of the current adjusted depth for the UI (HistogramPanel). Range params `depthMinMm`/`depthMaxMm` (e.g. 2–10 mm) are stored for mesh/export; mapping `z_mm = min_mm + v*(max_mm - min_mm)`.
+
+### Output scale and depth preview (Sprint 2.1)
+
+- **Default target:** On image load, the app sets default output size to **40×40 mm** (persisted in settings). Mesh generation and export use this target so depth and 3D preview are "zoomed to fit" without manual setup.
+- **Zoom:** Footer zoom control (50% | 100% | 150% | 200%) scales the effective target (e.g. 20×20 to 80×80 mm). App passes `targetWidthMm` / `targetHeightMm` to `get_mesh_data`, ExportPanel, and Preview3D; 3D preview reloads mesh when target changes.
+- **Depth map preview:** Bounded slot (fixed max height, e.g. 40vh) so the depth canvas does not expand the page; fit-to-view runs when depth loads or container resizes; zoom/pan layer is absolutely positioned so layout stays stable. See RESEARCH/architecture.md § Depth map preview (UI).
 
 ### Python Interface (Rust ↔ Python)
 

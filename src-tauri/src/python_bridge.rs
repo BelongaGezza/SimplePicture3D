@@ -8,7 +8,7 @@
 //!
 //! Progress protocol (BACK-205, AI-203): Python writes to stderr only. Lines: `PROGRESS <0-100>`, `STAGE <name>`.
 
-#![allow(dead_code)] // Used by integration test (roundtrip) and future generate_depth_map command (Sprint 1.4)
+#![allow(dead_code)] // Some helpers used only by integration tests or for progress logging; generate_depth_map is integrated (Sprint 1.4).
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
