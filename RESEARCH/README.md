@@ -33,6 +33,7 @@ See `.agents/researcher.md` for full responsibilities.
 |------|--------------|--------------|
 | [AI_DEVELOPMENT_GUIDE.md](AI_DEVELOPMENT_GUIDE.md) | Multi-agent workflows, coordination | — |
 | [architecture.md](architecture.md) | SimplePicture3D system design | 2026-02-01 |
+| [3d-reconstruction.md](3d-reconstruction.md) | Single-image full 3D models (TripoSR, etc.); Phase 2 optional mode | 2026-02-22 |
 | [tauri.md](tauri.md) | Tauri framework, IPC | 2026-02-01 |
 | [rust-crates.md](rust-crates.md) | image, stl_io, obj-exporter, tokio, serde, anyhow | 2026-02-01 |
 | [python-ml.md](python-ml.md) | Python, PyTorch, depth estimation | 2026-02-01 |

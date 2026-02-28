@@ -17,6 +17,7 @@ SimplePicture3D/
 ├── RESEARCH/                   # Technology guidance and knowledge base
 │   ├── AI_DEVELOPMENT_GUIDE.md # Multi-agent coordination patterns
 │   ├── architecture.md         # System architecture
+│   ├── 3d-reconstruction.md    # Full 3D reconstruction models (Phase 2 optional)
 │   ├── GOTCHAS.md              # Debugging findings (all agents contribute)
 │   ├── rust-crates.md          # Rust dependency guidance
 │   ├── python-ml.md            # Python/PyTorch/depth models
@@ -38,6 +39,7 @@ SimplePicture3D/
 | `todo.md` | Sprint planning, phase milestones, task IDs |
 | `RESEARCH/AI_DEVELOPMENT_GUIDE.md` | Multi-agent coordination, handover protocol |
 | `RESEARCH/architecture.md` | System design, data flow |
+| `RESEARCH/3d-reconstruction.md` | Full 3D reconstruction models (Phase 2; TripoSR, etc.) |
 | `RESEARCH/GOTCHAS.md` | Known debugging pitfalls |
 
 ## Technology Stack (Planned)

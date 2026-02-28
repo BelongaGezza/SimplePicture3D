@@ -19,6 +19,21 @@ When you hit a debugging gotcha:
 
 ---
 
+## Standing Advisories
+
+These capture recurring cross-cutting rules that apply to all sprints. Unlike the dated entries below, they are proactive guidance rather than post-hoc bug records.
+
+### Cross-platform Path Separators (Rust · Python · TypeScript)
+
+**Rule:** Never assume a fixed separator character in path strings. Windows uses `\`; macOS and Linux use `/`. Paths can arrive from user input, Tauri IPC, Python interop, or test fixtures in either format.
+
+- **Rust:** Use `std::path::Path` and `PathBuf` for all path manipulation — never split on `/` or `\` manually. When a path string arrives from an external source (user input, IPC, test data with Windows-style paths), normalise before using `Path`: `path_str.replace('\\', "/")`. See the 2026-02-28 entry below for a concrete CI failure caused by this.
+- **Python:** Use `pathlib.Path` or `os.path` — never split path strings manually on separator characters. When emitting paths for the Rust backend or frontend (e.g. as JSON), use `Path(p).as_posix()` to ensure forward slashes on all platforms.
+- **TypeScript / Tauri IPC:** File paths from dialog pickers are OS-native strings. On Windows these contain `\`. Pass them as-is to Rust IPC commands and let the Rust handler normalise with `PathBuf::from()` — do not manipulate path strings on the frontend.
+- **Tests:** Hard-coded test paths like `"C:\\photos\\image.png"` fail in Linux CI because `std::path::Path` does not split on `\` there. Construct portable paths with `Path::new("photos").join("image.png")`, or normalise the separator before asserting on path components.
+
+---
+
 ## Entries
 
 ### 2026-02-28 — Rust / CI — Export filename tests pass on Windows, fail on Linux (starts_with "my_image_")

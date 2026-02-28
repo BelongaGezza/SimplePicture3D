@@ -209,6 +209,37 @@ Run tests before submitting a PR.
 
 ---
 
+## Cross-platform Considerations
+
+SimplePicture3D targets Windows (MVP), macOS, and Linux. Code that handles file paths must work correctly on all three platforms.
+
+### Path separator normalisation
+
+Windows uses `\` as the path separator; macOS and Linux use `/`. Paths arriving from user input, Tauri IPC, or the Python bridge may use either separator depending on where they originated.
+
+**Rust:** Always construct and decompose paths with `std::path::Path` or `PathBuf` — never split or join path strings manually on `/` or `\`. When a path string is received from an external source (e.g. a Tauri IPC call or a test fixture using Windows-style paths), normalise it before processing:
+
+```rust
+// Normalise a received path string before passing to Path
+let normalised: String = raw_path.chars().map(|c| if c == '\\' { '/' } else { c }).collect();
+let path = Path::new(&normalised);
+```
+
+**Python:** Use `pathlib.Path` throughout. When producing path strings for the Rust backend (e.g. as JSON output from the depth-estimation subprocess), emit them with `Path(p).as_posix()` so forward slashes are used on all platforms.
+
+**TypeScript / Frontend:** File paths from Tauri dialog pickers are OS-native strings. Do not manipulate path strings on the frontend; pass them as-is to Rust IPC commands and let the Rust side normalise with `PathBuf::from()`.
+
+**Tests:** Avoid hard-coded path literals like `"C:\\photos\\file.png"` — they fail on Linux CI because `std::path::Path` does not split on `\` there. Construct paths portably:
+
+```rust
+// Portable path construction in tests
+let path = Path::new("photos").join("file.png");
+```
+
+See [RESEARCH/GOTCHAS.md](../RESEARCH/GOTCHAS.md) for a concrete example of a CI failure caused by this pattern (2026-02-28 entry).
+
+---
+
 ## Contribution Guidelines
 
 We welcome contributions. Please read and follow:

@@ -393,6 +393,7 @@ SimplePicture3D/
 │   ├── README.md
 │   ├── AI_DEVELOPMENT_GUIDE.md
 │   ├── architecture.md     # This file
+│   ├── 3d-reconstruction.md # Full 3D reconstruction models (Phase 2; see ADR "Future: Full 3D")
 │   ├── GOTCHAS.md
 │   ├── rust-crates.md
 │   ├── python-ml.md
