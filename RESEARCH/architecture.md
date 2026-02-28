@@ -3,7 +3,7 @@
 **Purpose:** System architecture and data flow for SimplePicture3D.
 
 **Source:** Derived from `prd.md` §5.2, §5.3, §5.4.  
-**Last checked:** 2026-02-06
+**Last checked:** 2026-02-28
 
 ---
 
@@ -360,7 +360,7 @@ Tauri desktop app: Rust backend, Svelte/React frontend, Python subprocess for AI
 
 **STL/OBJ export:** Implemented as **custom** binary STL and ASCII OBJ (+ MTL) writers in `mesh_generator.rs`; the project does **not** use `stl_io` or `obj-exporter` crates (see Key Interfaces below).
 
-**Target dimensions (ADR-009):** Backend support (optional `target_width_mm`, `target_height_mm` on get_mesh_data/export and in settings) is in progress (BACK-1005, BACK-1006). When set, `pixel_to_mm = min(target_width_mm/width_px, target_height_mm/height_px)`; when absent, current default (`pixel_to_mm = 1.0`) is unchanged.
+**Target dimensions (ADR-009):** Implemented. Optional `target_width_mm` and `target_height_mm` are supported on `get_mesh_data`, `export_stl`, and `export_obj` (and in `AppSettings`). `lib.rs::compute_pixel_to_mm` derives `pixel_to_mm = min(target_width_mm/width_px, target_height_mm/height_px)` when both are set; when absent, default `pixel_to_mm = 1.0` is unchanged.
 
 ### Data flow (as-built)
 

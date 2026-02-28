@@ -54,7 +54,7 @@ Before you begin, ensure you have:
 
 - **Rust 1.70+** - Install via [rustup](https://rustup.rs/)
 - **Node.js 18+** - Download from [nodejs.org](https://nodejs.org/)
-- **Python 3.9+** - Download from [python.org](https://www.python.org/)
+- **Python 3.10+** - Download from [python.org](https://www.python.org/) (required for AI depth estimation)
 - **Git** - Install from [git-scm.com](https://git-scm.com/)
 - **Cursor IDE** (recommended) or VS Code
 
@@ -75,7 +75,7 @@ Before you begin, ensure you have:
 
 ## Development Setup
 
-Required tools and versions are listed in [README.md](README.md#development-setup): Rust 1.70+, Node.js 18+, npm 9+, Python 3.9+ (when using the Python AI backend), and Git.
+Required tools and versions are listed in [README.md](README.md#development-setup): Rust 1.70+, Node.js 18+, npm 9+, Python 3.10+ (when using the Python AI backend), and Git.
 
 **Basic setup:**
 
@@ -258,7 +258,7 @@ cd python && pytest
 npm test
 ```
 
-See [README](README.md#testing) and [CLAUDE.md](CLAUDE.md) for the canonical list of testing commands.
+See [README](README.md#testing) and [CLAUDE.md](CLAUDE.md) for the canonical list of testing commands. For a **manual testing checklist** (full workflow, export verification, settings), see [docs/testing.md](docs/testing.md).
 
 ### Code coverage
 

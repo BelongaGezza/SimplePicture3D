@@ -1,7 +1,7 @@
 # SimplePicture3D
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://img.shields.io/badge/build-pending-lightgrey)](https://github.com/BelongaGezza/SimplePicture3D/actions)
+[![CI](https://github.com/BelongaGezza/SimplePicture3D/actions/workflows/ci.yml/badge.svg)](https://github.com/BelongaGezza/SimplePicture3D/actions)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue)](https://github.com/BelongaGezza/SimplePicture3D)
 
 > **Convert 2D images into 2.5D STL meshes for UV laser engraving in crystal and glass**
@@ -72,7 +72,7 @@ Once released, you'll be able to download installers for:
 4. **Preview in 3D** - Rotate and inspect your mesh before exporting
 5. **Export** - Save as STL or OBJ for your laser engraving software
 
-Detailed usage guide coming soon in [docs/user-guide.md](docs/user-guide.md).
+See the [User Guide](docs/user-guide.md) for detailed usage and troubleshooting.
 
 ---
 
@@ -121,12 +121,13 @@ SimplePicture3D is built with modern, performant technologies:
 
 ## 📚 Documentation
 
+- **[Changelog](CHANGELOG.md)** - Version history and release notes (Keep a Changelog format)
 - **[Product Requirements Document (PRD)](prd.md)** - Comprehensive product specification
 - **[Development TODO](todo.md)** - Phased sprint plan with team assignments
-- **[Architecture Guide](docs/architecture.md)** - Technical architecture (coming soon)
+- **[Architecture Guide](docs/architecture.md)** - Technical architecture and data flow
 - **[Setting Up Your Mac](docs/setting_up_your_Mac.md)** - Developer tools and setup for macOS (Apple Silicon)
-- **[User Guide](docs/user-guide.md)** - How to use SimplePicture3D (coming soon)
-- **[Developer Guide](docs/developer-guide.md)** - Build and contribution instructions (coming soon)
+- **[User Guide](docs/user-guide.md)** - How to use SimplePicture3D
+- **[Developer Guide](docs/developer-guide.md)** - Build and contribution instructions
 
 ---
 
@@ -244,7 +245,7 @@ pip install -r requirements.txt
 3. **Write tests** for new functionality
 4. **Submit a pull request** with a clear description
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines (coming soon).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 ### Team Roles
 

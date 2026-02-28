@@ -55,6 +55,7 @@ export interface AppSettings {
   windowHeight?: number | null;
 }
 
+/** Load and validate image at path; returns dimensions, file size, and base64 preview (BACK-101, BACK-105). */
 export async function loadImage(path: string): Promise<LoadImageResult> {
   return invoke<LoadImageResult>("load_image", { path });
 }
@@ -79,10 +80,12 @@ export async function exportObj(path: string, options?: ExportOptions): Promise<
   return invoke("export_obj", args);
 }
 
+/** Get current app settings (depth range, target dimensions, window size, etc.). */
 export async function getSettings(): Promise<AppSettings> {
   return invoke<AppSettings>("get_settings");
 }
 
+/** Persist app settings to disk (BACK-804, BACK-805). */
 export async function saveSettings(newSettings: AppSettings): Promise<void> {
   return invoke("save_settings", { newSettings });
 }
@@ -188,6 +191,10 @@ export async function downloadModel(): Promise<DownloadResult> {
   return invoke<DownloadResult>("download_model");
 }
 
+/**
+ * Get mesh data (positions, normals) for 3D preview from current adjusted depth map (BACK-601, BACK-603).
+ * Use previewStep to request reduced vertex count for faster preview; export always uses full resolution.
+ */
 export async function getMeshData(
   options?: GetMeshDataOptions
 ): Promise<MeshData | null> {

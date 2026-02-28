@@ -738,43 +738,43 @@ The Role Assignment table enables agents to claim roles:
 
 **Sprint Goal:** End-to-end testing of MVP workflow, fix critical bugs, and implement target dimensions for laser etching (ADR-009).
 
-**Sprint 1.11 Tasking:** Ready for execution — see `SPRINTS/Sprint_1_11/SPRINT_1_11_Task_Assignment.md` (created 2026-02-22). Roles: System Architect, Senior Engineer, UI Designer, Junior Engineer 3D, Quality Engineer, Security Specialist; All Engineers (bug triage/cleanup).
+**Sprint Status:** Complete. See `SPRINTS/Sprint_1_11/VERIFICATION_CHECKLIST.md` and `SPRINTS/Sprint_1_11/SPRINT_1_11_Task_Assignment.md`.
 
 #### Tasks
 
 **Senior Engineer (Target dimensions — ADR-009):**
-- [ ] **BACK-1005:** Implement target dimensions: accept optional `target_width_mm`, `target_height_mm` in `get_mesh_data` and export commands; compute `pixel_to_mm = min(target_width_mm/width_px, target_height_mm/height_px)` when both are present and positive; pass to `MeshParams`. If absent, keep current default (e.g. 1.0). See RESEARCH/architecture.md ADR-009 and § Target dimensions for laser etching.
-- [ ] **BACK-1006:** Add optional `target_width_mm` and `target_height_mm` to `AppSettings`; load/save in settings persistence so target size is remembered between sessions.
+- [x] **BACK-1005:** Implement target dimensions: accept optional `target_width_mm`, `target_height_mm` in `get_mesh_data` and export commands; compute `pixel_to_mm = min(target_width_mm/width_px, target_height_mm/height_px)` when both are present and positive; pass to `MeshParams`. If absent, keep current default (e.g. 1.0). See RESEARCH/architecture.md ADR-009 and § Target dimensions for laser etching.
+- [x] **BACK-1006:** Add optional `target_width_mm` and `target_height_mm` to `AppSettings`; load/save in settings persistence so target size is remembered between sessions.
 
 **UI Specialist (Target dimensions — optional for Phase 1):**
-- [ ] **UI-1001:** Output size (mm): add width × height inputs or preset dropdown (e.g. 50×70 mm, 40×60 mm, Custom) in mesh/export area or settings; pass values to backend. Defer to Phase 2 if scope pressure; backend (BACK-1005/1006) still implemented so UI can be added later.
+- [x] **UI-1001:** Output size (mm): add width × height inputs or preset dropdown (e.g. 50×70 mm, 40×60 mm, Custom) in mesh/export area or settings; pass values to backend. Defer to Phase 2 if scope pressure; backend (BACK-1005/1006) still implemented so UI can be added later.
 
 **Junior Engineer #2 (Target dimensions tests):**
-- [ ] **JR2-1001:** Unit test: when target_width_mm and target_height_mm are set, mesh XY bounds fit inside target rectangle and aspect ratio is preserved; when not set, behaviour unchanged (pixel_to_mm default).
+- [x] **JR2-1001:** Unit test: when target_width_mm and target_height_mm are set, mesh XY bounds fit inside target rectangle and aspect ratio is preserved; when not set, behaviour unchanged (pixel_to_mm default).
 
 **Quality Engineer:**
-- [ ] **QA-1001:** Create end-to-end test suite (Playwright or manual)
-- [ ] **QA-1002:** Test complete workflow: load → generate → adjust → export
-- [ ] **QA-1003:** Regression testing: all previous sprint features
-- [ ] **QA-1004:** Performance benchmarking: meet all PRD targets
-- [ ] **QA-1005:** Create bug report template (GitHub Issues)
-- [ ] **QA-1006:** Manual test target dimensions: set 50×70 mm, export STL, verify mesh fits (e.g. in MeshLab) when BACK-1005 is done.
+- [x] **QA-1001:** Create end-to-end test suite (Playwright or manual)
+- [x] **QA-1002:** Test complete workflow: load → generate → adjust → export
+- [x] **QA-1003:** Regression testing: all previous sprint features
+- [x] **QA-1004:** Performance benchmarking: meet all PRD targets
+- [x] **QA-1005:** Create bug report template (GitHub Issues)
+- [x] **QA-1006:** Manual test target dimensions: set 50×70 mm, export STL, verify mesh fits (e.g. in MeshLab) when BACK-1005 is done.
 
 **All Engineers:**
-- [ ] **BUG-1001:** Triage and fix P0 (critical) bugs
-- [ ] **BUG-1002:** Triage and fix P1 (high priority) bugs
-- [ ] **BUG-1003:** Document known issues (P2/P3) for Phase 2
-- [ ] **BUG-1004:** Code cleanup (remove debug logs, TODO comments)
+- [x] **BUG-1001:** Triage and fix P0 (critical) bugs
+- [x] **BUG-1002:** Triage and fix P1 (high priority) bugs
+- [x] **BUG-1003:** Document known issues (P2/P3) for Phase 2
+- [x] **BUG-1004:** Code cleanup (remove debug logs, TODO comments)
 
 **System Architect:**
-- [ ] **ARCH-301:** Review codebase for architectural issues
-- [ ] **ARCH-302:** Refactor hotspots (code smells, duplication)
-- [ ] **ARCH-303:** Update architecture.md with "as-built" diagrams
+- [x] **ARCH-301:** Review codebase for architectural issues
+- [x] **ARCH-302:** Refactor hotspots (code smells, duplication)
+- [x] **ARCH-303:** Update architecture.md with "as-built" diagrams
 
 **Security Engineer:**
-- [ ] **SEC-601:** Full security review (dependency audit, code scan)
-- [ ] **SEC-602:** Penetration testing (file upload, path traversal)
-- [ ] **SEC-603:** Sign-off on MVP security posture
+- [x] **SEC-601:** Full security review (dependency audit, code scan)
+- [x] **SEC-602:** Penetration testing (file upload, path traversal)
+- [x] **SEC-603:** Sign-off on MVP security posture
 
 #### Exit Criteria
 - ✅ All P0 and P1 bugs fixed
@@ -789,6 +789,8 @@ The Role Assignment table enables agents to claim roles:
 ### Sprint 1.12: Documentation & Beta Preparation (2 weeks)
 
 **Sprint Goal:** Prepare MVP for beta testing with comprehensive documentation.
+
+**Sprint 1.12 Tasking:** Ready for execution — see `SPRINTS/Sprint_1_12/SPRINT_1_12_Task_Assignment.md`. Roles: UI Designer, Senior Engineer, System Architect, Quality Engineer, Documentation Specialist.
 
 #### Tasks
 

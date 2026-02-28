@@ -1,6 +1,12 @@
 // Copyright (c) 2026 SimplePicture3D Contributors
 // SPDX-License-Identifier: MIT
 
+//! SimplePicture3D Tauri application: Tauri commands and app state.
+//!
+//! Public API surface: Tauri commands registered in `run()` (load_image, generate_depth_map,
+//! get_depth_map, set_depth_adjustment_params, get_mesh_data, export_stl, export_obj, etc.).
+//! See `docs/developer-guide.md` and `cargo doc` for command contracts and types.
+
 pub mod depth_adjust;
 mod file_io;
 mod image_loading;
@@ -122,6 +128,8 @@ struct GenerateDepthMapResponse {
     stages: Vec<String>,
 }
 
+/// Load and validate an image file (BACK-101–105). Returns dimensions, metadata, and base64 preview.
+/// Path is validated (SEC-101); format by magic bytes (SEC-102). Images over 8192×8192 are downsampled.
 #[tauri::command]
 fn load_image(path: String) -> Result<image_loading::LoadImageOut, String> {
     image_loading::load_image_impl(path).map_err(|e| e.to_string())

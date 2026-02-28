@@ -10,7 +10,7 @@
 
 SimplePicture3D is a Tauri desktop application with a Rust backend, Svelte/React frontend, and a Python subprocess for AI depth estimation. All processing runs locally (100% offline).
 
-**Architecture decisions** are recorded as ADRs in [RESEARCH/architecture.md](../RESEARCH/architecture.md): ADR-001 (Svelte), ADR-002 (Subprocess), ADR-003 (Python distribution), ADR-004 (Depth models), ADR-006 (Mesh generation algorithm).
+**Architecture decisions** are recorded as ADRs in [RESEARCH/architecture.md](../RESEARCH/architecture.md): ADR-001 (Svelte), ADR-002 (Subprocess), ADR-003 (Python distribution), ADR-004 (Depth models), ADR-005 (Model licensing), ADR-006 (Mesh generation), ADR-008 (Grid triangulation for STL), ADR-009 (Target dimensions for laser etching).
 
 ---
 
@@ -35,7 +35,7 @@ SimplePicture3D is a Tauri desktop application with a Rust backend, Svelte/React
 │  │  • Image loading (image crate)                               │ │
 │  │  • Depth map processing (gamma, range, invert)               │ │
 │  │  • Mesh generation (point cloud, triangulation)              │ │
-│  │  • STL/OBJ export (stl_io, obj crates)                       │ │
+│  │  • STL/OBJ export (custom writers in mesh_generator.rs)       │ │
 │  │  • Settings & state (serde JSON)                             │ │
 │  └─────────────────────────────────────────────────────────────┘ │
 │  ┌─────────────────────────────────────────────────────────────┐ │
@@ -97,7 +97,7 @@ SimplePicture3D is a Tauri desktop application with a Rust backend, Svelte/React
 - **Sampling:** Uniform grid over the depth map. Step size in X/Y (e.g. 1 = full resolution, 2 = every 2nd pixel). Vertex count = `ceil(width/step_x) × ceil(height/step_y)`.
 - **Coordinates:** X/Y from pixel indices scaled by a configurable factor (e.g. 1 pixel = 1 mm). Z from normalized depth mapped to a configurable range (e.g. 2–10 mm): `z_mm = min_mm + depth * (max_mm - min_mm)`.
 - **Normals:** Derived from depth gradient (finite difference in X/Y), unit length, for shading and STL.
-- **Output:** `MeshData` with `positions: Vec<[f32;3]>` and `normals: Vec<[f32;3]>` (no triangulation in MVP; see ADR-006).
+- **Output:** `MeshData` with `positions`, `normals`, and optional `indices` (grid triangulation per ADR-008 for STL/OBJ). Target physical size (ADR-009) is supported via optional `target_width_mm` / `target_height_mm` in settings and commands.
 
 **Where to look:**
 

@@ -16,7 +16,7 @@ assignees: ''
 ## Environment
 
 - **OS:** (e.g. Windows 11, macOS 14, Ubuntu 22.04)
-- **App version / commit:** (e.g. from `npm run tauri dev` or build)
+- **App version / commit:** (e.g. v0.1.0-beta.1 from Releases, or `git rev-parse HEAD` if building from source; include if from `npm run tauri dev`)
 - **Hardware:** (e.g. 8GB RAM, no GPU / NVIDIA GTX 1060)
 
 ## Steps to reproduce
