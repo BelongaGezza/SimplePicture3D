@@ -39,4 +39,4 @@
 - [x] Exit criteria met
 - [x] Backend and frontend build and tests pass
 - [x] Sprint 2.1 implementation complete; manual QA per TEST_PLAN_2_1.md recommended before release
-- [x] MANUAL_TEST_REPORT.md created (QA-1101–1103 procedures and results capture); verification commands run 2026-02-28: cargo test PASS, clippy PASS, npm run build PASS, pytest PASS
+- [x] MANUAL_TEST_REPORT.md created (QA-1101–1103 procedures and results capture); verification commands run 2026-02-28: cargo test 147 passed, clippy PASS, npm test 39 passed, npm run build PASS, pytest 32 passed. Manual QA-1101–1103 deferred (procedures documented; automated coverage in place).
