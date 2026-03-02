@@ -1,0 +1,11 @@
+[[permission]]
+identifier = "allow-presets"
+description = "Enables preset save, load, and list commands (Sprint 2.3)."
+commands.allow = [
+    "save_preset",
+    "load_preset",
+    "list_presets",
+    "delete_preset",
+    "rename_preset",
+    "list_builtin_presets",
+]

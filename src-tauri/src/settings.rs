@@ -56,10 +56,15 @@ pub struct AppSettings {
     pub curve_control_points: Option<Vec<CurvePoint>>,
 }
 
+/// App data directory: `~/.simplepicture3d/` (Sprint 2.3 presets, models, logs).
+pub fn app_data_dir() -> Option<PathBuf> {
+    dirs_fallback().map(|home| home.join(".simplepicture3d"))
+}
+
 impl AppSettings {
     /// Path to the settings file: `~/.simplepicture3d/settings.json`.
     fn settings_path() -> Option<PathBuf> {
-        dirs_fallback().map(|home| home.join(".simplepicture3d").join("settings.json"))
+        app_data_dir().map(|d| d.join("settings.json"))
     }
 
     /// Load settings from disk. Returns defaults if file doesn't exist or is unreadable.

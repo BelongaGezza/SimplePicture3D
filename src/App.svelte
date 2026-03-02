@@ -8,6 +8,8 @@
   import ExportPanel from "./components/ExportPanel.svelte";
   import FirstRunWizard from "./components/FirstRunWizard.svelte";
   import Button from "./components/Button.svelte";
+  import PresetManager from "./components/PresetManager.svelte";
+  import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
   import {
     generateDepthMap,
     getDepthMap,
@@ -21,8 +23,11 @@
     checkModel,
     getSettings,
     saveSettings,
+    listPresets,
+    savePreset,
+    loadPreset,
   } from "$lib/tauri";
-  import type { LoadImageResult, DepthAdjustmentParams } from "$lib/tauri";
+  import type { LoadImageResult, DepthAdjustmentParams, PresetListItem } from "$lib/tauri";
 
   let status = "Ready";
   let loadPath = "";
@@ -57,6 +62,7 @@
     } catch {
       // Non-critical
     }
+    refreshPresetList();
     window.addEventListener("keydown", onKeyDown);
   });
   onDestroy(() => {
@@ -99,6 +105,14 @@
   /** UI-1401/1402: Undo/Redo state from backend (BACK-1404). Buttons disabled when nothing to undo/redo. */
   let canUndo = false;
   let canRedo = false;
+
+  /** Sprint 2.3: Preset list (built-in + user) for dropdown and Load preset (UI-1301, UI-1303). */
+  let presetList: PresetListItem[] = [];
+  let presetDropdownOpen = false;
+  let presetSaveLoadOpen = false;
+  let savingPreset = false;
+  let presetMessage = "";
+  let presetListLoading = false;
 
   /** Preview URL: base64 from backend (BACK-101, UI-103). */
   $: previewUrl = loadedResult?.previewBase64
@@ -279,6 +293,102 @@
     }
   }
 
+  /** Sprint 2.3: Refresh preset list (UI-1301, UI-1303). */
+  async function refreshPresetList() {
+    presetListLoading = true;
+    try {
+      presetList = await listPresets();
+    } catch {
+      presetList = [];
+    } finally {
+      presetListLoading = false;
+    }
+  }
+
+  /** Apply preset and refresh UI state (depth params, preview, undo state). */
+  async function applyPresetAndRefresh() {
+    try {
+      const params = await getDepthAdjustmentParams();
+      adjustmentParams = params;
+      const undoState = await getUndoRedoState();
+      canUndo = undoState.canUndo;
+      canRedo = undoState.canRedo;
+      if (depthMap) {
+        const [result, hist] = await Promise.all([getDepthMap(), getDepthHistogram()]);
+        if (result) depthMap = { width: result.width, height: result.height, depth: result.depth };
+        histogramData = hist;
+      }
+      const settings = await getSettings();
+      if (settings.targetWidthMm != null && settings.targetHeightMm != null) {
+        effectiveTargetWidthMm = settings.targetWidthMm;
+        effectiveTargetHeightMm = settings.targetHeightMm;
+      }
+      status = "Preset applied";
+    } catch (e) {
+      status = "Preset error: " + String(e);
+    }
+  }
+
+  /** UI-1302: Save current settings as preset (prompt for name). */
+  async function handleSaveAsPreset() {
+    const name = window.prompt("Preset name");
+    if (name == null || name.trim() === "") return;
+    savingPreset = true;
+    presetMessage = "";
+    try {
+      await savePreset(name.trim());
+      presetMessage = "Preset saved";
+      await refreshPresetList();
+    } catch (e) {
+      presetMessage = "Save failed: " + String(e);
+    } finally {
+      savingPreset = false;
+    }
+  }
+
+  /** UI-1302: Load preset by name or path; then refresh state. */
+  async function handleLoadPreset(nameOrPath: string) {
+    presetDropdownOpen = false;
+    presetSaveLoadOpen = false;
+    try {
+      await loadPreset(nameOrPath);
+      await applyPresetAndRefresh();
+    } catch (e) {
+      status = "Load preset failed: " + String(e);
+    }
+  }
+
+  /** UI-1304: Export preset to user-chosen JSON file. */
+  async function handleExportPreset() {
+    try {
+      const path = await saveDialog({
+        defaultPath: "preset.json",
+        filters: [{ name: "JSON", extensions: ["json"] }],
+      });
+      if (path == null) return;
+      await savePreset("Export", path);
+      status = "Preset exported";
+    } catch (e) {
+      status = "Export failed: " + String(e);
+    }
+  }
+
+  /** UI-1304: Import preset from JSON file. */
+  async function handleImportPreset() {
+    try {
+      const path = await openDialog({
+        multiple: false,
+        filters: [{ name: "JSON", extensions: ["json"] }],
+      });
+      if (path == null || typeof path !== "string") return;
+      await loadPreset(path);
+      await applyPresetAndRefresh();
+      status = "Preset imported";
+    } catch (e) {
+      status = "Import failed: " + String(e);
+    }
+  }
+
   /** UI-1402: Keyboard shortcuts for undo (Ctrl+Z) and redo (Ctrl+Y / Ctrl+Shift+Z). */
   function onKeyDown(e: KeyboardEvent) {
     if ((e.ctrlKey || e.metaKey) && e.key === "z") {
@@ -406,6 +516,56 @@
           advancedMode={advancedMode}
           onAdvancedModeChange={(v) => (advancedMode = v)}
         />
+        <!-- UI-1301, UI-1302: Preset manager and Save/Load -->
+        <PresetManager onListChange={refreshPresetList} onPresetApplied={applyPresetAndRefresh} />
+        <div class="flex flex-col gap-2 pt-2 border-t border-slate-200" role="group" aria-label="Save and load presets">
+          <Button
+            variant="secondary"
+            title="Save current depth and mesh settings as a preset"
+            disabled={savingPreset || !depthMap}
+            on:click={handleSaveAsPreset}
+          >
+            {savingPreset ? "Saving…" : "Save as preset"}
+          </Button>
+          <div class="relative">
+            <button
+              type="button"
+              class="w-full px-3 py-1.5 text-sm rounded border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400 flex items-center justify-between"
+              title="Load a saved or built-in preset"
+              disabled={presetListLoading}
+              on:click={() => { presetSaveLoadOpen = !presetSaveLoadOpen; presetDropdownOpen = false; if (!presetSaveLoadOpen) return; refreshPresetList(); }}
+              aria-haspopup="listbox"
+              aria-expanded={presetSaveLoadOpen}
+            >
+              <span>{presetListLoading ? "Loading…" : "Load preset"}</span>
+              <span class="text-slate-400">▼</span>
+            </button>
+            {#if presetSaveLoadOpen}
+              <ul
+                class="absolute left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded border border-slate-200 bg-white shadow z-10"
+                role="listbox"
+              >
+                {#each presetList as item (item.id)}
+                  <li role="option" aria-selected="false">
+                    <button
+                      type="button"
+                      class="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 border-b border-slate-100 last:border-0 {item.kind === 'builtin' ? 'text-slate-500' : 'text-slate-700'}"
+                      on:click={() => handleLoadPreset(item.id)}
+                    >
+                      {item.name}{item.kind === "builtin" ? " (built-in)" : ""}
+                    </button>
+                  </li>
+                {/each}
+                {#if presetList.length === 0 && !presetListLoading}
+                  <li class="px-3 py-2 text-sm text-slate-500">No presets</li>
+                {/if}
+              </ul>
+            {/if}
+          </div>
+          {#if presetMessage}
+            <p class="text-xs text-slate-600" role="status">{presetMessage}</p>
+          {/if}
+        </div>
       </div>
     </aside>
   </main>
@@ -435,6 +595,61 @@
           Redo
         </button>
       </div>
+    </div>
+    <!-- UI-1303: Preset dropdown (built-in + user); UI-1304: Import/Export -->
+    <div class="flex items-center gap-2" role="group" aria-label="Presets">
+      <span class="text-xs text-slate-500">Preset:</span>
+      <div class="relative">
+        <button
+          type="button"
+          class="px-2 py-1 text-sm rounded border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:opacity-50 flex items-center gap-1"
+          title="Apply a preset"
+          disabled={presetListLoading}
+          on:click={() => { presetDropdownOpen = !presetDropdownOpen; presetSaveLoadOpen = false; if (presetDropdownOpen) refreshPresetList(); }}
+          aria-haspopup="listbox"
+          aria-expanded={presetDropdownOpen}
+        >
+          <span>Apply preset</span>
+          <span class="text-slate-400 text-xs">▼</span>
+        </button>
+        {#if presetDropdownOpen}
+          <ul
+            class="absolute left-0 bottom-full mb-1 max-h-48 overflow-y-auto rounded border border-slate-200 bg-white shadow z-20 min-w-[140px]"
+            role="listbox"
+          >
+            {#each presetList as item (item.id)}
+              <li role="option" aria-selected="false">
+                <button
+                  type="button"
+                  class="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 border-b border-slate-100 last:border-0"
+                  on:click={() => handleLoadPreset(item.id)}
+                >
+                  {item.name}
+                </button>
+              </li>
+            {/each}
+            {#if presetList.length === 0 && !presetListLoading}
+              <li class="px-3 py-2 text-sm text-slate-500">No presets</li>
+            {/if}
+          </ul>
+        {/if}
+      </div>
+      <button
+        type="button"
+        class="px-2 py-1 text-xs rounded border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500"
+        title="Export preset to JSON file"
+        on:click={handleExportPreset}
+      >
+        Export preset
+      </button>
+      <button
+        type="button"
+        class="px-2 py-1 text-xs rounded border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500"
+        title="Import preset from JSON file"
+        on:click={handleImportPreset}
+      >
+        Import preset
+      </button>
     </div>
     <!-- Scaling: default 40×40 mm; zoom to scale target (depth-map and 3D preview dimension to fit). -->
     <div class="flex items-center gap-2" role="group" aria-label="Output scale and target size">

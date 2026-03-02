@@ -252,3 +252,64 @@ export async function getMeshData(
   }
   return invoke<MeshData | null>("get_mesh_data", args);
 }
+
+// --- Sprint 2.3: Presets (F2.3, BACK-1302, UI-1301–1304) ---
+
+/** Built-in preset id (BACK-1303). */
+export type BuiltinPresetId = "portrait" | "landscape" | "high_detail" | "low_relief";
+
+/** One preset entry for list: user preset by name or built-in by id. */
+export interface PresetListItem {
+  /** "user" | "builtin" */
+  kind: "user" | "builtin";
+  /** Display name (e.g. "My Preset" or "Portrait") */
+  name: string;
+  /** For builtin: id; for user: name used as key in presets dir */
+  id: string;
+}
+
+/** List built-in preset ids (BACK-1303). Backend returns string[] e.g. ["Portrait", "Landscape", "High Detail", "Low Relief"]. */
+export async function listBuiltinPresets(): Promise<string[]> {
+  return invoke<string[]>("list_builtin_presets");
+}
+
+/** List presets: built-ins first, then user presets from ~/.simplepicture3d/presets/ (BACK-1302, UI-1301, UI-1303). */
+export async function listPresets(): Promise<PresetListItem[]> {
+  const [builtinIds, userNames] = await Promise.all([
+    invoke<string[]>("list_builtin_presets"),
+    invoke<string[]>("list_presets"),
+  ]);
+  const builtins: PresetListItem[] = builtinIds.map((id) => ({
+    kind: "builtin" as const,
+    name: id,
+    id,
+  }));
+  const users: PresetListItem[] = userNames.map((name) => ({
+    kind: "user" as const,
+    name,
+    id: name,
+  }));
+  return [...builtins, ...users];
+}
+
+/** Save current state as preset. path optional (user-chosen for export). BACK-1302, BACK-1304. */
+export async function savePreset(name: string, path?: string | null): Promise<void> {
+  const args: Record<string, unknown> = { name };
+  if (path != null && path !== "") args.path = path;
+  return invoke("save_preset", args);
+}
+
+/** Load preset by name (from presets dir) or by absolute path (import). Applies to app state. BACK-1302. */
+export async function loadPreset(nameOrPath: string): Promise<void> {
+  return invoke("load_preset", { nameOr_path: nameOrPath });
+}
+
+/** Delete user preset by name (BACK-1302, UI-1301). */
+export async function deletePreset(name: string): Promise<void> {
+  return invoke("delete_preset", { name });
+}
+
+/** Rename user preset (BACK-1302, UI-1301). */
+export async function renamePreset(oldName: string, newName: string): Promise<void> {
+  return invoke("rename_preset", { old_name: oldName, new_name: newName });
+}

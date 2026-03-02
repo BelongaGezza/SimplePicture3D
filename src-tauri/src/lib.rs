@@ -9,17 +9,19 @@
 
 pub mod depth_adjust;
 mod file_io;
-pub mod undo;
 mod image_loading;
 pub mod mesh_generator;
+pub mod preset;
 mod python_bridge;
 pub mod settings;
+pub mod undo;
 
 use std::sync::Mutex;
 use tauri::State;
 
 use depth_adjust::{apply_adjustments, compute_histogram, DepthAdjustmentParams};
 use mesh_generator::{depth_to_point_cloud, MeshData, MeshParams};
+use preset::{get_builtin_preset, sanitize_preset_name, Preset, PRESET_SCHEMA_VERSION};
 use undo::{SetDepthParamsCommand, UndoRedoHistory};
 
 /// ADR-009: Compute pixel_to_mm from optional target dimensions. When both are present and positive,
@@ -104,6 +106,11 @@ fn validate_export_path(path: &str, extension: &str) -> Result<(std::path::PathB
 
     let canonical_path_str = canonical_path.to_string_lossy().to_string();
     Ok((canonical_path, canonical_path_str))
+}
+
+/// Validates path for saving a preset JSON file (export). Same security as validate_export_path but for .json.
+fn validate_preset_export_path(path: &str) -> Result<(std::path::PathBuf, String), String> {
+    validate_export_path(path, "json")
 }
 
 /// App-managed depth map state (BACK-302, BACK-405). Original depth from generate_depth_map;
@@ -335,6 +342,184 @@ fn save_settings(
     let mut settings = state.app_settings.lock().map_err(|e| e.to_string())?;
     *settings = new_settings;
     settings.save().map_err(|e| e.to_string())
+}
+
+// --- Sprint 2.3: Presets (BACK-1302) ---
+
+/// Save current depth/mesh settings as a preset (BACK-1302).
+/// If `path` is Some, writes to that file (user-chosen export path); otherwise saves to ~/.simplepicture3d/presets/{name}.json.
+#[tauri::command]
+fn save_preset(
+    name: String,
+    path: Option<String>,
+    state: State<AppState>,
+) -> Result<(), String> {
+    let params = state.adjustment_params.lock().map_err(|e| e.to_string())?.clone();
+    let settings_guard = state.app_settings.lock().map_err(|e| e.to_string())?;
+    let target_width_mm = settings_guard.target_width_mm;
+    let target_height_mm = settings_guard.target_height_mm;
+    drop(settings_guard);
+
+    let preset = Preset::from_depth_and_mesh(
+        params.brightness,
+        params.contrast,
+        params.gamma,
+        params.invert,
+        params.depth_min_mm,
+        params.depth_max_mm,
+        params.curve_control_points.clone(),
+        1,
+        1,
+        target_width_mm,
+        target_height_mm,
+    );
+
+    let json = serde_json::to_string_pretty(&preset).map_err(|e| e.to_string())?;
+
+    let write_path = if let Some(ref p) = path {
+        let (canonical, _) = validate_preset_export_path(p)?;
+        canonical
+    } else {
+        let presets_dir = settings::app_data_dir()
+            .ok_or_else(|| "Cannot determine presets directory".to_string())?
+            .join("presets");
+        std::fs::create_dir_all(&presets_dir).map_err(|e| e.to_string())?;
+        let safe_name = sanitize_preset_name(&name)?;
+        presets_dir.join(format!("{}.json", safe_name))
+    };
+
+    std::fs::write(&write_path, json).map_err(|e| format!("Failed to write preset: {}", e))?;
+    Ok(())
+}
+
+/// Load a preset by name (built-in or from presets dir) or by absolute path (import) and apply to app state (BACK-1302, BACK-1303).
+/// Returns updated undo/redo state so UI can sync.
+#[tauri::command]
+fn load_preset(
+    name_or_path: String,
+    state: State<AppState>,
+) -> Result<UndoRedoState, String> {
+    let preset = if std::path::Path::new(&name_or_path).is_absolute() {
+        let path = std::path::PathBuf::from(&name_or_path);
+        let contents = std::fs::read_to_string(&path)
+            .map_err(|e| format!("Failed to read preset: {}", e))?;
+        serde_json::from_str(&contents)
+            .map_err(|e| format!("Invalid preset file: {}", e))?
+    } else if let Some(p) = get_builtin_preset(name_or_path.trim()) {
+        p
+    } else {
+        let presets_dir = settings::app_data_dir()
+            .ok_or_else(|| "Cannot determine presets directory".to_string())?
+            .join("presets");
+        let safe_name = sanitize_preset_name(name_or_path.trim())?;
+        let path = presets_dir.join(format!("{}.json", safe_name));
+        let contents = std::fs::read_to_string(&path)
+            .map_err(|e| format!("Failed to read preset: {}", e))?;
+        serde_json::from_str(&contents)
+            .map_err(|e| format!("Invalid preset file: {}", e))?
+    };
+
+    // Optional: migrate older schema (JR2-1303). For now we accept version 1 only.
+    if preset.schema_version > PRESET_SCHEMA_VERSION {
+        return Err(format!(
+            "Preset schema version {} is newer than supported ({})",
+            preset.schema_version, PRESET_SCHEMA_VERSION
+        ));
+    }
+
+    let new_params = preset.to_depth_params();
+    let previous = state.adjustment_params.lock().map_err(|e| e.to_string())?.clone();
+    let cmd = SetDepthParamsCommand {
+        previous: previous.clone(),
+        new: new_params.clone(),
+    };
+    *state.adjustment_params.lock().map_err(|e| e.to_string())? = new_params.clone();
+    {
+        let mut hist = state.undo_redo.lock().map_err(|e| e.to_string())?;
+        hist.push(cmd);
+    }
+    {
+        let mut app_settings = state.app_settings.lock().map_err(|e| e.to_string())?;
+        app_settings.curve_control_points = preset.curve_control_points.clone();
+        app_settings.target_width_mm = preset.target_width_mm;
+        app_settings.target_height_mm = preset.target_height_mm;
+        if let Err(e) = app_settings.save() {
+            log::warn!("Failed to save settings after load_preset: {}", e);
+        }
+    }
+    get_undo_redo_state(state)
+}
+
+/// List user preset names (filenames without .json) in ~/.simplepicture3d/presets/ (BACK-1302, UI-1301).
+#[tauri::command]
+fn list_presets() -> Result<Vec<String>, String> {
+    let presets_dir = settings::app_data_dir()
+        .ok_or_else(|| "Cannot determine presets directory".to_string())?
+        .join("presets");
+    if !presets_dir.is_dir() {
+        return Ok(Vec::new());
+    }
+    let mut names: Vec<String> = std::fs::read_dir(&presets_dir)
+        .map_err(|e| format!("Failed to read presets directory: {}", e))?
+        .filter_map(|e| {
+            e.ok().and_then(|entry| {
+                let p = entry.path();
+                if p.is_file() && p.extension().is_some_and(|e| e == "json") {
+                    p.file_stem().map(|s| s.to_string_lossy().to_string())
+                } else {
+                    None
+                }
+            })
+        })
+        .collect();
+    names.sort();
+    Ok(names)
+}
+
+/// Delete a user preset by name (BACK-1302, UI-1301). Does not remove built-ins.
+#[tauri::command]
+fn delete_preset(name: String) -> Result<(), String> {
+    let presets_dir = settings::app_data_dir()
+        .ok_or_else(|| "Cannot determine presets directory".to_string())?
+        .join("presets");
+    let safe_name = sanitize_preset_name(name.trim())?;
+    let path = presets_dir.join(format!("{}.json", safe_name));
+    if path.is_file() {
+        std::fs::remove_file(&path).map_err(|e| format!("Failed to delete preset: {}", e))?;
+    }
+    Ok(())
+}
+
+/// Rename a user preset (BACK-1302, UI-1301). Old and new are names (not paths).
+#[tauri::command]
+fn rename_preset(old_name: String, new_name: String) -> Result<(), String> {
+    let presets_dir = settings::app_data_dir()
+        .ok_or_else(|| "Cannot determine presets directory".to_string())?
+        .join("presets");
+    let safe_old = sanitize_preset_name(old_name.trim())?;
+    let safe_new = sanitize_preset_name(new_name.trim())?;
+    if safe_old == safe_new {
+        return Ok(());
+    }
+    let from = presets_dir.join(format!("{}.json", safe_old));
+    let to = presets_dir.join(format!("{}.json", safe_new));
+    if !from.is_file() {
+        return Err("Preset not found".to_string());
+    }
+    if to.exists() {
+        return Err("A preset with that name already exists".to_string());
+    }
+    std::fs::rename(&from, &to).map_err(|e| format!("Failed to rename preset: {}", e))?;
+    Ok(())
+}
+
+/// List built-in preset ids for UI dropdown (BACK-1303).
+#[tauri::command]
+fn list_builtin_presets() -> Vec<String> {
+    preset::builtin_preset_ids()
+        .iter()
+        .map(|s| (*s).to_string())
+        .collect()
 }
 
 // --- Sprint 1.10: Model management commands ---
@@ -760,6 +945,12 @@ pub fn run() {
             get_mesh_data,
             get_settings,
             save_settings,
+            save_preset,
+            load_preset,
+            list_presets,
+            delete_preset,
+            rename_preset,
+            list_builtin_presets,
             check_model,
             get_model_info,
             download_model

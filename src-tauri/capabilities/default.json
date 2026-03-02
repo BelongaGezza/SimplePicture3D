@@ -1,18 +1,17 @@
 {
-    "$schema": "https://schema.tauri.app/config/2/capability",
-    "identifier": "default",
-    "description": "Default capability for SimplePicture3D",
-    "windows": [
-        "main"
-    ],
-    "permissions": [
-        "core:default",
-        "shell:allow-open",
-        "dialog:allow-open",
-        "dialog:allow-save",
-        "allow-load-image",
-        "allow-export-stl",
-        "allow-get-export-defaults",
-        "allow-generate-depth-map"
-    ]
+  "$schema": "https://schema.tauri.app/config/2/capability",
+  "identifier": "default",
+  "description": "Default capability for SimplePicture3D",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "shell:allow-open",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "allow-load-image",
+    "allow-export-stl",
+    "allow-get-export-defaults",
+    "allow-generate-depth-map",
+    "allow-presets"
+  ]
 }

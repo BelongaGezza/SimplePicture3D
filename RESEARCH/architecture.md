@@ -687,6 +687,73 @@ See **ADR-009** above for full decision, API options, and UI/preset notes.
 
 ---
 
+## Preset schema (Sprint 2.3, BACK-1301)
+
+Presets store processing configuration as JSON for save/load and import/export (prd.md F2.3). Stored under `~/.simplepicture3d/presets/` or user-chosen path.
+
+### Schema version
+
+- **Field:** `schemaVersion` (integer). Current version: **1**. Used for forward-compatible migration when loading older presets (JR2-1303).
+- New fields may be added in future versions; unknown fields are ignored. When adding breaking changes, bump version and document migration in code or RESEARCH.
+
+### Fields (version 1)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `schemaVersion` | number | Required. Set to 1. |
+| `brightness` | number | Depth brightness offset (e.g. -0.5 to 0.5). |
+| `contrast` | number | Depth contrast factor; 1.0 = identity. |
+| `gamma` | number | Depth gamma exponent; 1.0 = linear. |
+| `invert` | boolean | Invert depth (near ↔ far). |
+| `depthMinMm` | number | Depth range minimum in mm. |
+| `depthMaxMm` | number | Depth range maximum in mm. |
+| `curveControlPoints` | array or null | Optional. Array of `{ x, y }` (0–1). When null or length < 2, no curve applied. |
+| `stepX` | number | Mesh grid step X (1 = full resolution). |
+| `stepY` | number | Mesh grid step Y (1 = full resolution). |
+| `targetWidthMm` | number or null | Optional. Target output width in mm (ADR-009). |
+| `targetHeightMm` | number or null | Optional. Target output height in mm (ADR-009). |
+
+All depth and mesh params that are restorable from a preset are included so that loading a preset restores depth adjustment, curve, and mesh/export behaviour. Curve control points allow presets to restore the full curve state (BACK-1102, BACK-1103). Target dimensions are optional for “fit to blank” use cases.
+
+### Alignment with app state
+
+- **Depth:** Maps to `DepthAdjustmentParams` (depth_adjust.rs) and undo stack state.
+- **Curve:** Same `curve_control_points` as in `AppSettings` and `DepthAdjustmentParams`.
+- **Mesh:** `step_x`/`step_y` map to `MeshParams`; `target_width_mm`/`target_height_mm` map to `AppSettings` and are used to derive `pixel_to_mm` at mesh generation time (ADR-009).
+
+### Tauri preset commands (BACK-1302, BACK-1303)
+
+The frontend calls these Tauri command names. Backend must register them with the **exact** names and JSON argument names below so the UI (PresetManager, Save/Load, dropdown, Import/Export) works without change.
+
+| Command | Args (JSON keys, snake_case) | Returns | Description |
+|---------|------------------------------|---------|--------------|
+| `list_presets` | *(none)* | `PresetListItem[]` | Combined list: built-in presets (BACK-1303) plus user presets from `~/.simplepicture3d/presets/`. See `PresetListItem` below. |
+| `save_preset` | `name: string`, `path?: string` | `void` | Serialize current app state (depth + curve + mesh) to preset JSON. If `path` is present, write to that file (export); otherwise write to `~/.simplepicture3d/presets/{name}.json`. |
+| `load_preset` | `name_or_path: string` | `void` | Load preset: if `name_or_path` is an absolute path, read from file (import); otherwise resolve by name (user file in presets dir or built-in id). Apply to app state (depth params, curve, mesh, settings). |
+| `delete_preset` | `name: string` | `void` | Delete user preset file `~/.simplepicture3d/presets/{name}.json`. Must not allow deleting built-ins. |
+| `rename_preset` | `old_name: string`, `new_name: string` | `void` | Rename user preset file (old_name → new_name in presets dir). Must not allow renaming built-ins. |
+
+**`PresetListItem` (returned by `list_presets`):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `kind` | `"user" \| "builtin"` | User presets are in presets dir; built-in are from BACK-1303. |
+| `name` | string | Display name (e.g. "My Preset", "Portrait"). |
+| `id` | string | For **user:** preset name (key in presets dir). For **builtin:** id used when calling `load_preset(id)`. |
+
+**Built-in preset ids (BACK-1303):** The frontend expects `list_presets` to include built-in entries with these ids and display names. When the user selects one, the frontend calls `load_preset(id)`.
+
+| id | name (display) |
+|----|----------------|
+| `portrait` | Portrait |
+| `landscape` | Landscape |
+| `high_detail` | High Detail |
+| `low_relief` | Low Relief |
+
+**Frontend reference:** `src/lib/tauri.ts` — `listPresets()`, `savePreset(name, path?)`, `loadPreset(nameOrPath)` (sends `name_or_path`), `deletePreset(name)`, `renamePreset(oldName, newName)` (sends `old_name`, `new_name`). Capabilities: `allow-list-presets`, `allow-list-builtin-presets`, `allow-save-preset`, `allow-load-preset`, `allow-delete-preset`, `allow-rename-preset` in `src-tauri/capabilities/default.json`.
+
+---
+
 ## Python Distribution Strategy
 
 *Added 2026-02-06 per External Consultant Recommendations Report. See ADR-003 for decision.*
