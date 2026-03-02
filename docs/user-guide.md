@@ -11,11 +11,12 @@
 1. [Installation](#installation)
 2. [First conversion walkthrough](#first-conversion-walkthrough)
 3. [Depth controls](#depth-controls)
-4. [3D preview and export](#3d-preview-and-export)
-5. [Settings and target dimensions](#settings-and-target-dimensions)
-6. [AI models and licenses](#ai-models-and-licenses)
-7. [Troubleshooting FAQ](#troubleshooting-faq)
-8. [Related documentation](#related-documentation)
+4. [Undo and redo (Phase 2)](#undo-and-redo-phase-2)
+5. [3D preview and export](#3d-preview-and-export)
+6. [Settings and target dimensions](#settings-and-target-dimensions)
+7. [AI models and licenses](#ai-models-and-licenses)
+8. [Troubleshooting FAQ](#troubleshooting-faq)
+9. [Related documentation](#related-documentation)
 
 ---
 
@@ -139,6 +140,28 @@ After generating a depth map, the **Depth controls** panel appears in the right 
 
 ---
 
+## Undo and redo (Phase 2)
+
+After generating a depth map, you can undo and redo changes to depth adjustments (brightness, contrast, gamma, invert, depth range, and curve control points).
+
+### Toolbar and shortcuts
+
+- **Undo** — Toolbar button or **Ctrl+Z** (Windows/Linux) / **Cmd+Z** (macOS): revert the last change to depth settings.
+- **Redo** — Toolbar button or **Ctrl+Y** or **Ctrl+Shift+Z** (Windows/Linux) / **Cmd+Shift+Z** (macOS): reapply the last undone change.
+- Buttons are disabled when there is nothing to undo or redo.
+
+### Behaviour
+
+- The app keeps the **last 20 actions**; undoing beyond that is not possible.
+- **New image** or **Generate depth** clears the undo/redo history so you start with a clean slate for the new state.
+- Undo and redo apply to depth adjustments and curve edits only; they do not undo loading an image, generating depth, or exporting a file.
+
+### Curve persistence
+
+Your **curve control points** (from the Curves tool) are saved in settings. When you reopen the app or load a new image, the last saved curve is restored so you don’t lose your preferred tone curve.
+
+---
+
 ## 3D preview and export
 
 - **3D preview:** The center viewport shows the mesh. Drag to rotate, scroll to zoom, and use the view options (Points/Wireframe/Solid) as available.
@@ -211,4 +234,4 @@ The app shows which model is in use and its license when you set up or download 
 - [Architecture](architecture.md) — Technical design (for developers).
 - [Screenshot index](images/SCREENSHOTS.md) — List of UI screenshots and where they are used.
 
-**Last updated:** 2026-02-28 (Sprint 1.12; UI Designer — DOC-101)
+**Last updated:** 2026-03-01 (Sprint 2.2; Documentation Specialist — Undo/Redo and curve persistence sections)

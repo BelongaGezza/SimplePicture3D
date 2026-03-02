@@ -53,6 +53,8 @@ export interface AppSettings {
   targetHeightMm?: number | null;
   windowWidth?: number | null;
   windowHeight?: number | null;
+  /** Curve control points (CURVE-001). Persisted in settings; restored on load. */
+  curveControlPoints?: CurvePoint[] | null;
 }
 
 /** Load and validate image at path; returns dimensions, file size, and base64 preview (BACK-101, BACK-105). */
@@ -143,20 +145,45 @@ export async function getDepthAdjustmentParams(): Promise<DepthAdjustmentParams>
   return invoke<DepthAdjustmentParams>("get_depth_adjustment_params");
 }
 
+/** Undo/redo state (BACK-1404). Returned by set/reset/undo/redo/clear_history for UI button state. */
+export interface UndoRedoState {
+  canUndo: boolean;
+  canRedo: boolean;
+  params: DepthAdjustmentParams;
+}
+
+export async function getUndoRedoState(): Promise<UndoRedoState> {
+  return invoke<UndoRedoState>("get_undo_redo_state");
+}
+
 export async function setDepthAdjustmentParams(
   params: DepthAdjustmentParams
-): Promise<void> {
-  return invoke("set_depth_adjustment_params", { params });
+): Promise<UndoRedoState> {
+  return invoke<UndoRedoState>("set_depth_adjustment_params", { params });
 }
 
-export async function resetDepthAdjustments(): Promise<void> {
-  return invoke("reset_depth_adjustments");
+export async function resetDepthAdjustments(): Promise<UndoRedoState> {
+  return invoke<UndoRedoState>("reset_depth_adjustments");
 }
 
-/** Mesh data for 3D preview (BACK-601, BACK-602, 3D_PREVIEW_API.md). Positions/normals in mm. */
+export async function undo(): Promise<UndoRedoState> {
+  return invoke<UndoRedoState>("undo");
+}
+
+export async function redo(): Promise<UndoRedoState> {
+  return invoke<UndoRedoState>("redo");
+}
+
+export async function clearHistory(): Promise<UndoRedoState> {
+  return invoke<UndoRedoState>("clear_history");
+}
+
+/** Mesh data for 3D preview (BACK-601, BACK-602, 3D_PREVIEW_API.md). Positions/normals in mm. Optional indices for triangulated mesh (wireframe/solid). */
 export interface MeshData {
   positions: [number, number, number][];
   normals: [number, number, number][];
+  /** Triangle index buffer (every 3 consecutive = one triangle). When present, Wireframe/Solid modes are available. */
+  indices?: number[];
 }
 
 /** Optional preview_step for reduced-detail preview (BACK-603). Optional target dimensions in mm (ADR-009, scaling). */

@@ -47,9 +47,9 @@ SimplePicture3D/
 | Layer | Technologies | Research File |
 |-------|--------------|---------------|
 | Shell | Tauri | `RESEARCH/tauri.md` |
-| Backend | Rust (image, stl_io, tokio, serde, anyhow) | `RESEARCH/rust-crates.md` |
+| Backend | Rust (image, tokio, serde, anyhow; custom STL/OBJ writers — no stl_io) | `RESEARCH/rust-crates.md` |
 | AI | Python, PyTorch, Depth-Anything-V2/MiDaS | `RESEARCH/python-ml.md` |
-| Frontend | Svelte or React, TypeScript, TailwindCSS | `RESEARCH/frontend.md` |
+| Frontend | Svelte 4, TypeScript, TailwindCSS (ADR-001) | `RESEARCH/frontend.md` |
 | 3D | Three.js | `RESEARCH/threejs.md` |
 
 ## Build Commands (When Source Code Exists)

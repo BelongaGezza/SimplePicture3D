@@ -2,8 +2,7 @@
      SPDX-License-Identifier: MIT -->
 <script lang="ts">
   /**
-   * ExportPanel — UI-701 through UI-704 (Sprint 1.8), UI-801 through UI-804 (Sprint 1.9).
-   * Export panel with format selector (STL/OBJ), export button, progress indicator,
+   * ExportPanel — Export format selector (STL/OBJ), export button, progress indicator,
    * success notification, and settings persistence.
    */
   import Button from "./Button.svelte";

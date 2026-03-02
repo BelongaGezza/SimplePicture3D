@@ -1,8 +1,8 @@
 # SimplePicture3D - Product Requirements Document
 
-**Version:** 1.4  
-**Date:** February 28, 2026  
-**Status:** Phase 1 MVP complete (Sprint 1.12 exit gate: GO); Phase 2 in progress (Sprint 2.1 delivered)  
+**Version:** 1.6
+**Date:** March 1, 2026
+**Status:** Phase 1 MVP complete (Sprint 1.12 exit gate: GO); Phase 2 in progress (Sprint 2.2 delivered)
 **License:** MIT  
 
 ---
@@ -60,17 +60,18 @@ SimplePicture3D is an open-source desktop application that converts 2D images in
 - Integration testing and bug fixes: +2 sprints
 - Buffer for unknowns: +2 sprints
 
-**Current progress (as of 2026-02-28, post Phase 1 exit):**
+**Current progress (as of 2026-03-01, Sprint 2.2 delivered):**
 - **Phase 1 MVP complete** (13 delivery events: Sprints 1.1–1.12 + 1.5A). Exit gate: GO.
 - Sprint 2.1 delivered (histogram, curves, default 40×40 mm target, zoom).
-- Phase 2 sequencing and technical debt per Consultant_Critical_Review_28Feb2026; todo.md v1.3 updated accordingly.
+- Sprint 2.2 delivered (undo/redo F2.4, curve persistence, state management ADR-010, Wireframe/Solid fix). Automated gate PASS (151 Rust tests, 39 frontend tests). Manual QA procedure ready; execution pending.
+- Phase 2 sequencing and technical debt per Consultant_Review_1Mar2026; todo.md updated accordingly.
 
 **Alternative (scope reduction for faster MVP):**
 - Defer OBJ export to Phase 2
 - Defer model download wizard to Phase 2
 - Focus on STL export + manual depth mode for Phase 1
 
-See `todo.md` Phase Overview, `Consultant_Recommendations_Report_7Feb2026.md`, and `Consultant_Recommendations_Report_6Feb2026.md` for details.
+See `todo.md` Phase Overview and `Consultant_Review_1Mar2026.md` for current status. (Prior consultant reports superseded.)
 
 ---
 
@@ -272,7 +273,7 @@ See `todo.md` Phase Overview, `Consultant_Recommendations_Report_7Feb2026.md`, a
 - Window resizable, minimum 1024×768
 
 **Technical Notes:**
-- Tauri + Svelte/React frontend
+- Tauri + Svelte 4 frontend (ADR-001)
 - Responsive layout using CSS Grid/Flexbox
 - Keyboard shortcuts for common actions
 - Tooltips on hover for all controls
@@ -574,10 +575,10 @@ See `todo.md` Phase Overview, `Consultant_Recommendations_Report_7Feb2026.md`, a
 
 #### Frontend (UI)
 - **Framework:** Tauri (Rust wrapper for web technologies)
-- **Web Stack:** Svelte or React + TypeScript
+- **Web Stack:** Svelte 4 + TypeScript (ADR-001)
 - **Styling:** TailwindCSS or CSS Modules
-- **3D Rendering:** Three.js or Babylon.js (via WebGL)
-- **State Management:** Svelte stores or Zustand (React)
+- **3D Rendering:** Three.js (via WebGL)
+- **State Management:** Svelte stores (ADR-001, ADR-010)
 
 #### Backend (Core Logic)
 - **Primary Language:** Rust (mesh generation, file I/O, performance-critical)
@@ -589,7 +590,7 @@ See `todo.md` Phase Overview, `Consultant_Recommendations_Report_7Feb2026.md`, a
 - **Image Loading:** `image` crate (Rust)
 - **Depth Map Processing:** NumPy arrays (Python), passed to Rust via JSON or binary
 - **Mesh Generation:** Custom Rust implementation
-- **File Export:** `stl_io`, `obj` crates (Rust)
+- **File Export:** Custom binary STL and ASCII OBJ writers in `mesh_generator.rs` (ADR-008). No external export crates.
 
 #### AI Models
 - **Depth Estimation:** Depth-Anything-V2 (recommended) or MiDaS v3.1
@@ -1336,6 +1337,7 @@ The following are **not** scheduled for Phases 1–4 but are candidates for a fu
 | 1.3 | 2026-02-21 | System Architect | §11.1: Added deferred feature "Full 3D Reconstruction Mode" (single image → watertight mesh via TripoSR; Phase 2, ~4 sprints). §11.2: Clarified non-goal "Full 3D modeling suite" = Blender-like editor; distinguished from AI full 3D reconstruction. todo.md: Phase 2 optional track and RESEARCH/architecture.md "Future: Full 3D mode" added per RESEARCH/3d-reconstruction.md and 3d-reconstruction-models.md. |
 | 1.4 | 2026-02-22 | System Architect | §11.1 Full 3D: Revised to align with RESEARCH/3d-reconstruction.md (2026-02-22). Pipeline is point-cloud-centric: TripoSR → surface sampling (Poisson) → dimensioned point cloud; crystal blank dimensioning; XYZ/PLY/CSV export for engravers; ~4–5 sprints. todo.md and RESEARCH/architecture.md "Future: Full 3D" updated to match. |
 | 1.5 | 2026-02-28 | System Architect | Consultant_Critical_Review_28Feb2026 response: Status header → Phase 1 complete, Phase 2 in progress. §2.4 timeline → as-built 13 sprints. F1.6 Technical Notes → custom STL/OBJ writers (ADR-008), no stl_io crate. §5.2 diagram → Svelte 4, subprocess (temp file → stdout). |
+| 1.6 | 2026-03-01 | System Architect | Consultant_Review_1Mar2026 response (Sprint 2.2): Status → Sprint 2.2 delivered. Current progress updated. §5.1 Frontend → Svelte 4 + TypeScript (ADR-001), Svelte stores (ADR-010). §5.1 Data Processing File Export → custom writers (ADR-008), no stl_io. F1.7 Technical Notes → Svelte 4. Phase 2 security note updated (SEC-202 still open). |
 
 ---
 

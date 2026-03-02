@@ -16,6 +16,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.0-beta.1] - TBD (Phase 2 — Sprint 2.2)
+
+Phase 2 Enhanced UX: undo/redo, curve persistence, state ADR, Wireframe/Solid and UI polish.
+
+### Added
+
+- **Undo/Redo (F2.4)** — Toolbar Undo/Redo buttons; keyboard shortcuts Ctrl+Z (undo), Ctrl+Y / Ctrl+Shift+Z (redo). Last 20 actions; history cleared on new image or generate depth. Applies to depth params and curve control points.
+- **Curve persistence** — Curve control points saved in AppSettings and restored on load (Consultant §2.6; CURVE-001).
+- **Tauri commands** — `undo`, `redo`, `clear_history`; return current state and can_undo/can_redo for UI (BACK-1404).
+- **State management ADR (TD-01)** — ADR-010 in RESEARCH/architecture.md: Svelte store vs backend sync, single source of truth for depth and history.
+
+### Changed
+
+- **Wireframe/Solid (TD-02)** — Wireframe and Solid 3D view modes fixed to use mesh indices, or controls removed/hidden with clear UX.
+- **UI** — Internal sprint references (e.g. "Sprint 1.8") removed from user-facing messages (UI-1404).
+- **Documentation** — User guide: Undo and redo (Phase 2), curve persistence. Developer guide: undo/redo/clear_history commands, ADR-009/ADR-010 links.
+
+### Technical
+
+- Command pattern and history stack in Rust (BACK-1401, BACK-1402); depth adjustments wrapped in commands (BACK-1403). Tests for execute/undo and history cap at 20 (JR2-1401, JR2-1402).
+
+---
+
 ## [0.1.0-beta.1] - TBD (MVP / Phase 1 Beta)
 
 First beta release for Phase 1 MVP. Targets internal UV laser engraving of K9 crystal, glass, and acrylic.
@@ -50,5 +73,6 @@ First beta release for Phase 1 MVP. Targets internal UV laser engraving of K9 cr
 
 ---
 
-[Unreleased]: https://github.com/BelongaGezza/SimplePicture3D/compare/v0.1.0-beta.1...HEAD
+[Unreleased]: https://github.com/BelongaGezza/SimplePicture3D/compare/v0.2.0-beta.1...HEAD
+[0.2.0-beta.1]: https://github.com/BelongaGezza/SimplePicture3D/compare/v0.1.0-beta.1...v0.2.0-beta.1
 [0.1.0-beta.1]: https://github.com/BelongaGezza/SimplePicture3D/releases/tag/v0.1.0-beta.1

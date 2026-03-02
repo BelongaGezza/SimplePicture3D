@@ -25,14 +25,19 @@
   let ambientLight: THREE.AmbientLight | undefined;
   let directionalLight: THREE.DirectionalLight | undefined;
   let pointCloud: THREE.Points | null = null;
+  /** Triangulated mesh for Wireframe/Solid modes (when MeshData has indices). */
+  let triangulatedMeshObj: THREE.Mesh | null = null;
   let animationId: number | null = null;
   let resizeObserver: ResizeObserver | null = null;
+
+  /** True when current mesh has triangle indices (Wireframe/Solid available). */
+  $: triangulatedMesh = triangulatedMeshObj != null;
 
   /** UI-503: loading and error state */
   let meshLoading = false;
   let meshError = "";
 
-  /** UI-506: render mode — "points" | "wireframe" | "solid" (wireframe/solid placeholder until Sprint 1.8) */
+  /** UI-506: render mode — "points" | "wireframe" | "solid" */
   let renderMode: "points" | "wireframe" | "solid" = "points";
 
   /** JR1-501: mesh bounding box for camera presets (set when mesh loaded). */
@@ -56,9 +61,31 @@
     savedPointCloud: THREE.Points | null;
   } | null = null;
 
-  /** Update point cloud visibility when render mode changes (Points = visible; Wireframe/Solid = hide until 1.8). */
+  /** Update point cloud and triangulated mesh visibility when render mode changes. */
   $: if (pointCloud) {
-    pointCloud.visible = renderMode === "points";
+    pointCloud.visible = renderMode === "points" || !triangulatedMesh;
+  }
+  $: if (triangulatedMeshObj) {
+    triangulatedMeshObj.visible = renderMode === "wireframe" || renderMode === "solid";
+    const mat = triangulatedMeshObj.material as THREE.Material;
+    if (renderMode === "wireframe") {
+      if (!(mat instanceof THREE.MeshBasicMaterial) || !mat.wireframe) {
+        triangulatedMeshObj.material.dispose();
+        triangulatedMeshObj.material = new THREE.MeshBasicMaterial({
+          color: 0x4a90d9,
+          wireframe: true,
+        });
+      }
+    } else {
+      if (!(mat instanceof THREE.MeshPhongMaterial)) {
+        triangulatedMeshObj.material.dispose();
+        triangulatedMeshObj.material = new THREE.MeshPhongMaterial({
+          color: 0x4a90d9,
+          side: THREE.DoubleSide,
+          shininess: 30,
+        });
+      }
+    }
   }
   /** JR1-505: apply lighting control values in real time. */
   $: if (ambientLight) ambientLight.intensity = ambientIntensity;
@@ -120,6 +147,50 @@
       sizeAttenuation: true,
     });
     return new THREE.Points(geometry, material);
+  }
+
+  /**
+   * Build indexed BufferGeometry and THREE.Mesh for Wireframe/Solid modes (UI-1403).
+   * Uses same Y-flip as buildPointCloud. Returns null if no indices or invalid.
+   */
+  function buildTriangulatedMesh(meshData: MeshData): THREE.Mesh | null {
+    const posList = meshData.positions ?? [];
+    const normList = meshData.normals ?? [];
+    const idxList = meshData.indices ?? [];
+    const n = posList.length;
+    if (n === 0 || idxList.length < 3 || idxList.length % 3 !== 0) return null;
+    const maxY =
+      n > 0 ? Math.max(...posList.map((p) => (p && p[1] != null ? p[1] : 0))) : 0;
+    const positions = new Float32Array(n * 3);
+    const normals = new Float32Array(n * 3);
+    const defaultNormal = [0, 0, 1] as const;
+    for (let i = 0; i < n; i++) {
+      const p = posList[i];
+      const q = normList[i] ?? defaultNormal;
+      const px = p && p[0] != null ? p[0] : 0;
+      const py = p && p[1] != null ? p[1] : 0;
+      const pz = p && p[2] != null ? p[2] : 0;
+      positions[i * 3 + 0] = px;
+      positions[i * 3 + 1] = maxY - py;
+      positions[i * 3 + 2] = pz;
+      const qx = q[0] != null && !Number.isNaN(q[0]) ? q[0] : 0;
+      const qy = q[1] != null && !Number.isNaN(q[1]) ? q[1] : 0;
+      const qz = q[2] != null && !Number.isNaN(q[2]) ? q[2] : 1;
+      normals[i * 3 + 0] = qx;
+      normals[i * 3 + 1] = -qy;
+      normals[i * 3 + 2] = qz;
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
+    geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(idxList), 1));
+    geometry.computeBoundingSphere();
+    const material = new THREE.MeshPhongMaterial({
+      color: 0x4a90d9,
+      side: THREE.DoubleSide,
+      shininess: 30,
+    });
+    return new THREE.Mesh(geometry, material);
   }
 
   /** JR1-504: Create synthetic point cloud for performance testing. */
@@ -186,6 +257,12 @@
       if (targetWidthMm != null && targetWidthMm > 0) opts.targetWidthMm = targetWidthMm;
       if (targetHeightMm != null && targetHeightMm > 0) opts.targetHeightMm = targetHeightMm;
       const data = await getMeshData(opts);
+      if (triangulatedMeshObj) {
+        scene.remove(triangulatedMeshObj);
+        triangulatedMeshObj.geometry.dispose();
+        triangulatedMeshObj.material.dispose();
+        triangulatedMeshObj = null;
+      }
       if (pointCloud) {
         scene.remove(pointCloud);
         pointCloud.geometry.dispose();
@@ -203,6 +280,12 @@
       pointCloud = buildPointCloud(data);
       pointCloud.visible = renderMode === "points";
       scene.add(pointCloud);
+      const triMesh = buildTriangulatedMesh(data);
+      if (triMesh) {
+        triMesh.visible = renderMode === "wireframe" || renderMode === "solid";
+        scene.add(triMesh);
+        triangulatedMeshObj = triMesh;
+      }
       // Fit camera to point cloud; store box for JR1-501 presets
       const box = new THREE.Box3().setFromObject(pointCloud);
       const center = box.getCenter(new THREE.Vector3());
@@ -345,6 +428,12 @@
     resizeObserver?.disconnect();
     resizeObserver = null;
     if (animationId != null) cancelAnimationFrame(animationId);
+    if (triangulatedMeshObj) {
+      scene?.remove(triangulatedMeshObj);
+      triangulatedMeshObj.geometry.dispose();
+      triangulatedMeshObj.material.dispose();
+      triangulatedMeshObj = null;
+    }
     if (pointCloud) {
       scene?.remove(pointCloud);
       pointCloud.geometry.dispose();
@@ -364,14 +453,14 @@
     role="img"
     aria-label="3D mesh preview"
   >
-    <!-- Overlay when Wireframe/Solid selected: no triangulated mesh yet (Sprint 1.8) -->
-    {#if (renderMode === "wireframe" || renderMode === "solid") && pointCloud}
+    <!-- Overlay when Wireframe/Solid selected but mesh has no triangles -->
+    {#if (renderMode === "wireframe" || renderMode === "solid") && pointCloud && !triangulatedMesh}
       <div
         class="absolute inset-0 flex items-center justify-center bg-slate-800/80 z-10 pointer-events-none rounded"
         aria-live="polite"
       >
         <p class="text-slate-300 text-sm px-4 py-2 bg-slate-900/90 rounded border border-slate-600">
-          {renderMode === "wireframe" ? "Wireframe" : "Solid"} mode requires a triangulated mesh (Sprint 1.8). Use <strong>Points</strong> for now.
+          {renderMode === "wireframe" ? "Wireframe" : "Solid"} mode requires a triangulated mesh. Use <strong>Points</strong> for this mesh.
         </p>
       </div>
     {/if}
@@ -433,7 +522,7 @@
         type="button"
         class="px-2 py-1 rounded {renderMode === 'wireframe' ? 'bg-slate-600 ring-1 ring-slate-400' : 'bg-slate-700 hover:bg-slate-600'} focus:outline-none focus:ring-2 focus:ring-slate-400"
         on:click={() => (renderMode = "wireframe")}
-        title="Placeholder until Sprint 1.8 (triangulated mesh)"
+        title="Show mesh as wireframe (when triangulated)"
       >
         Wireframe
       </button>
@@ -441,14 +530,14 @@
         type="button"
         class="px-2 py-1 rounded {renderMode === 'solid' ? 'bg-slate-600 ring-1 ring-slate-400' : 'bg-slate-700 hover:bg-slate-600'} focus:outline-none focus:ring-2 focus:ring-slate-400"
         on:click={() => (renderMode = "solid")}
-        title="Placeholder until Sprint 1.8 (triangulated mesh)"
+        title="Show shaded mesh (when triangulated)"
       >
         Solid
       </button>
     </div>
-    {#if renderMode === "wireframe" || renderMode === "solid"}
+    {#if (renderMode === "wireframe" || renderMode === "solid") && !triangulatedMesh && pointCloud}
       <span class="text-slate-500 text-xs" role="status">
-        (Placeholder — triangulated mesh in Sprint 1.8)
+        (Triangulated mesh required)
       </span>
     {/if}
     <!-- JR1-505: Lighting controls -->

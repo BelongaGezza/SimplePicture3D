@@ -9,6 +9,8 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+use crate::depth_adjust::CurvePoint;
+
 /// Application settings persisted between sessions (BACK-706, BACK-804, BACK-805).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -47,6 +49,11 @@ pub struct AppSettings {
     pub target_width_mm: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_height_mm: Option<f32>,
+
+    /// Curve control points for depth remapping (CURVE-001, Consultant §2.6). Persisted so curve
+    /// survives restart; applied to depth adjustment on load.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub curve_control_points: Option<Vec<CurvePoint>>,
 }
 
 impl AppSettings {
@@ -185,6 +192,7 @@ mod tests {
         assert!(s.window_height.is_none());
         assert!(s.target_width_mm.is_none());
         assert!(s.target_height_mm.is_none());
+        assert!(s.curve_control_points.is_none());
     }
 
     #[test]
@@ -235,6 +243,23 @@ mod tests {
         assert!(loaded.export_format.is_none());
         assert!(loaded.depth_brightness.is_none());
         assert!(loaded.window_width.is_none());
+    }
+
+    #[test]
+    fn settings_curve_control_points_roundtrip() {
+        use crate::depth_adjust::CurvePoint;
+        let mut s = AppSettings::default();
+        s.curve_control_points = Some(vec![
+            CurvePoint { x: 0.0, y: 0.0 },
+            CurvePoint { x: 0.5, y: 0.25 },
+            CurvePoint { x: 1.0, y: 1.0 },
+        ]);
+        let json = serde_json::to_string(&s).unwrap();
+        let loaded: AppSettings = serde_json::from_str(&json).unwrap();
+        let pts = loaded.curve_control_points.as_ref().unwrap();
+        assert_eq!(pts.len(), 3);
+        assert!((pts[0].x - 0.0).abs() < 1e-6);
+        assert!((pts[1].y - 0.25).abs() < 1e-6);
     }
 
     #[test]

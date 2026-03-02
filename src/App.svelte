@@ -15,6 +15,9 @@
     getDepthAdjustmentParams,
     setDepthAdjustmentParams,
     resetDepthAdjustments,
+    getUndoRedoState,
+    undo as tauriUndo,
+    redo as tauriRedo,
     checkModel,
     getSettings,
     saveSettings,
@@ -27,9 +30,9 @@
   let loadError = "";
   let loadedResult: LoadImageResult | null = null;
 
-  /** Sprint 1.10: Show first-run wizard if model is not installed (UI-901). */
+  /** Show first-run wizard if model is not installed (UI-901). */
   let showWizard = false;
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   onMount(async () => {
     try {
       const modelStatus = await checkModel();
@@ -39,6 +42,25 @@
     } catch {
       // Model check failed; don't block the app
     }
+    // CURVE-001: Sync depth params (including restored curve) from backend so CurvesTool shows persisted curve.
+    try {
+      const params = await getDepthAdjustmentParams();
+      adjustmentParams = params;
+    } catch {
+      // Non-critical; keep default params
+    }
+    // UI-1401: Sync undo/redo button state from backend (BACK-1404).
+    try {
+      const undoState = await getUndoRedoState();
+      canUndo = undoState.canUndo;
+      canRedo = undoState.canRedo;
+    } catch {
+      // Non-critical
+    }
+    window.addEventListener("keydown", onKeyDown);
+  });
+  onDestroy(() => {
+    window.removeEventListener("keydown", onKeyDown);
   });
 
   /** Depth map for preview (BACK-303, UI-301/302). Adjusted by backend when params change (UI-404). */
@@ -74,6 +96,10 @@
   const DEBOUNCE_MS = 80;
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
+  /** UI-1401/1402: Undo/Redo state from backend (BACK-1404). Buttons disabled when nothing to undo/redo. */
+  let canUndo = false;
+  let canRedo = false;
+
   /** Preview URL: base64 from backend (BACK-101, UI-103). */
   $: previewUrl = loadedResult?.previewBase64
     ? `data:image/png;base64,${loadedResult.previewBase64}`
@@ -98,6 +124,9 @@
     depthMap = null;
     depthError = "";
     histogramData = null;
+    // Backend clears undo history on new image load (ARCH); keep UI in sync.
+    canUndo = false;
+    canRedo = false;
   }
 
   async function handleLoadSuccess(result: LoadImageResult) {
@@ -153,7 +182,9 @@
     debounceTimer = null;
     if (!depthMap) return;
     try {
-      await setDepthAdjustmentParams(adjustmentParams);
+      const undoState = await setDepthAdjustmentParams(adjustmentParams);
+      canUndo = undoState.canUndo;
+      canRedo = undoState.canRedo;
       if (import.meta.env.DEV) console.time("getDepthMap");
       const [result, hist] = await Promise.all([getDepthMap(), getDepthHistogram()]);
       if (import.meta.env.DEV) {
@@ -192,7 +223,9 @@
   /** UI-405: Reset adjustments and refresh preview from original depth. */
   async function handleResetDepth() {
     try {
-      await resetDepthAdjustments();
+      const undoState = await resetDepthAdjustments();
+      canUndo = undoState.canUndo;
+      canRedo = undoState.canRedo;
       adjustmentParams = await getDepthAdjustmentParams();
       if (import.meta.env.DEV) console.time("getDepthMap");
       const [result, hist] = await Promise.all([getDepthMap(), getDepthHistogram()]);
@@ -207,9 +240,63 @@
       status = "Reset error: " + String(e);
     }
   }
+
+  /** UI-1401: Undo last action; refresh params and preview from backend (BACK-1404). */
+  async function handleUndo() {
+    try {
+      const state = await tauriUndo();
+      canUndo = state.canUndo;
+      canRedo = state.canRedo;
+      adjustmentParams = await getDepthAdjustmentParams();
+      if (depthMap) {
+        const [result, hist] = await Promise.all([getDepthMap(), getDepthHistogram()]);
+        if (result) depthMap = { width: result.width, height: result.height, depth: result.depth };
+        histogramData = hist;
+      }
+      status = "Undo";
+    } catch {
+      canUndo = false;
+      canRedo = false;
+    }
+  }
+
+  /** UI-1401: Redo last undone action; refresh params and preview from backend (BACK-1404). */
+  async function handleRedo() {
+    try {
+      const state = await tauriRedo();
+      canUndo = state.canUndo;
+      canRedo = state.canRedo;
+      adjustmentParams = await getDepthAdjustmentParams();
+      if (depthMap) {
+        const [result, hist] = await Promise.all([getDepthMap(), getDepthHistogram()]);
+        if (result) depthMap = { width: result.width, height: result.height, depth: result.depth };
+        histogramData = hist;
+      }
+      status = "Redo";
+    } catch {
+      canUndo = false;
+      canRedo = false;
+    }
+  }
+
+  /** UI-1402: Keyboard shortcuts for undo (Ctrl+Z) and redo (Ctrl+Y / Ctrl+Shift+Z). */
+  function onKeyDown(e: KeyboardEvent) {
+    if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+      if (e.shiftKey) {
+        e.preventDefault();
+        if (canRedo) handleRedo();
+      } else {
+        e.preventDefault();
+        if (canUndo) handleUndo();
+      }
+    } else if ((e.ctrlKey || e.metaKey) && e.key === "y") {
+      e.preventDefault();
+      if (canRedo) handleRedo();
+    }
+  }
 </script>
 
-<!-- Sprint 1.10: First-run wizard (UI-901) -->
+<!-- First-run wizard (UI-901) -->
 <FirstRunWizard visible={showWizard} on:close={() => (showWizard = false)} />
 
 <!-- UI-305: Side-by-side layout — original (left) and depth map (right) on same screen; min 1024×768 per prd -->
@@ -323,9 +410,32 @@
     </aside>
   </main>
 
-  <!-- Bottom: output scale (zoom) + export panel + status bar (UI-701–704, scaling) -->
+  <!-- Bottom: status, undo/redo (UI-1401), output scale, export panel -->
   <footer class="shrink-0 border-t border-slate-200 bg-white px-4 py-2 flex items-center justify-between gap-4 flex-wrap">
-    <div class="text-sm text-slate-500" role="status" aria-live="polite" aria-label={status}>{status}</div>
+    <div class="flex items-center gap-3">
+      <div class="text-sm text-slate-500" role="status" aria-live="polite" aria-label={status}>{status}</div>
+      <!-- UI-1401: Undo/Redo (BACK-1404); disabled when nothing to undo/redo -->
+      <div class="flex items-center gap-1" role="group" aria-label="Undo and redo">
+        <button
+          type="button"
+          class="px-2 py-1 text-sm rounded border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
+          title="Undo (Ctrl+Z)"
+          disabled={!canUndo}
+          on:click={handleUndo}
+        >
+          Undo
+        </button>
+        <button
+          type="button"
+          class="px-2 py-1 text-sm rounded border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
+          title="Redo (Ctrl+Y)"
+          disabled={!canRedo}
+          on:click={handleRedo}
+        >
+          Redo
+        </button>
+      </div>
+    </div>
     <!-- Scaling: default 40×40 mm; zoom to scale target (depth-map and 3D preview dimension to fit). -->
     <div class="flex items-center gap-2" role="group" aria-label="Output scale and target size">
       <span class="text-xs text-slate-500">Target:</span>

@@ -3,13 +3,13 @@
 **Purpose:** System architecture and data flow for SimplePicture3D.
 
 **Source:** Derived from `prd.md` §5.2, §5.3, §5.4.  
-**Last checked:** 2026-02-28
+**Last checked:** 2026-03-01
 
 ---
 
 ## Architecture Decision Records (ADRs)
 
-*Added 2026-02-06 per External Consultant Recommendations Report.*
+*ADRs initiated 2026-02-06 per External Consultant Recommendations Report. ADR-008 winding order corrected 2026-02-28. ADR-009 added Sprint 2.1. ADR-010 added Sprint 2.2. Current status: see Consultant_Review_1Mar2026.md.*
 
 ### ADR-001: Svelte over React
 
@@ -91,7 +91,7 @@
 - Cross-platform testing must verify Python availability detection
 - Document troubleshooting for common Python issues (venv, PATH, etc.)
 
-**SEC-202 verification status (2026-02-28):** The `download_model` flow uses `huggingface_hub.snapshot_download` or `transformers.from_pretrained`; both use HTTPS and the Hugging Face API’s own integrity mechanisms. There is **no** explicit SHA256 verification against a checksum stored in the repo or RESEARCH (trusted source per SEC-202). Phase 2 security task: either (a) add post-download SHA256 check against hashes documented in RESEARCH/repo, or (b) formally document acceptance of HF integrity and get security sign-off. See Consultant_Critical_Review_28Feb2026.md §2.5.
+**SEC-202 verification status (updated 2026-03-01):** The `download_model` flow uses `huggingface_hub.snapshot_download` or `transformers.from_pretrained`; both use HTTPS and HF’s own integrity mechanisms. There is **no** explicit SHA256 verification against a checksum stored in this repo (trusted source per SEC-202). **Still open at Sprint 2.2 close.** Phase 2 security task (not optional): Security Specialist must verify before Sprint 2.4 — either (a) add post-download SHA256 check against hashes documented in RESEARCH, or (b) formally document acceptance of HF integrity and get security sign-off. See Consultant_Review_1Mar2026.md §3.1 (action item #1).
 
 ---
 
@@ -323,6 +323,102 @@ Returns the index buffer for the grid. Called after `depth_to_point_cloud` to po
 
 ---
 
+### Undo/Redo Architecture (Sprint 2.2, ARCH-401–ARCH-403)
+
+**Status:** Accepted (design)  
+**Date:** 2026-03-01  
+**Context:** PRD F2.4 requires undo last 20 actions, redo, and keyboard shortcuts. Scheduled Sprint 2.2 per consultant recommendation; delivered 2026-03-01. See Consultant_Review_1Mar2026.md §2.
+
+#### ARCH-401: Command pattern and integration
+
+**Decision: Undo/redo uses a command pattern with history held in the Rust backend.**
+
+1. **Where commands live:** **Rust backend** (`src-tauri/src/`). The single source of truth for mutable depth state is `AppState.adjustment_params` (and, when persisted, curve in `AppSettings`). Commands are implemented in Rust; each command captures the previous state needed to undo (e.g. previous `DepthAdjustmentParams` or delta).
+
+2. **Command contract:** Each undoable operation is a **command** with:
+   - **execute(ctx):** Apply the change; update `AppState.adjustment_params` (and optionally sync to frontend via return value or event).
+   - **undo(ctx):** Restore state from the snapshot stored in the command (e.g. restore previous params).
+   - Optional: **description** for UI (e.g. "Brightness +0.1") for a future action panel.
+
+3. **Integration with existing flow:**
+   - **Current flow:** Frontend calls `set_depth_adjustment_params` → backend mutates `adjustment_params`; `get_depth_map` / `get_mesh_data` read current params. No history today.
+   - **New flow:** Frontend continues to call a single "apply adjustment" entry point (or multiple granular ones). Backend creates a command (e.g. `SetDepthParams { previous, next }`), runs `execute` (writes `next` into `AppState`), pushes command onto **undo stack**. Undo: pop command, call `undo` (writes `previous` back). Redo: push undone command onto **redo stack**; redo pops and re-executes.
+   - **IPC:** New Tauri commands `undo`, `redo`, `clear_history` return success and **current state** (e.g. `DepthAdjustmentParams` and `can_undo` / `can_redo`) so the frontend can update UI and disable buttons without extra round-trips.
+
+4. **Frontend role:** Frontend does **not** hold a duplicate history stack. It invokes `undo` / `redo`; backend returns the new state; frontend updates local Svelte state (e.g. depth params store) from the response so the UI reflects the reverted state. Single source of truth remains backend.
+
+#### ARCH-402: Mutable operations to track (Sprint 2.2 scope)
+
+**In scope for Sprint 2.2 (undoable):**
+
+| Operation | Description | Command stores |
+|----------|-------------|----------------|
+| Depth brightness change | Slider / input | Previous + next `DepthAdjustmentParams` (or brightness only if granular) |
+| Depth contrast change | Slider / input | Previous + next params |
+| Depth gamma change | Slider / input | Previous + next params |
+| Depth invert toggle | Checkbox | Previous + next params |
+| Depth range (min/max mm) | Sliders | Previous + next params |
+| Curve control points change | CurvesTool drag/preset | Previous + next `curve_control_points` (or full params) |
+
+**Out of scope for 2.2 (not undoable this sprint):**
+
+- **Load image:** Clears history per PRD F2.4 ("Clear history on new image load"). No need to undo "load" as a step.
+- **Generate depth:** Not in undo stack; PRD note "Disable undo/redo during mesh generation" — treat as one-shot action.
+- **Target dimensions / zoom:** Can be added in a later sprint if desired; not required for F2.4.
+- **Export STL/OBJ:** Not undoable (side-effect to disk).
+
+**Scope agreement:** Depth adjustments only (including curve). Masking, brushes, and other state-mutation features (Phase 2 later) will add their own commands and reuse the same history stack contract.
+
+**Open verification (Consultant_Review_1Mar2026 §4.1):** Confirm that curve control point mutations (CurvesTool drag / preset) create `SetDepthParamsCommand` entries in the undo stack — not only written to `AppSettings` for persistence. The CHANGELOG states undo covers curve control points; implementation must be verified before Sprint 2.3. If curve changes bypass the stack, Ctrl+Z has no effect on curve state.
+
+#### ARCH-403: History stack memory budget
+
+**Decision:**
+
+- **Max undo stack size:** **20** actions (per PRD F2.4 and todo.md).
+- **When limit reached:** **Drop oldest.** On execute, if undo stack length would exceed 20, remove the oldest entry (bottom of stack) before pushing the new command. FIFO eviction.
+- **Redo stack:** When user performs a **new** action (not redo), **clear the redo stack** so redo only reapplies previously undone actions in order.
+- **Serialization:** Each command holds a snapshot of `DepthAdjustmentParams` (or a delta). Memory per entry is small (order of hundreds of bytes for params + optional curve points). 20 entries stay well under any reasonable budget; no need for lazy or compressed serialization for 2.2.
+
+---
+
+### ADR-010: State Management — Svelte Stores and Backend Sync (TD-01)
+
+**Status:** Accepted  
+**Date:** 2026-03-01  
+**Context:** Technical debt TD-01: no documented design for Svelte store vs Tauri state. Required before further state-mutation features (masking, brushes). TD-01 closed Sprint 2.2. See Consultant_Review_1Mar2026.md §2.3.
+
+**Decision: Hybrid — backend is source of truth for mutable depth state; frontend mirrors via IPC.**
+
+1. **Backend (Rust) owns:**
+   - **Depth map** (original from Python) and **depth adjustment params** (`DepthAdjustmentParams`: brightness, contrast, gamma, invert, depth range, curve control points). Stored in `AppState` (`depth`, `adjustment_params`).
+   - **Undo/redo stacks** (command history). No duplicate stack on frontend.
+   - **Persistent settings** (`AppSettings`): last export dir, export format, depth params for session restore, target dimensions, **curve control points** (CURVE-001). Loaded on startup; saved on export / explicit save / or when curve or key params change (per product behaviour).
+
+2. **Frontend (Svelte) holds:**
+   - **Mirror of depth params** (and curve) for reactive UI: sliders, curve editor, preview. Updated when: (a) user changes a control → invoke backend → backend updates AppState and returns new params → frontend updates store; (b) user invokes undo/redo → backend returns new params → frontend updates store; (c) on load, from `get_depth_adjustment_params` or get_settings.
+   - **Can-undo / can-redo flags** (or derived from backend response after each undo/redo/invocation) to enable/disable toolbar buttons and shortcuts.
+   - **Non-mutable UI state:** which panel is open, zoom percentage, target dimensions for display, etc. No need to round-trip these for undo unless product later decides otherwise.
+
+3. **Sync rules:**
+   - **Single source of truth for depth params:** Backend. Every mutation goes through Tauri commands. Frontend never "optimistically" holds the only copy of a depth param that can be undone.
+   - **After undo/redo:** Backend returns the restored `DepthAdjustmentParams` (and optionally full state); frontend overwrites its depth-params store so the UI reflects the reverted state.
+   - **New image load:** Backend clears history and resets params (or applies defaults); frontend clears local mirror and re-fetches params if needed.
+
+4. **Guidance for future state-mutation features (masking, brushes):**
+   - New mutable state (e.g. mask bitmap, brush strokes) should follow the same pattern: backend holds authoritative state and history entries; frontend mirrors for reactivity and invokes commands for every mutation. Do not introduce a second source of truth for undoable state on the frontend.
+
+**Rationale:** Keeps undo/redo semantics simple (one stack, one owner), avoids desync between frontend and backend, and sets a clear pattern for Phase 2 masking/brushes.
+
+**Pre-Sprint 2.5 action (Consultant_Review_1Mar2026 §4.5, §6):** Before masking sprint planning begins, the Architect and Senior Engineer must assess whether the current `SetDepthParamsCommand` struct (a flat snapshot of `DepthAdjustmentParams`) adequately models mask state (regions, brush strokes, layer blending). Masking likely requires a new command type. ADR-010 should be extended — or a new ADR authored — covering the mask command contract before Sprint 2.5 begins.
+
+**Consequences:**
+- BACK-1401–1404 implement command trait, history stack, and Tauri undo/redo/clear_history; frontend uses command responses to update UI.
+- CURVE-001 persists curve in AppSettings; load/save round-trip through backend.
+- UI-1401/1402 wire buttons and shortcuts to backend; disable state derived from backend return values.
+
+---
+
 ### Future: Full 3D Reconstruction Mode (Phase 2, optional)
 
 **Context:** Single-image **full 3D** reconstruction produces a watertight mesh; internal UV laser engraving consumes **point clouds** (3D coordinates), not meshes. So the Full 3D pipeline must produce a **dimensioned point cloud** (mm), same as 2.5D — generated by **surface sampling** the AI mesh rather than from a depth grid. Use cases: 3D crystal engraving, 3D printing, multi-angle viewing. See RESEARCH/3d-reconstruction.md (last checked 2026-02-22).
@@ -379,6 +475,7 @@ Tauri desktop app: Rust backend, Svelte 4 frontend, Python subprocess for AI inf
 | `mesh_generator.rs` | Point cloud, grid triangulation (ADR-008), STL/OBJ writers, validation (BACK-501–506, BACK-700–702, BACK-801–803) |
 | `python_bridge.rs` | Subprocess depth estimation (BACK-201–205), progress protocol |
 | `settings.rs` | AppSettings load/save (BACK-706, BACK-804–805) |
+| `undo.rs` | Undo/redo command pattern, history stack (BACK-1401–1404, ARCH-403); `SetDepthParamsCommand`, `UndoRedoHistory` |
 
 **STL/OBJ export:** Implemented as **custom** binary STL and ASCII OBJ (+ MTL) writers in `mesh_generator.rs`; the project does **not** use `stl_io` or `obj-exporter` crates (see Key Interfaces below).
 
@@ -452,7 +549,8 @@ SimplePicture3D/
 │   │   ├── depth_adjust.rs  # Depth adjustments (gamma, range, invert)
 │   │   ├── mesh_generator.rs # Point cloud, grid triangulation, STL/OBJ export (no exporters/; consolidated here per ADR-008)
 │   │   ├── python_bridge.rs # Python subprocess, depth map I/O
-│   │   └── settings.rs      # App settings persistence
+│   │   ├── settings.rs      # App settings persistence
+│   │   └── undo.rs         # Undo/redo (BACK-1401–1404)
 │   ├── Cargo.toml
 │   └── tauri.conf.json
 │
@@ -578,7 +676,7 @@ See **ADR-009** above for full decision, API options, and UI/preset notes.
 
 ## Key Interfaces
 
-- **Tauri commands:** `load_image`, `generate_depth_map`, `get_depth_map`, **`get_depth_histogram`** (256 bins of current adjusted depth, BACK-1101), `set_depth_adjustment_params`, `get_depth_adjustment_params`, `reset_depth_adjustments`, `get_mesh_data` (optional `target_width_mm`, `target_height_mm`), `export_stl`, `export_obj`, `get_settings`, `save_settings`, `check_model`, `get_model_info`, `download_model`
+- **Tauri commands:** `load_image`, `generate_depth_map`, `get_depth_map`, **`get_depth_histogram`** (256 bins of current adjusted depth, BACK-1101), `set_depth_adjustment_params`, `get_depth_adjustment_params`, `reset_depth_adjustments`, **`undo`, `redo`, `clear_history`** (Sprint 2.2, BACK-1404 — return success + current params + can_undo/can_redo), `get_mesh_data` (optional `target_width_mm`, `target_height_mm`), `export_stl`, `export_obj`, `get_settings`, `save_settings`, `check_model`, `get_model_info`, `download_model`
 - **STL/OBJ export:** Implemented as **custom** binary STL and ASCII OBJ (with .mtl) writers in `src-tauri/src/mesh_generator.rs`. The project does **not** use the `stl_io` or `obj-exporter` crates; the PRD §5.4 notion of a separate `exporters/` module was consolidated into `mesh_generator.rs` (ADR-008, Sprint 1.8/1.9). See RESEARCH/rust-crates.md for crate guidance vs as-built.
 - **Python interface (Sprint 1.3):** See **docs/architecture.md** § "Rust–Python Bridge (Sprint 1.3)" for the full IPC contract:
   - **Image input:** Temp file path only (`--input <path>`); path validated, under system temp dir (ARCH-102).

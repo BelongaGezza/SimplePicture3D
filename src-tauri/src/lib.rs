@@ -9,6 +9,7 @@
 
 pub mod depth_adjust;
 mod file_io;
+pub mod undo;
 mod image_loading;
 pub mod mesh_generator;
 mod python_bridge;
@@ -19,6 +20,7 @@ use tauri::State;
 
 use depth_adjust::{apply_adjustments, compute_histogram, DepthAdjustmentParams};
 use mesh_generator::{depth_to_point_cloud, MeshData, MeshParams};
+use undo::{SetDepthParamsCommand, UndoRedoHistory};
 
 /// ADR-009: Compute pixel_to_mm from optional target dimensions. When both are present and positive,
 /// returns min(target_width_mm/width_px, target_height_mm/height_px) so mesh fits inside target rect.
@@ -115,6 +117,8 @@ struct AppState {
     source_image_path: Mutex<Option<String>>,
     /// Persistent app settings (BACK-706).
     app_settings: Mutex<settings::AppSettings>,
+    /// Undo/redo history for depth params (BACK-1402).
+    undo_redo: Mutex<UndoRedoHistory>,
 }
 
 /// Success response for generate_depth_map (BACK-303, BACK-304). Includes depth and progress/stages.
@@ -489,6 +493,8 @@ fn generate_depth_map(
     *state.depth.lock().map_err(|e| e.to_string())? = Some(depth.clone());
     // Store source image path for filename generation (BACK-705).
     *state.source_image_path.lock().map_err(|e| e.to_string())? = Some(path.clone());
+    // Clear undo/redo history on new depth map (PRD F2.4).
+    state.undo_redo.lock().map_err(|e| e.to_string())?.clear();
     // Leave adjustment_params unchanged (user may have presets); reset is explicit (BACK-405).
     let params = state.adjustment_params.lock().map_err(|e| e.to_string())?;
     let adjusted = apply_adjustments(&depth.depth, &params);
@@ -518,6 +524,15 @@ fn get_depth_histogram(state: State<AppState>) -> Result<Option<Vec<u32>>, Strin
     Ok(Some(compute_histogram(&adjusted, BINS)))
 }
 
+/// Response for undo/redo/clear_history and get_undo_redo_state (BACK-1404).
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UndoRedoState {
+    can_undo: bool,
+    can_redo: bool,
+    params: DepthAdjustmentParams,
+}
+
 /// Returns the current depth map from app state with adjustments applied (BACK-302, BACK-402).
 /// Original depth is preserved; display = apply_adjustments(original, adjustment_params).
 #[tauri::command]
@@ -537,14 +552,36 @@ fn get_depth_map(state: State<AppState>) -> Result<Option<python_bridge::DepthMa
     }))
 }
 
-/// Sets depth adjustment parameters (BACK-402). Next get_depth_map returns adjusted view.
+/// Sets depth adjustment parameters (BACK-402, BACK-1403). Wrapped in command for undo/redo.
+/// CURVE-001: Persist curve_control_points to AppSettings so curve survives restart.
 #[tauri::command]
 fn set_depth_adjustment_params(
     params: DepthAdjustmentParams,
     state: State<AppState>,
-) -> Result<(), String> {
-    *state.adjustment_params.lock().map_err(|e| e.to_string())? = params;
-    Ok(())
+) -> Result<UndoRedoState, String> {
+    let previous = state.adjustment_params.lock().map_err(|e| e.to_string())?.clone();
+    let cmd = SetDepthParamsCommand {
+        previous: previous.clone(),
+        new: params.clone(),
+    };
+    *state.adjustment_params.lock().map_err(|e| e.to_string())? = params.clone();
+    {
+        let mut settings = state.app_settings.lock().map_err(|e| e.to_string())?;
+        settings.curve_control_points = params.curve_control_points.clone();
+        if let Err(e) = settings.save() {
+            log::warn!("Failed to save settings (curve) after set_depth_adjustment_params: {}", e);
+        }
+    }
+    {
+        let mut hist = state.undo_redo.lock().map_err(|e| e.to_string())?;
+        hist.push(cmd);
+    }
+    let hist = state.undo_redo.lock().map_err(|e| e.to_string())?;
+    Ok(UndoRedoState {
+        can_undo: hist.can_undo(),
+        can_redo: hist.can_redo(),
+        params,
+    })
 }
 
 /// Returns current adjustment params for UI sync (e.g. after reset).
@@ -557,11 +594,82 @@ fn get_depth_adjustment_params(state: State<AppState>) -> Result<DepthAdjustment
         .map(|guard| guard.clone())
 }
 
-/// Resets adjustment params to defaults; original depth unchanged (BACK-405).
+/// Returns undo/redo state for UI (can_undo, can_redo, current params). Use after load or to sync buttons.
 #[tauri::command]
-fn reset_depth_adjustments(state: State<AppState>) -> Result<(), String> {
-    *state.adjustment_params.lock().map_err(|e| e.to_string())? = DepthAdjustmentParams::default();
-    Ok(())
+fn get_undo_redo_state(state: State<AppState>) -> Result<UndoRedoState, String> {
+    let params = state.adjustment_params.lock().map_err(|e| e.to_string())?.clone();
+    let hist = state.undo_redo.lock().map_err(|e| e.to_string())?;
+    Ok(UndoRedoState {
+        can_undo: hist.can_undo(),
+        can_redo: hist.can_redo(),
+        params,
+    })
+}
+
+/// Undo last depth adjustment (BACK-1404). Restores previous params; returns new state for UI.
+/// When nothing to undo, returns current state with can_undo: false so UI can disable button.
+#[tauri::command]
+fn undo(state: State<AppState>) -> Result<UndoRedoState, String> {
+    let cmd = {
+        let mut hist = state.undo_redo.lock().map_err(|e| e.to_string())?;
+        hist.pop_undo()
+    };
+    let Some(cmd) = cmd else {
+        return get_undo_redo_state(state);
+    };
+    cmd.apply_previous(&mut *state.adjustment_params.lock().map_err(|e| e.to_string())?);
+    {
+        let mut hist = state.undo_redo.lock().map_err(|e| e.to_string())?;
+        hist.push_redo(cmd);
+    }
+    get_undo_redo_state(state)
+}
+
+/// Redo last undone depth adjustment (BACK-1404). Returns new state for UI.
+/// When nothing to redo, returns current state with can_redo: false so UI can disable button.
+#[tauri::command]
+fn redo(state: State<AppState>) -> Result<UndoRedoState, String> {
+    let cmd = {
+        let mut hist = state.undo_redo.lock().map_err(|e| e.to_string())?;
+        hist.pop_redo()
+    };
+    let Some(cmd) = cmd else {
+        return get_undo_redo_state(state);
+    };
+    cmd.apply_new(&mut *state.adjustment_params.lock().map_err(|e| e.to_string())?);
+    {
+        let mut hist = state.undo_redo.lock().map_err(|e| e.to_string())?;
+        hist.push_undo(cmd);
+    }
+    get_undo_redo_state(state)
+}
+
+/// Clear undo and redo history (BACK-1404). Does not change current params.
+#[tauri::command]
+fn clear_history(state: State<AppState>) -> Result<UndoRedoState, String> {
+    state.undo_redo.lock().map_err(|e| e.to_string())?.clear();
+    get_undo_redo_state(state)
+}
+
+/// Resets adjustment params to defaults; original depth unchanged (BACK-405, BACK-1403). Wrapped for undo/redo.
+#[tauri::command]
+fn reset_depth_adjustments(state: State<AppState>) -> Result<UndoRedoState, String> {
+    let previous = state.adjustment_params.lock().map_err(|e| e.to_string())?.clone();
+    let new_params = DepthAdjustmentParams::default();
+    let cmd = SetDepthParamsCommand {
+        previous: previous.clone(),
+        new: new_params.clone(),
+    };
+    *state.adjustment_params.lock().map_err(|e| e.to_string())? = new_params.clone();
+    {
+        let mut hist = state.undo_redo.lock().map_err(|e| e.to_string())?;
+        hist.push(cmd);
+    }
+    Ok(UndoRedoState {
+        can_undo: state.undo_redo.lock().map_err(|e| e.to_string())?.can_undo(),
+        can_redo: state.undo_redo.lock().map_err(|e| e.to_string())?.can_redo(),
+        params: new_params,
+    })
 }
 
 /// Returns mesh data (point cloud with normals) from current adjusted depth map (BACK-501–505, BACK-601, BACK-602, BACK-603).
@@ -617,14 +725,22 @@ fn get_mesh_data(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let _ = env_logger::try_init();
+    let app_settings = settings::AppSettings::load();
+    let mut adjustment_params = DepthAdjustmentParams::default();
+    if let Some(ref curve) = app_settings.curve_control_points {
+        if curve.len() >= 2 {
+            adjustment_params.curve_control_points = Some(curve.clone());
+        }
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .manage(AppState {
             depth: Mutex::new(None),
-            adjustment_params: Mutex::new(DepthAdjustmentParams::default()),
+            adjustment_params: Mutex::new(adjustment_params),
             source_image_path: Mutex::new(None),
-            app_settings: Mutex::new(settings::AppSettings::load()),
+            app_settings: Mutex::new(app_settings),
+            undo_redo: Mutex::new(UndoRedoHistory::new()),
         })
         .invoke_handler(tauri::generate_handler![
             load_image,
@@ -636,6 +752,10 @@ pub fn run() {
             get_depth_histogram,
             set_depth_adjustment_params,
             get_depth_adjustment_params,
+            get_undo_redo_state,
+            undo,
+            redo,
+            clear_history,
             reset_depth_adjustments,
             get_mesh_data,
             get_settings,

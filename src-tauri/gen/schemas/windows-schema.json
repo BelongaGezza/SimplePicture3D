@@ -393,10 +393,10 @@
           "markdownDescription": "Enables the export_stl command."
         },
         {
-          "description": "Enables depth map generation, retrieval, adjustment, and mesh generation commands.",
+          "description": "Enables depth map generation, retrieval, adjustment, undo/redo, and mesh generation commands.",
           "type": "string",
           "const": "allow-generate-depth-map",
-          "markdownDescription": "Enables depth map generation, retrieval, adjustment, and mesh generation commands."
+          "markdownDescription": "Enables depth map generation, retrieval, adjustment, undo/redo, and mesh generation commands."
         },
         {
           "description": "Enables the get_export_defaults command.",

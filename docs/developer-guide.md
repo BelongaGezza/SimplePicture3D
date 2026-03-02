@@ -116,10 +116,12 @@ npm run tauri dev
 SimplePicture3D is a Tauri desktop app with three layers:
 
 - **Frontend (Svelte):** UI components, Three.js 3D preview, TailwindCSS. Communicates with the backend via Tauri IPC (`invoke()`).
-- **Rust backend:** Image loading, depth processing, mesh generation, STL/OBJ export, settings, Python subprocess bridge. Commands are defined in `src-tauri/src/lib.rs` and supporting modules.
+- **Rust backend:** Image loading, depth processing, mesh generation, STL/OBJ export, settings, Python subprocess bridge, **undo/redo command history**. Commands are defined in `src-tauri/src/lib.rs` and supporting modules.
 - **Python AI backend:** Depth estimation (Depth-Anything-V2 / MiDaS) via subprocess. Input: image bytes or temp file path. Output: depth map (JSON or binary).
 
 **Data flow:** Load image → Validate → Depth (Python) → Depth processing (Rust) → Mesh generation (Rust) → Preview (Three.js) → Export (STL/OBJ).
+
+**State management and undo:** Depth params and curve are the single source of truth in the backend. Undo/redo use a command pattern (max 20 actions); see [RESEARCH/architecture.md](../RESEARCH/architecture.md) **ADR-009** (undo/redo) and **ADR-010** (state management, TD-01).
 
 For full architecture, ADRs, and as-built module list, see:
 
@@ -140,6 +142,9 @@ The frontend calls the Rust backend via `invoke('command_name', { ... })`. Typed
 | `get_depth_adjustment_params` | — | `DepthAdjustmentParams` | Current brightness, contrast, gamma, invert, depthMinMm, depthMaxMm. |
 | `set_depth_adjustment_params` | `{ params: DepthAdjustmentParams }` | `void` | Set adjustment params; next get_depth_map uses them. |
 | `reset_depth_adjustments` | — | `void` | Reset params to defaults; original depth unchanged. |
+| `undo` | — | `UndoRedoResult` (success, current params, can_undo, can_redo) | Pop last command, restore previous state; frontend updates UI from result. |
+| `redo` | — | `UndoRedoResult` | Re-execute last undone command; frontend updates UI from result. |
+| `clear_history` | — | `void` or result | Clear undo/redo stacks (e.g. on new image). Optional. |
 | `get_mesh_data` | `{ preview_step?: number, target_width_mm?: number, target_height_mm?: number }` (all optional) | `MeshData \| null` | Mesh positions/normals (and optional indices) in mm for 3D preview. |
 | `export_stl` | `{ path: string, target_width_mm?: number, target_height_mm?: number }` | `void` | Export triangulated mesh as binary STL. Path validated (SEC-401, SEC-402). |
 | `export_obj` | `{ path: string, target_width_mm?: number, target_height_mm?: number }` | `void` | Export as ASCII OBJ (+ MTL). Same path validation as export_stl. |

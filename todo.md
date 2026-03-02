@@ -5,7 +5,7 @@
 **Repository:** https://github.com/[org]/SimplePicture3D  
 **Project Board:** GitHub Projects (Kanban)
 
-**Phase 1 as-built:** 13 delivery events (Sprints 1.1–1.12 + Sprint 1.5A hardening). Revised overall estimate: ~28–35 sprints total using actual velocity (~1 sprint per 2 weeks). See Consultant_Critical_Review_28Feb2026.md §1.
+**Phase 1 as-built:** 13 delivery events (Sprints 1.1–1.12 + Sprint 1.5A hardening). Revised overall estimate: ~28–35 sprints total using actual velocity (~1 sprint per 2 weeks). See Consultant_Review_1Mar2026.md §1 (supersedes prior reports).
 
 ---
 
@@ -452,7 +452,7 @@ The Role Assignment table enables agents to claim roles:
 
 **Sprint Goal:** Convert depth map to 3D point cloud/mesh in Rust.
 
-**Sprint Status:** Implementation complete; QA pending. See `Consultant_Recommendations_Report_7Feb2026.md` §3.1.
+**Sprint Status:** Implementation complete; QA pending. *(Prior consultant report Consultant_Recommendations_Report_7Feb2026.md superseded by Consultant_Review_1Mar2026.md.)*
 
 #### Tasks
 
@@ -857,9 +857,9 @@ The Role Assignment table enables agents to claim roles:
 
 **Goal:** Polish user experience with advanced controls, presets, and improved workflow.
 
-**Recommended sequencing (Consultant_Critical_Review_28Feb2026 §5):** Sprint 2.2 = Undo/Redo (F2.4) + Curve persistence + State management ADR + Wireframe/Solid fix. Then 2.3 Presets, 2.4 Progress streaming, 2.5 Masking, 2.6 Enhanced 3D, 2.7 Material Presets, 2.8 Async export + progress. Undo/Redo is a prerequisite for further state-mutation features (masking, brushes).
+**Recommended sequencing (Consultant_Review_1Mar2026 §6):** Sprint 2.2 ✅ delivered (Undo/Redo, curve persistence, state ADR, Wireframe/Solid). Sprint 2.3 = Presets (ready to begin — undo foundation in place). Sprint 2.4 = Progress streaming (do not defer; highest UX priority). Sprint 2.5 = Masking (confirm ADR-010 covers mask state before sprint begins). Sprint 2.6 = Enhanced 3D + A11y polish. Sprint 2.7 = Material Presets. Sprint 2.8 = Async export (reuse Sprint 2.4 async-command pattern).
 
-**Phase 2 security (SEC-202):** Model download currently uses Hugging Face library integrity; there is no explicit SHA256 verification against a trusted source in repo/RESEARCH. Treat as **Phase 2 security task (not optional):** either add post-download SHA256 check against RESEARCH-documented hashes or formally document acceptance and get security sign-off. See RESEARCH/architecture.md ADR-003 “SEC-202 verification status” and Consultant_Critical_Review_28Feb2026 §2.5.
+**Phase 2 security (SEC-202):** SHA256 model download verification remains unconfirmed at Sprint 2.2 close. **Security Specialist must verify implementation before Sprint 2.4** (Consultant_Review_1Mar2026 §3.1, action item #1). Either confirm SHA256 check exists and document the trusted checksum source, or raise as a new security task. See RESEARCH/architecture.md ADR-003.
 
 **Exit Criteria:**
 - ✅ Advanced mode toggle functional with all controls
@@ -902,27 +902,27 @@ The Role Assignment table enables agents to claim roles:
 #### Tasks
 
 **Senior Engineer:**
-- [ ] **BACK-1101:** Implement depth histogram calculation
-- [ ] **BACK-1102:** Curves tool data structure (control points)
-- [ ] **BACK-1103:** Apply curve transformation to depth map
-- [ ] **BACK-1104:** Optimize for real-time preview
+- [x] **BACK-1101:** Implement depth histogram calculation
+- [x] **BACK-1102:** Curves tool data structure (control points)
+- [x] **BACK-1103:** Apply curve transformation to depth map
+- [x] **BACK-1104:** Optimize for real-time preview
 
 **UI Specialist:**
-- [ ] **UI-1101:** Create HistogramPanel component (depth distribution graph)
-- [ ] **UI-1102:** Implement CurvesTool component (Photoshop-style)
-- [ ] **UI-1103:** Draggable control points on curve
-- [ ] **UI-1104:** Preset curves (Linear, S-curve, Exponential)
-- [ ] **UI-1105:** Advanced mode toggle (show/hide advanced controls)
+- [x] **UI-1101:** Create HistogramPanel component (depth distribution graph)
+- [x] **UI-1102:** Implement CurvesTool component (Photoshop-style)
+- [x] **UI-1103:** Draggable control points on curve
+- [x] **UI-1104:** Preset curves (Linear, S-curve, Exponential)
+- [x] **UI-1105:** Advanced mode toggle (show/hide advanced controls)
 
 **Junior Engineer #1:**
-- [ ] **JR1-1101:** Render histogram with Canvas API
-- [ ] **JR1-1102:** Implement curve drawing with cubic Bezier
-- [ ] **JR1-1103:** Add reset curve button
+- [x] **JR1-1101:** Render histogram with Canvas API
+- [x] **JR1-1102:** Implement curve drawing with cubic Bezier
+- [x] **JR1-1103:** Add reset curve button
 
 **Quality Engineer:**
-- [ ] **QA-1101:** Manual test: adjust curves, verify depth changes
-- [ ] **QA-1102:** Test preset curves (apply, verify result)
-- [ ] **QA-1103:** Performance test: curve application on large depth maps
+- [ ] **QA-1101:** Manual test: adjust curves, verify depth changes *(procedure ready; execution pending — see Sprint 2.1 manual test report)*
+- [ ] **QA-1102:** Test preset curves (apply, verify result) *(procedure ready; execution pending)*
+- [ ] **QA-1103:** Performance test: curve application on large depth maps *(procedure ready; execution pending)*
 
 **Scaling (Sprint 2.1):**
 - [x] **SCALE-001:** On image import set default target 40×40 mm; dimension depth-map and 3D preview
@@ -941,36 +941,36 @@ The Role Assignment table enables agents to claim roles:
 
 ### Sprint 2.2: Undo/Redo, Curve Persistence, State ADR, Wireframe/Solid (2 weeks)
 
-**Sprint Goal:** Implement F2.4 Undo/Redo, persist curve control points, author state management ADR, and fix or remove Wireframe/Solid UI (per Consultant_Critical_Review_28Feb2026 §2.2, §2.6).
+**Sprint Goal:** Implement F2.4 Undo/Redo, persist curve control points, author state management ADR, and fix or remove Wireframe/Solid UI. ✅ **Delivered** — see SPRINTS/Sprint_2_2/ and Consultant_Review_1Mar2026.md §2.
 
 #### Tasks
 
 **System Architect:**
-- [ ] **ARCH-401:** Design undo/redo architecture (command pattern)
-- [ ] **ARCH-402:** Define mutable operations to track
-- [ ] **ARCH-403:** Memory budget for history stack (last 20 actions)
-- [ ] **ARCH-404:** Author Svelte store / state management ADR (before further state-mutation features; TD-01)
+- [x] **ARCH-401:** Design undo/redo architecture (command pattern)
+- [x] **ARCH-402:** Define mutable operations to track
+- [x] **ARCH-403:** Memory budget for history stack (last 20 actions)
+- [x] **ARCH-404:** Author Svelte store / state management ADR (ADR-010 added; TD-01 closed)
 
 **Senior Engineer:**
-- [ ] **BACK-1401:** Implement command trait (execute, undo)
-- [ ] **BACK-1402:** History stack data structure
-- [ ] **BACK-1403:** Wrap depth adjustments in commands
-- [ ] **BACK-1404:** Tauri commands: undo, redo, clear_history
+- [x] **BACK-1401:** Implement command trait (execute, undo) — `SetDepthParamsCommand` in `undo.rs`
+- [x] **BACK-1402:** History stack data structure — `UndoRedoHistory` (VecDeque, capacity 20)
+- [x] **BACK-1403:** Wrap depth adjustments in commands
+- [x] **BACK-1404:** Tauri commands: undo, redo, clear_history (return current state + can_undo/can_redo)
 
 **UI Specialist:**
-- [ ] **UI-1401:** Undo/Redo buttons in toolbar
-- [ ] **UI-1402:** Keyboard shortcuts (Ctrl+Z, Ctrl+Y)
-- [ ] **UI-1403:** Wireframe/Solid: either wire `MeshData.indices` to THREE.Mesh (WireframeGeometry / MeshPhongMaterial) or remove buttons until implemented (TD-02)
-- [ ] **UI-1404:** Remove or replace sprint-number reference in overlay message ("Sprint 1.8")
+- [x] **UI-1401:** Undo/Redo buttons in toolbar (disabled when no history/redo)
+- [x] **UI-1402:** Keyboard shortcuts (Ctrl+Z, Ctrl+Y / Ctrl+Shift+Z; documented in user guide)
+- [x] **UI-1403:** Wireframe/Solid: wired to `MeshData.indices` (THREE.Mesh + WireframeGeometry/MeshPhongMaterial); TD-02 closed
+- [x] **UI-1404:** Sprint-number overlay removed from user-facing messages
 
 **Junior Engineer #2:**
-- [ ] **CURVE-001:** Add `curveControlPoints` to `AppSettings`; persist and load in settings (Consultant §2.6)
-- [ ] **JR2-1401:** Write tests for command execution/undo
-- [ ] **JR2-1402:** Test history stack limits (>20 actions)
+- [x] **CURVE-001:** `curveControlPoints` added to `AppSettings`; persisted and loaded on startup
+- [x] **JR2-1401:** Tests for command execute/undo (command_execute_undo_restores_state)
+- [x] **JR2-1402:** Tests for history cap at 20 (history_cap_at_max)
 
 **Quality Engineer:**
-- [ ] **QA-1401:** Manual test: perform actions, undo, redo, verify state
-- [ ] **QA-1402:** Start macOS smoke tests (TD-05; document)
+- [ ] **QA-1401:** Manual test: perform actions, undo, redo, verify state *(procedure in TEST_PLAN_2_2.md §3.2; automated gate PASS; manual execution requires human tester — carry to Sprint 2.3 start)*
+- [x] **QA-1402:** macOS smoke tests documented — MACOS_SMOKE.md; deferred to Sprint 3.1 (no macOS env this sprint)
 
 #### Exit Criteria
 - ✅ Undo/Redo functional for depth adjustments (and curve when persisted)
@@ -982,6 +982,14 @@ The Role Assignment table enables agents to claim roles:
 ---
 
 ### Sprint 2.3: Presets & Templates System (2 weeks)
+
+**Pre-Sprint 2.3 actions required (Consultant_Review_1Mar2026 §8):**
+- [ ] **SEC-202:** Security Specialist verifies SHA256 model download checksum is implemented before Sprint 2.4
+- [ ] **QA-PROCESS:** Architect decides: manual QA is blocking (sprint exit gate) or non-blocking (48h post-sprint window with named tester). Apply decision from Sprint 2.3 onward.
+- [ ] **QA-1401-EXEC:** Quality Engineer executes QA-1401 manual test cases (6 cases + regression) for Sprint 2.2 sign-off
+- [ ] **CURVE-UNDO-VERIFY:** Senior Engineer confirms curve control point mutations create `SetDepthParamsCommand` history entries (not only persisted via AppSettings write)
+- [ ] **ADR-008-COMMIT:** Confirm RESEARCH/architecture.md ADR-008 winding order fix is committed (not just in working tree)
+- [ ] **DOC-CLEANUP:** Documentation Specialist verifies prd.md §F1.6 stl_io and diagram labels — two items from 28 Feb report listed as done in v1.5 but §5.1 tech stack was missed (now fixed in v1.6)
 
 **Sprint Goal:** Users can save and share processing configurations.
 
@@ -1019,7 +1027,7 @@ The Role Assignment table enables agents to claim roles:
 
 ### Sprint 2.4: Progress Streaming for Depth Estimation (2 weeks)
 
-**Sprint Goal:** Close the 5-minute UX gap: stream depth estimation progress from Python stderr to frontend (Consultant_Critical_Review_28Feb2026 §2.3).
+**Sprint Goal:** Close the 5-minute UX gap: stream depth estimation progress from Python stderr to frontend. Still the #1 UX priority entering Phase 2's second half — do not defer further (Consultant_Review_1Mar2026 §3.2, action item #7). Sprint 2.4 async-command pattern should be designed for reuse in Sprint 2.8 (export blocking).
 
 #### Tasks
 
@@ -1168,7 +1176,7 @@ The Role Assignment table enables agents to claim roles:
 
 ### Sprint 2.8: Async Export + Progress Indicators (2 weeks)
 
-**Sprint Goal:** Avoid UI freeze during large exports (Consultant_Critical_Review_28Feb2026 §2.4).
+**Sprint Goal:** Avoid UI freeze during large exports. Reuse the async-command-with-progress pattern established in Sprint 2.4 (Consultant_Review_1Mar2026 §4.4, §6).
 
 #### Tasks
 
@@ -1857,19 +1865,22 @@ Coverage:  tarpaulin XML + pytest-cov XML (advisory — continue-on-error: true)
 
 ---
 
-## Technical Debt Register (Consultant 2026-02-28)
+## Technical Debt Register (updated 2026-03-01)
 
-See **Consultant_Critical_Review_28Feb2026.md §4** for full table. Summary of where items are scheduled:
+See **Consultant_Review_1Mar2026.md §5** for full narrative. Status as at Sprint 2.2 close:
 
-| ID | Issue | Scheduled / Action |
-|----|--------|-------------------|
-| TD-01 | State management ADR (no Svelte store design) | Sprint 2.2 (ARCH-404) |
-| TD-02 | Wireframe/Solid dead UI | Sprint 2.2 fix or remove (UI-1403) |
-| TD-03 | docs/architecture.md vs RESEARCH/architecture.md policy | Addressed: docs/architecture.md now states canonical source is RESEARCH/architecture.md |
-| TD-04 | python/setup.py vs pyproject.toml | Phase 4 pre-work |
-| TD-05 | macOS/Linux manual testing | Sprint 2.2 start macOS smoke (QA-1402) |
-| TD-06 | Export path TOCTOU write-test | Phase 3 |
-| TD-07 | ONNX migration for "5 min" success metric | Phase 4 scope decision |
+| ID | Area | Issue | Status | Scheduled / Action |
+|----|------|--------|--------|--------------------|
+| TD-01 | Frontend | State management ADR (no Svelte store design) | ✅ **Closed** — ADR-010 (Sprint 2.2, ARCH-404) | — |
+| TD-02 | Frontend | Wireframe/Solid dead UI | ✅ **Closed** — Fixed Sprint 2.2 (UI-1403) | — |
+| TD-03 | Docs | docs/architecture.md vs RESEARCH/architecture.md policy | Open — addressed in principle; no formal policy committed | Immediate doc debt |
+| TD-04 | Python | python/setup.py vs pyproject.toml | Open | Phase 4 pre-work |
+| TD-05 | Cross-platform | macOS/Linux manual testing | Partially addressed — MACOS_SMOKE.md plan committed | Phase 3 / Sprint 3.1 |
+| TD-06 | Security | Export path TOCTOU write-test pattern | Open | Phase 3 |
+| TD-07 | Python distribution | System Python end-user friction (ONNX migration) | Open | Phase 4 scope decision |
+| TD-08 | Rust | lib.rs coverage gap grows with each sprint's new Tauri handlers; business logic not extracted | **Escalating** | Sprint 2.3 or 2.4 (Senior Engineer) |
+| TD-09 | Frontend | A11y warnings in CurvesTool.svelte (interactive SVG drag handles) | New | Sprint 2.6 UX polish pass |
+| TD-10 | QA process | Manual QA structurally deferred at every sprint close — procedure documented but never executed | **Structural concern** | Architecture decision required before Sprint 2.3 (see Consultant_Review_1Mar2026 §2.6 §4.5) |
 
 ---
 
