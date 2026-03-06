@@ -30,5 +30,5 @@
     "**/__pycache__": true,
     "**/.venv": true
   },
-  "workbench.colorTheme": "Cursor Light"
+  "workbench.colorTheme": "Tomorrow Night Blue"
 }

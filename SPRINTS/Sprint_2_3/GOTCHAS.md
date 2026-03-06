@@ -27,7 +27,11 @@ Each entry: **Date — Short title**
 **What happened:** Backend `list_presets` returns `Vec<String>` (user preset names only); `list_builtin_presets` returns built-in ids. Frontend expected a single `PresetListItem[]` with `kind`/`name`/`id`, so dropdown and PresetManager would get raw strings and `item.kind === "user"` would filter out everything.
 **Fix / workaround:** In `src/lib/tauri.ts`, `listPresets()` now calls both `list_presets` and `list_builtin_presets`, then builds `PresetListItem[]`: built-ins first (kind: "builtin", name/id from backend ids), then user presets (kind: "user", name/id from names). No backend change required.
 
+### 2026-03-06 — QE verification: fmt and tauri build (Quality Engineer)
+**What happened:** `cargo fmt --check` reports diff in `lib.rs` (pre-existing formatting, not Sprint 2.3 code). `npm run tauri build` builds the app binary successfully but bundler step fails with "invalid category, did you mean `Graphics and Design`?" (tauri.conf.json bundle category).
+**Fix / workaround:** Run `cargo fmt` to satisfy fmt check. Fix bundle category in tauri.conf.json for installer build; app binary builds and runs.
+
 ---
 
-**Document Version:** 1.0  
+**Document Version:** 1.1  
 **Merge to:** `RESEARCH/GOTCHAS.md` (copy any lasting gotchas before sprint close)

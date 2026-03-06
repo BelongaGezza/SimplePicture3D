@@ -139,10 +139,34 @@ pub fn run_depth_estimation(image_bytes: &[u8]) -> Result<RunDepthResult> {
     run_depth_estimation_with_timeout(image_bytes, Duration::from_secs(DEFAULT_TIMEOUT_SECS))
 }
 
+/// Progress callback for real-time stderr streaming (BACK-205-STREAM, ARCH-501).
+/// Invoked with (percent, current_stage) for each PROGRESS line; stage is from the last STAGE line.
+pub type ProgressCb = Box<dyn Fn(u8, Option<String>) + Send + 'static>;
+
 /// Same as run_depth_estimation but with explicit timeout.
 pub fn run_depth_estimation_with_timeout(
     image_bytes: &[u8],
     timeout: Duration,
+) -> Result<RunDepthResult> {
+    run_depth_estimation_inner(image_bytes, timeout, None)
+}
+
+/// Runs depth estimation with optional real-time progress callback (BACK-205-STREAM).
+/// Callback is invoked for each PROGRESS/STAGE line on stderr during execution.
+/// Existing run_depth_estimation/run_depth_estimation_with_timeout remain unchanged for tests.
+pub fn run_depth_estimation_with_progress(
+    image_bytes: &[u8],
+    timeout: Duration,
+    progress_cb: Option<ProgressCb>,
+) -> Result<RunDepthResult> {
+    run_depth_estimation_inner(image_bytes, timeout, progress_cb)
+}
+
+/// Inner implementation: optional progress callback; stderr is processed line-by-line in real time when callback is present.
+fn run_depth_estimation_inner(
+    image_bytes: &[u8],
+    timeout: Duration,
+    progress_cb: Option<ProgressCb>,
 ) -> Result<RunDepthResult> {
     let temp_path = file_io::write_temp_file("img_", ".png", image_bytes)
         .context("write temp image for Python")?;
@@ -179,12 +203,29 @@ pub fn run_depth_estimation_with_timeout(
     let mut stdout = child.stdout.take().expect("stdout piped");
     let stderr = child.stderr.take().expect("stderr piped");
 
-    // Read stderr in a thread (so we don't deadlock if Python buffers).
+    // Read stderr in a thread; when progress_cb is set, invoke it per PROGRESS/STAGE line in real time.
     let stderr_handle = std::thread::spawn(move || {
-        let lines: Vec<String> = std::io::BufReader::new(stderr)
+        let mut last_stage: Option<String> = None;
+        let mut lines = Vec::new();
+        for line in std::io::BufReader::new(stderr)
             .lines()
             .map_while(Result::ok)
-            .collect();
+        {
+            lines.push(line.clone());
+            let trimmed = line.trim();
+            if let Some(n) = trimmed.strip_prefix("PROGRESS ") {
+                if let Ok(pct) = n.trim().parse::<u8>() {
+                    if let Some(ref cb) = progress_cb {
+                        cb(pct, last_stage.clone());
+                    }
+                }
+            } else if let Some(stage) = trimmed.strip_prefix("STAGE ") {
+                let s = stage.trim().to_string();
+                if !s.is_empty() {
+                    last_stage = Some(s);
+                }
+            }
+        }
         lines
     });
 

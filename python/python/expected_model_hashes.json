@@ -1,0 +1,5 @@
+{
+  "_comment": "SEC-202: Expected SHA256 hashes for Depth-Anything-V2-Small-hf. To populate after a trusted download: python -m python.model_downloader --write-hashes. See RESEARCH/architecture.md ADR-003 SEC-202.",
+  "revision": "main",
+  "hashes": {}
+}

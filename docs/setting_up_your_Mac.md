@@ -12,7 +12,7 @@ This guide covers the developer tools and libraries needed to build and run Simp
 | **Rust** (rustc, cargo) | 1.70+ | Backend (Tauri, mesh, file I/O). Use `rustup` and `stable` toolchain |
 | **Node.js** | 18+ (LTS 20 recommended) | Frontend (Vite, Svelte), Tauri CLI via npm |
 | **npm** | 9+ | Bundled with Node.js; installs frontend and Tauri CLI |
-| **Python** | 3.9+ (3.10+ for PyTorch) | Optional until `python/requirements.txt` exists; needed for AI depth pipeline (PyTorch, Depth-Anything-V2) |
+| **Python** | 3.10+ | Required for the AI depth pipeline (PyTorch, Depth-Anything-V2); `python/requirements.txt` is present |
 | **Git** | 2.x | Clone, branches, contribution |
 
 ---
@@ -62,9 +62,9 @@ node --version   # v18.x or v20.x LTS recommended
 npm --version    # 9+
 ```
 
-### 2.4 Python (optional until AI pipeline is added)
+### 2.4 Python (required for AI depth pipeline)
 
-Required when the project has a `python/` app and `python/requirements.txt`. For PyTorch and depth models, use **Python 3.10+** (see [RESEARCH/python-ml.md](../RESEARCH/python-ml.md)).
+The project has a `python/` backend and `python/requirements.txt`. For PyTorch and depth models, use **Python 3.10+** (see [RESEARCH/python-ml.md](../RESEARCH/python-ml.md)).
 
 - **Option A:** Install from [python.org](https://www.python.org/downloads/).
 - **Option B:** Homebrew: `brew install python@3.12`.
@@ -75,7 +75,7 @@ Check:
 python3 --version   # 3.9+ (3.10+ for PyTorch)
 ```
 
-When `python/requirements.txt` exists, use a venv:
+Set up a venv:
 
 ```bash
 cd python
@@ -115,8 +115,8 @@ npm install --legacy-peer-deps
 # 2. Rust backend
 cd src-tauri && cargo build && cd ..
 
-# 3. (Optional) Python venv when python/requirements.txt exists
-# cd python && python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt && cd ..
+# 3. Python venv (required for AI depth pipeline)
+cd python && python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt && cd ..
 ```
 
 **npm dependency note:** As of the last check, `@sveltejs/vite-plugin-svelte@4` has a peer dependency on Svelte 5 while the project pins Svelte 4. Use `npm install --legacy-peer-deps` until the project upgrades Svelte or pins a compatible plugin version.

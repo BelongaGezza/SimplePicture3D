@@ -2,7 +2,7 @@
 
 **Sprint:** 2.3 — Presets & Templates  
 **Owner:** Quality Engineer  
-**Last Updated:** 2026-03-02  
+**Last Updated:** 2026-03-06  
 **Source:** `SPRINTS/TEST_PLAN_TEMPLATE.md`, `SPRINTS/Sprint_2_3/SPRINT_2_3_Task_Assignment.md`
 
 ---

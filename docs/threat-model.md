@@ -30,9 +30,9 @@
 
 | Threat | Mitigation |
 |--------|------------|
-| Tampered model executes malicious code | **Model security (PRD §8.2):** Download from official Hugging Face only; verify **SHA256 checksums** against known-good hashes before use. **HTTPS only:** Use HTTPS URLs for all model downloads; do not follow redirects to HTTP (SEC-202). |
+| Tampered model executes malicious code | **Model security (PRD §8.2):** Download from official Hugging Face only; verify **SHA256 checksums** against known-good hashes in repo (SEC-202A, 2026-03-06). **HTTPS only** for all model downloads. Expected hashes in `python/python/expected_model_hashes.json`; see RESEARCH/architecture.md ADR-003 and `SPRINTS/Sprint_2_4/SECURITY_SIGNOFF.md`. |
 | Model run with excessive privileges | **Python subprocess isolation:** Run depth estimator in child process with minimal privileges; no arbitrary filesystem access beyond models directory and designated temp paths. |
-| Supply-chain compromise of model provider | Document source and checksum in RESEARCH; consider pinning to specific release artifacts. **Checksum source:** Expected SHA256 hash must come from a trusted source (e.g. documented in repo or RESEARCH), not from the same channel as the download (SEC-202). |
+| Supply-chain compromise of model provider | Document source and checksum in RESEARCH. Expected SHA256 from trusted source (repo); hashes in `expected_model_hashes.json`. SEC-202A implemented; see threat model and SECURITY_SIGNOFF. |
 
 ### 2.3 Path traversal and export path abuse
 

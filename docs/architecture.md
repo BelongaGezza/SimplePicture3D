@@ -128,6 +128,12 @@ SimplePicture3D is a Tauri desktop application with a Rust backend, **Svelte 4**
 | `export_stl`      | Path, mesh data       | Success/error       |
 | `export_obj`      | Path, mesh data       | Success/error       |
 | `download_model`  | Model ID              | Progress/result     |
+| `list_builtin_presets` | —             | `string[]` (Portrait, Landscape, High Detail, Low Relief) |
+| `list_presets`    | —                     | `string[]` (user preset names from `~/.simplepicture3d/presets/`) |
+| `save_preset`     | `name: string`, optional `path` | — (saves to presets dir or explicit path for export) |
+| `load_preset`     | `nameOrPath: string`  | — (applies preset to app depth state; accepts built-in name, user name, or absolute path) |
+| `delete_preset`   | `name: string`        | — |
+| `rename_preset`   | `oldName, newName`    | — |
 
 ### Depth map adjustments (Sprint 1.5, Sprint 2.1)
 
@@ -302,8 +308,8 @@ This flow is consistent with ARCH-101 (CLI contract), ARCH-102 (temp file input,
 | **Input** | `path: string` — Filesystem path to the image file (already loaded/validated by frontend via `load_image` or equivalent). Path must be validated by Rust (exist, readable, under allowed dirs); no user-controlled strings in subprocess argv (ARCH-101). *Future:* optional base64/bytes overload for environments where path is unavailable. |
 | **Success response** | `{ width: number, height: number, depth: number[] }` — Depth map dimensions and flat float array, **row-major**, values in **[0, 1]** (ARCH-102). Same format as Python stdout contract. For MVP, returned in command response; payload size acceptable for typical resolutions (consider documented limit or chunking for 4K×4K if needed). |
 | **Error response** | `{ error: string }` (or Tauri `Result::Err` with message). Messages must be UI-suitable: e.g. "Python not found", "Depth estimation timed out", "Invalid image", "Missing model". No stack traces or raw stderr in production response. |
-| **Progress (MVP)** | **Return on completion.** Command blocks until Python exits; response includes full depth map. Frontend shows **indeterminate progress** (spinner) while the command is in flight. Optional: include `progress: 100` and `stages?: string[]` in success response for consistency. |
-| **Progress (future)** | Optional enhancement: Tauri events `depth-progress` with payload `{ percent: number, stage?: string }` emitted during inference; UI can show determinate progress bar. Not required for Sprint 1.4 exit criteria. |
+| **Progress (MVP)** | **Return on completion.** Command blocks until Python exits; response includes full depth map. |
+| **Progress (Sprint 2.4)** | **Real-time progress.** Backend emits Tauri events `depth-progress` with payload `{ percent: number, stage?: string }` during inference (per ARCH-501, BACK-205). Frontend subscribes and shows a **determinate progress bar** (0–100%). On completion, response still includes `progress: 100` and optional `stages?: string[]`. |
 
 **TypeScript (frontend):** Define types in `src/lib/tauri.ts` for the success shape (`DepthMapResponse`) and error handling so UI and DepthMapPreview share the same contract.
 
@@ -342,12 +348,12 @@ When the `generate_depth_map` Tauri command is exposed (Sprint 1.4), the fronten
 
 #### Progress protocol (BACK-304, UI-304)
 
-| Option | Decision for MVP | Implementation |
-|--------|------------------|----------------|
-| **Event vs return** | **Return on completion** | Command blocks until Python finishes. No live Tauri events for 1.4. |
-| **Progress in response** | Include `progress: 100` and optional `stages: string[]` in success payload | Rust already parses stderr (`PROGRESS n`, `STAGE name`); include final progress and list of stages in the command response so UI can show "Complete". |
-| **During execution** | Frontend shows **indeterminate progress** (spinner + "Estimating…") | No real-time percent until command returns. UI disables Generate button and shows spinner; on return, show depth or error. |
-| **Future** | Tauri events `depth-progress` with `{ percent, stage? }` | If backend runs bridge in a spawned task and emits via `app.emit()`, frontend can subscribe and show 0–100% bar. Deferred post-1.4. |
+| Option | Decision | Implementation |
+|--------|----------|----------------|
+| **Event vs return** | **Return on completion** + **live events** (Sprint 2.4) | Command blocks until Python finishes. Backend also emits `depth-progress` Tauri events in real time during execution (ARCH-501, BACK-205). |
+| **Progress in response** | Include `progress: 100` and optional `stages: string[]` in success payload | Rust parses stderr (`PROGRESS n`, `STAGE name`); include final progress and list of stages in the command response. |
+| **During execution** | Frontend shows **determinate progress bar** (Sprint 2.4) | Frontend subscribes to `depth-progress` events and displays 0–100% bar; unlistens on completion. Replaces previous indeterminate spinner. |
+| **Event payload** | `depth-progress` with `{ percent: number, stage?: string }` | Backend emits per Python stderr line; frontend type `DepthProgressEvent` in `src/lib/tauri.ts`. |
 
 #### Depth map data format (frontend + backend)
 

@@ -57,6 +57,35 @@
 - Long-lived Python worker process (subprocess with stdin/stdout loop)
 - ONNX Runtime in Rust (eliminates Python dependency)
 
+#### Addendum: Real-time progress streaming (ARCH-501, Sprint 2.4)
+
+**Status:** Accepted  
+**Date:** 2026-03-06  
+**Context:** BACK-205 progress protocol already has Python emitting `PROGRESS n` and `STAGE name` on stderr; Rust currently collects stderr only after process exit. Sprint 2.4 requires streaming progress to the frontend during estimation (determinate progress bar).
+
+**Decision: Tauri event + callback from bridge; sync command.**
+
+1. **Event name and payload**
+   - **Event name:** `"depth-progress"` (string).
+   - **Payload schema:** `{ percent: number, stage?: string }` (TypeScript). Rust: `percent: u8` (0–100), `stage: Option<String>`. Serialized with `serde::rename_all = "camelCase"` so frontend receives `percent` and `stage`.
+
+2. **Threading model**
+   - **Keep `generate_depth_map` as a synchronous Tauri command** (not `async fn`). Rationale: stderr is already read on a separate `std::thread` in `python_bridge.rs`; that thread only needs to invoke a progress callback as lines arrive. No tokio or Tauri async runtime required. Existing unit tests (which call `run_depth_estimation` without Tauri) remain valid. Simpler and sufficient for one subprocess at a time.
+
+3. **AppHandle / progress delivery**
+   - **Do not pass `AppHandle` into `python_bridge.rs`.** Keep the bridge free of Tauri types so it stays testable without the Tauri runtime.
+   - **Use a progress callback:** Add a new function (e.g. `run_depth_estimation_with_progress`) that takes `progress_cb: Option<Box<dyn Fn(u8, Option<String>) + Send + 'static>>`. The stderr reader thread parses each `PROGRESS n` / `STAGE name` line and invokes the callback immediately. In `lib.rs`, `generate_depth_map` receives `app_handle: tauri::AppHandle` (injected by Tauri when declared in the command signature). The command constructs a closure that calls `app_handle.emit("depth-progress", DepthProgressPayload { percent, stage })` and passes that closure to the bridge. Emit errors are logged and do not abort depth estimation.
+
+4. **Tauri capability**
+   - **No change to capability config.** In Tauri v2, listening to events from the frontend does not require a capability entry; only command invocations are gated by capabilities. The backend may emit any event; the frontend may listen. No new permission needed for `depth-progress`.
+
+5. **Contract summary**
+   - **Backend:** Emit `depth-progress` with `{ percent: u8, stage?: String }` (camelCase) whenever a `PROGRESS n` line is read from Python stderr; for `STAGE name`, pass the stage with the next `PROGRESS` or emit a progress event with current percent and new stage.
+   - **Frontend:** Subscribe via `listen<DepthProgressEvent>("depth-progress", handler)` before calling `generateDepthMap`; call `unlisten()` in a `finally` block when the command resolves (success or error) to avoid leaks.
+   - **Command return value:** Unchanged. `GenerateDepthMapResponse` still returns `progress: 100` and `stages` on success.
+
+**Consequences:** Senior Engineer implements `run_depth_estimation_with_progress` and wires `generate_depth_map` to emit; UI Designer implements determinate progress bar and unlisten. BACK-205-STREAM and UI-304 unblocked.
+
 ---
 
 ### ADR-003: Python Distribution Strategy
@@ -91,7 +120,10 @@
 - Cross-platform testing must verify Python availability detection
 - Document troubleshooting for common Python issues (venv, PATH, etc.)
 
-**SEC-202 verification status (updated 2026-03-01):** The `download_model` flow uses `huggingface_hub.snapshot_download` or `transformers.from_pretrained`; both use HTTPS and HF’s own integrity mechanisms. There is **no** explicit SHA256 verification against a checksum stored in this repo (trusted source per SEC-202). **Still open at Sprint 2.2 close.** Phase 2 security task (not optional): Security Specialist must verify before Sprint 2.4 — either (a) add post-download SHA256 check against hashes documented in RESEARCH, or (b) formally document acceptance of HF integrity and get security sign-off. See Consultant_Review_1Mar2026.md §3.1 (action item #1).
+**SEC-202 verification status (completed 2026-03-06):** SEC-202A implemented.
+
+- **HTTPS:** Confirmed. `huggingface_hub.snapshot_download` and `transformers.from_pretrained` use the Hugging Face API over HTTPS only; no HTTP redirect for model files. See `SPRINTS/Sprint_2_4/SECURITY_SIGNOFF.md`.
+- **SHA256 (trusted source in repo):** Implemented in `python/python/model_downloader.py`. Expected hashes loaded from `python/python/expected_model_hashes.json` (committed; trusted source). After download, `verify_model_sha256(model_dir, expected_hashes)` runs; if hashes are populated and any file fails, download returns error. If the file is missing or `hashes` is empty, verification is skipped (backward compatible). Maintainers run `python -m python.model_downloader --write-hashes` after a trusted download to update the JSON, then commit. `snapshot_download` uses `revision="main"` for reproducibility. Python tests: `TestVerifyModelSha256` in `python/tests/test_model_downloader.py`.
 
 ---
 

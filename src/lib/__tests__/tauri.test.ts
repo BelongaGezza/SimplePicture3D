@@ -15,10 +15,16 @@ import {
   setDepthAdjustmentParams,
   resetDepthAdjustments,
   getMeshData,
+  listPresets,
+  savePreset,
+  loadPreset,
+  deletePreset,
+  renamePreset,
   type DepthAdjustmentParams,
   type LoadImageResult,
   type DepthMapResult,
   type DepthMapData,
+  type PresetListItem,
 } from "../tauri";
 
 const mockInvoke = vi.fn();
@@ -218,6 +224,70 @@ describe("tauri IPC", () => {
     it("propagates invoke rejection", async () => {
       mockInvoke.mockRejectedValue(new Error("no mesh"));
       await expect(getMeshData()).rejects.toThrow("no mesh");
+    });
+  });
+
+  // --- JR2-1302: Preset API (listPresets, savePreset, loadPreset, deletePreset, renamePreset) ---
+
+  describe("listPresets", () => {
+    it("calls list_builtin_presets and list_presets, returns builtins first then user presets with correct kind", async () => {
+      mockInvoke
+        .mockResolvedValueOnce(["Portrait", "Landscape", "High Detail", "Low Relief"])
+        .mockResolvedValueOnce(["My Preset", "Custom"]);
+      const out = await listPresets();
+      expect(mockInvoke).toHaveBeenCalledWith("list_builtin_presets");
+      expect(mockInvoke).toHaveBeenCalledWith("list_presets");
+      expect(mockInvoke).toHaveBeenCalledTimes(2);
+      const builtins: PresetListItem[] = out.filter((p) => p.kind === "builtin");
+      const users: PresetListItem[] = out.filter((p) => p.kind === "user");
+      expect(builtins).toHaveLength(4);
+      expect(users).toHaveLength(2);
+      expect(builtins[0]).toEqual({ kind: "builtin", name: "Portrait", id: "Portrait" });
+      expect(users[0]).toEqual({ kind: "user", name: "My Preset", id: "My Preset" });
+    });
+  });
+
+  describe("savePreset", () => {
+    it("calls invoke with save_preset and name only when path not provided", async () => {
+      mockInvoke.mockResolvedValue(undefined);
+      await savePreset("My Preset");
+      expect(mockInvoke).toHaveBeenCalledWith("save_preset", { name: "My Preset" });
+    });
+
+    it("calls invoke with path when provided", async () => {
+      mockInvoke.mockResolvedValue(undefined);
+      await savePreset("Export", "/path/to/export.json");
+      expect(mockInvoke).toHaveBeenCalledWith("save_preset", {
+        name: "Export",
+        path: "/path/to/export.json",
+      });
+    });
+  });
+
+  describe("loadPreset", () => {
+    it("calls invoke with load_preset and name_or_path key (snake_case)", async () => {
+      mockInvoke.mockResolvedValue(undefined);
+      await loadPreset("Portrait");
+      expect(mockInvoke).toHaveBeenCalledWith("load_preset", { name_or_path: "Portrait" });
+    });
+  });
+
+  describe("deletePreset", () => {
+    it("calls invoke with delete_preset and name", async () => {
+      mockInvoke.mockResolvedValue(undefined);
+      await deletePreset("Old Preset");
+      expect(mockInvoke).toHaveBeenCalledWith("delete_preset", { name: "Old Preset" });
+    });
+  });
+
+  describe("renamePreset", () => {
+    it("calls invoke with rename_preset, old_name and new_name", async () => {
+      mockInvoke.mockResolvedValue(undefined);
+      await renamePreset("Old", "New");
+      expect(mockInvoke).toHaveBeenCalledWith("rename_preset", {
+        old_name: "Old",
+        new_name: "New",
+      });
     });
   });
 });

@@ -17,11 +17,13 @@ pub mod settings;
 pub mod undo;
 
 use std::sync::Mutex;
+use std::time::Duration;
+use tauri::Emitter;
 use tauri::State;
 
 use depth_adjust::{apply_adjustments, compute_histogram, DepthAdjustmentParams};
 use mesh_generator::{depth_to_point_cloud, MeshData, MeshParams};
-use preset::{get_builtin_preset, sanitize_preset_name, Preset, PRESET_SCHEMA_VERSION};
+use preset::{get_builtin_preset, sanitize_preset_name, Preset};
 use undo::{SetDepthParamsCommand, UndoRedoHistory};
 
 /// ADR-009: Compute pixel_to_mm from optional target dimensions. When both are present and positive,
@@ -49,13 +51,18 @@ pub(crate) fn compute_pixel_to_mm(
 
 /// SEC-401/SEC-402: Validate export path (canonicalize, extension, block system dirs, writable).
 /// Returns (canonical PathBuf, path as String) for use in export commands.
-fn validate_export_path(path: &str, extension: &str) -> Result<(std::path::PathBuf, String), String> {
+fn validate_export_path(
+    path: &str,
+    extension: &str,
+) -> Result<(std::path::PathBuf, String), String> {
     if path.trim().is_empty() {
         return Err("Export path must be non-empty".to_string());
     }
-    let canonical = std::fs::canonicalize(std::path::Path::new(path).parent().ok_or_else(|| {
-        "Invalid export path: no parent directory".to_string()
-    })?)
+    let canonical = std::fs::canonicalize(
+        std::path::Path::new(path)
+            .parent()
+            .ok_or_else(|| "Invalid export path: no parent directory".to_string())?,
+    )
     .map_err(|_| "Export directory does not exist or is not accessible".to_string())?;
     let file_name = std::path::Path::new(path)
         .file_name()
@@ -79,17 +86,25 @@ fn validate_export_path(path: &str, extension: &str) -> Result<(std::path::PathB
         ];
         for prefix in &blocked {
             if lower.starts_with(prefix) {
-                log::warn!("SEC-401: Blocked export to system directory: {}", canonical_str);
+                log::warn!(
+                    "SEC-401: Blocked export to system directory: {}",
+                    canonical_str
+                );
                 return Err("Cannot export to system directories".to_string());
             }
         }
     }
     #[cfg(not(target_os = "windows"))]
     {
-        let blocked = ["/etc", "/usr", "/bin", "/sbin", "/boot", "/lib", "/proc", "/sys"];
+        let blocked = [
+            "/etc", "/usr", "/bin", "/sbin", "/boot", "/lib", "/proc", "/sys",
+        ];
         for prefix in &blocked {
             if canonical_str.starts_with(prefix) {
-                log::warn!("SEC-401: Blocked export to system directory: {}", canonical_str);
+                log::warn!(
+                    "SEC-401: Blocked export to system directory: {}",
+                    canonical_str
+                );
                 return Err("Cannot export to system directories".to_string());
             }
         }
@@ -126,6 +141,14 @@ struct AppState {
     app_settings: Mutex<settings::AppSettings>,
     /// Undo/redo history for depth params (BACK-1402).
     undo_redo: Mutex<UndoRedoHistory>,
+}
+
+/// Payload for "depth-progress" Tauri event (BACK-205-STREAM, ARCH-501).
+#[derive(serde::Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct DepthProgressPayload {
+    percent: u8,
+    stage: Option<String>,
 }
 
 /// Success response for generate_depth_map (BACK-303, BACK-304). Includes depth and progress/stages.
@@ -197,9 +220,8 @@ fn export_stl(
     drop(params_guard);
 
     // Generate triangulated mesh
-    let mesh =
-        depth_to_point_cloud(&adjusted, original.width, original.height, &mesh_params)
-            .map_err(|e| format!("Mesh generation failed: {}", e))?;
+    let mesh = depth_to_point_cloud(&adjusted, original.width, original.height, &mesh_params)
+        .map_err(|e| format!("Mesh generation failed: {}", e))?;
 
     // Validate before writing (BACK-702)
     mesh_generator::validate_mesh_for_export(&mesh)
@@ -265,9 +287,8 @@ fn export_obj(
     drop(params_guard);
 
     // Generate triangulated mesh
-    let mesh =
-        depth_to_point_cloud(&adjusted, original.width, original.height, &mesh_params)
-            .map_err(|e| format!("Mesh generation failed: {}", e))?;
+    let mesh = depth_to_point_cloud(&adjusted, original.width, original.height, &mesh_params)
+        .map_err(|e| format!("Mesh generation failed: {}", e))?;
 
     // Validate before writing (BACK-702)
     mesh_generator::validate_mesh_for_export(&mesh)
@@ -300,10 +321,7 @@ fn get_export_defaults(state: State<AppState>) -> Result<ExportDefaults, String>
         .clone()
         .unwrap_or_default();
     let filename = mesh_generator::generate_export_filename(&source_path);
-    let settings_guard = state
-        .app_settings
-        .lock()
-        .map_err(|e| e.to_string())?;
+    let settings_guard = state.app_settings.lock().map_err(|e| e.to_string())?;
     let last_dir = settings_guard.last_export_dir.clone();
     let export_format = settings_guard.export_format.clone();
     drop(settings_guard);
@@ -349,12 +367,12 @@ fn save_settings(
 /// Save current depth/mesh settings as a preset (BACK-1302).
 /// If `path` is Some, writes to that file (user-chosen export path); otherwise saves to ~/.simplepicture3d/presets/{name}.json.
 #[tauri::command]
-fn save_preset(
-    name: String,
-    path: Option<String>,
-    state: State<AppState>,
-) -> Result<(), String> {
-    let params = state.adjustment_params.lock().map_err(|e| e.to_string())?.clone();
+fn save_preset(name: String, path: Option<String>, state: State<AppState>) -> Result<(), String> {
+    let params = state
+        .adjustment_params
+        .lock()
+        .map_err(|e| e.to_string())?
+        .clone();
     let settings_guard = state.app_settings.lock().map_err(|e| e.to_string())?;
     let target_width_mm = settings_guard.target_width_mm;
     let target_height_mm = settings_guard.target_height_mm;
@@ -395,16 +413,12 @@ fn save_preset(
 /// Load a preset by name (built-in or from presets dir) or by absolute path (import) and apply to app state (BACK-1302, BACK-1303).
 /// Returns updated undo/redo state so UI can sync.
 #[tauri::command]
-fn load_preset(
-    name_or_path: String,
-    state: State<AppState>,
-) -> Result<UndoRedoState, String> {
+fn load_preset(name_or_path: String, state: State<AppState>) -> Result<UndoRedoState, String> {
     let preset = if std::path::Path::new(&name_or_path).is_absolute() {
         let path = std::path::PathBuf::from(&name_or_path);
-        let contents = std::fs::read_to_string(&path)
-            .map_err(|e| format!("Failed to read preset: {}", e))?;
-        serde_json::from_str(&contents)
-            .map_err(|e| format!("Invalid preset file: {}", e))?
+        let contents =
+            std::fs::read_to_string(&path).map_err(|e| format!("Failed to read preset: {}", e))?;
+        Preset::parse_and_validate_json(&contents)?
     } else if let Some(p) = get_builtin_preset(name_or_path.trim()) {
         p
     } else {
@@ -413,22 +427,17 @@ fn load_preset(
             .join("presets");
         let safe_name = sanitize_preset_name(name_or_path.trim())?;
         let path = presets_dir.join(format!("{}.json", safe_name));
-        let contents = std::fs::read_to_string(&path)
-            .map_err(|e| format!("Failed to read preset: {}", e))?;
-        serde_json::from_str(&contents)
-            .map_err(|e| format!("Invalid preset file: {}", e))?
+        let contents =
+            std::fs::read_to_string(&path).map_err(|e| format!("Failed to read preset: {}", e))?;
+        Preset::parse_and_validate_json(&contents)?
     };
 
-    // Optional: migrate older schema (JR2-1303). For now we accept version 1 only.
-    if preset.schema_version > PRESET_SCHEMA_VERSION {
-        return Err(format!(
-            "Preset schema version {} is newer than supported ({})",
-            preset.schema_version, PRESET_SCHEMA_VERSION
-        ));
-    }
-
     let new_params = preset.to_depth_params();
-    let previous = state.adjustment_params.lock().map_err(|e| e.to_string())?.clone();
+    let previous = state
+        .adjustment_params
+        .lock()
+        .map_err(|e| e.to_string())?
+        .clone();
     let cmd = SetDepthParamsCommand {
         previous: previous.clone(),
         new: new_params.clone(),
@@ -589,7 +598,10 @@ fn run_model_downloader_cmd(arg: &str) -> Result<String, String> {
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     if stdout.trim().is_empty() {
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-        return Err(format!("Model downloader returned no output. stderr: {}", stderr));
+        return Err(format!(
+            "Model downloader returned no output. stderr: {}",
+            stderr
+        ));
     }
     Ok(stdout)
 }
@@ -616,24 +628,21 @@ fn python_bridge_python_exe() -> std::path::PathBuf {
 #[tauri::command]
 fn check_model() -> Result<ModelStatus, String> {
     let stdout = run_model_downloader_cmd("--check")?;
-    serde_json::from_str(&stdout)
-        .map_err(|e| format!("Failed to parse model status: {}", e))
+    serde_json::from_str(&stdout).map_err(|e| format!("Failed to parse model status: {}", e))
 }
 
 /// Get model information (BACK-901).
 #[tauri::command]
 fn get_model_info() -> Result<ModelInfo, String> {
     let stdout = run_model_downloader_cmd("--info")?;
-    serde_json::from_str(&stdout)
-        .map_err(|e| format!("Failed to parse model info: {}", e))
+    serde_json::from_str(&stdout).map_err(|e| format!("Failed to parse model info: {}", e))
 }
 
 /// Download AI model (BACK-901, BACK-903).
 #[tauri::command]
 fn download_model() -> Result<DownloadResult, String> {
     let stdout = run_model_downloader_cmd("--download")?;
-    serde_json::from_str(&stdout)
-        .map_err(|e| format!("Failed to parse download result: {}", e))
+    serde_json::from_str(&stdout).map_err(|e| format!("Failed to parse download result: {}", e))
 }
 
 /// JR2-303: Log depth map statistics (min, max, mean) at info level. Single pass; no PII.
@@ -657,24 +666,52 @@ fn log_depth_stats(depth: &[f32]) {
 }
 
 /// Inner implementation for depth generation (testable without Tauri state).
+/// When progress_cb is Some, runs with real-time progress streaming (BACK-205-STREAM).
+#[cfg(test)]
 fn generate_depth_map_impl(
     path: &str,
+    progress_cb: Option<python_bridge::ProgressCb>,
 ) -> Result<(python_bridge::DepthMapOutput, Vec<String>), String> {
     let bytes = image_loading::read_image_bytes_for_depth(path).map_err(|e| e.to_string())?;
-    let result = python_bridge::run_depth_estimation(&bytes).map_err(|e| e.to_string())?;
+    const TIMEOUT_SECS: u64 = 300;
+    let timeout = Duration::from_secs(TIMEOUT_SECS);
+    let result = match progress_cb {
+        Some(cb) => python_bridge::run_depth_estimation_with_progress(&bytes, timeout, Some(cb))
+            .map_err(|e| e.to_string())?,
+        None => python_bridge::run_depth_estimation_with_timeout(&bytes, timeout)
+            .map_err(|e| e.to_string())?,
+    };
     log_depth_stats(&result.depth.depth);
     Ok((result.depth, result.stderr_lines))
 }
 
-/// Generates a depth map from an image file (BACK-301, BACK-303, BACK-304).
+/// Generates a depth map from an image file (BACK-301, BACK-303, BACK-304, BACK-205-STREAM).
 /// Accepts image path (same as load_image); validates path and format, runs Python bridge;
 /// stores result in app state (BACK-302), returns depth + progress 100 + stages.
+/// Emits "depth-progress" Tauri events during estimation for real-time UI progress (Sprint 2.4).
 #[tauri::command]
 fn generate_depth_map(
     path: String,
+    app_handle: tauri::AppHandle,
     state: State<AppState>,
 ) -> Result<GenerateDepthMapResponse, String> {
-    let (depth, stderr_lines) = generate_depth_map_impl(&path)?;
+    let bytes = image_loading::read_image_bytes_for_depth(&path).map_err(|e| e.to_string())?;
+    let progress_cb: python_bridge::ProgressCb = Box::new(move |percent, stage| {
+        let payload = DepthProgressPayload { percent, stage };
+        if let Err(e) = app_handle.emit("depth-progress", &payload) {
+            log::warn!("depth-progress emit failed: {}", e);
+        }
+    });
+    const TIMEOUT_SECS: u64 = 300;
+    let result = python_bridge::run_depth_estimation_with_progress(
+        &bytes,
+        Duration::from_secs(TIMEOUT_SECS),
+        Some(progress_cb),
+    )
+    .map_err(|e| e.to_string())?;
+    let depth = result.depth;
+    let stderr_lines = result.stderr_lines;
+    log_depth_stats(&depth.depth);
     *state.depth.lock().map_err(|e| e.to_string())? = Some(depth.clone());
     // Store source image path for filename generation (BACK-705).
     *state.source_image_path.lock().map_err(|e| e.to_string())? = Some(path.clone());
@@ -744,7 +781,11 @@ fn set_depth_adjustment_params(
     params: DepthAdjustmentParams,
     state: State<AppState>,
 ) -> Result<UndoRedoState, String> {
-    let previous = state.adjustment_params.lock().map_err(|e| e.to_string())?.clone();
+    let previous = state
+        .adjustment_params
+        .lock()
+        .map_err(|e| e.to_string())?
+        .clone();
     let cmd = SetDepthParamsCommand {
         previous: previous.clone(),
         new: params.clone(),
@@ -754,7 +795,10 @@ fn set_depth_adjustment_params(
         let mut settings = state.app_settings.lock().map_err(|e| e.to_string())?;
         settings.curve_control_points = params.curve_control_points.clone();
         if let Err(e) = settings.save() {
-            log::warn!("Failed to save settings (curve) after set_depth_adjustment_params: {}", e);
+            log::warn!(
+                "Failed to save settings (curve) after set_depth_adjustment_params: {}",
+                e
+            );
         }
     }
     {
@@ -782,7 +826,11 @@ fn get_depth_adjustment_params(state: State<AppState>) -> Result<DepthAdjustment
 /// Returns undo/redo state for UI (can_undo, can_redo, current params). Use after load or to sync buttons.
 #[tauri::command]
 fn get_undo_redo_state(state: State<AppState>) -> Result<UndoRedoState, String> {
-    let params = state.adjustment_params.lock().map_err(|e| e.to_string())?.clone();
+    let params = state
+        .adjustment_params
+        .lock()
+        .map_err(|e| e.to_string())?
+        .clone();
     let hist = state.undo_redo.lock().map_err(|e| e.to_string())?;
     Ok(UndoRedoState {
         can_undo: hist.can_undo(),
@@ -839,7 +887,11 @@ fn clear_history(state: State<AppState>) -> Result<UndoRedoState, String> {
 /// Resets adjustment params to defaults; original depth unchanged (BACK-405, BACK-1403). Wrapped for undo/redo.
 #[tauri::command]
 fn reset_depth_adjustments(state: State<AppState>) -> Result<UndoRedoState, String> {
-    let previous = state.adjustment_params.lock().map_err(|e| e.to_string())?.clone();
+    let previous = state
+        .adjustment_params
+        .lock()
+        .map_err(|e| e.to_string())?
+        .clone();
     let new_params = DepthAdjustmentParams::default();
     let cmd = SetDepthParamsCommand {
         previous: previous.clone(),
@@ -851,8 +903,16 @@ fn reset_depth_adjustments(state: State<AppState>) -> Result<UndoRedoState, Stri
         hist.push(cmd);
     }
     Ok(UndoRedoState {
-        can_undo: state.undo_redo.lock().map_err(|e| e.to_string())?.can_undo(),
-        can_redo: state.undo_redo.lock().map_err(|e| e.to_string())?.can_redo(),
+        can_undo: state
+            .undo_redo
+            .lock()
+            .map_err(|e| e.to_string())?
+            .can_undo(),
+        can_redo: state
+            .undo_redo
+            .lock()
+            .map_err(|e| e.to_string())?
+            .can_redo(),
         params: new_params,
     })
 }
@@ -976,9 +1036,9 @@ mod tests {
     /// BACK-301: generate_depth_map rejects empty path (same validation as load_image).
     #[test]
     fn generate_depth_map_rejects_empty_path() {
-        let err = generate_depth_map_impl("").unwrap_err();
+        let err = generate_depth_map_impl("", None).unwrap_err();
         assert!(!err.is_empty());
-        let err = generate_depth_map_impl("   ").unwrap_err();
+        let err = generate_depth_map_impl("   ", None).unwrap_err();
         assert!(!err.is_empty());
     }
 
@@ -989,7 +1049,7 @@ mod tests {
             .join("sp3d_nonexistent_generate_depth_12345.png")
             .to_string_lossy()
             .to_string();
-        let result = generate_depth_map_impl(&path);
+        let result = generate_depth_map_impl(&path, None);
         assert!(result.is_err(), "nonexistent path should fail");
     }
 
@@ -1191,7 +1251,7 @@ mod tests {
         let temp = std::env::temp_dir().join("sp3d_qa304_dimensions.png");
         img.save(&temp).expect("write test PNG");
         let path = temp.to_string_lossy().to_string();
-        let result = generate_depth_map_impl(&path);
+        let result = generate_depth_map_impl(&path, None);
         let _ = std::fs::remove_file(&temp);
         let (depth_out, _) =
             result.expect("generate_depth_map_impl should succeed when Python env is set up");
@@ -1220,12 +1280,23 @@ mod tests {
         let height_px = 100u32;
         let target_width_mm = 50.0f32;
         let target_height_mm = 70.0f32;
-        let pixel_to_mm =
-            compute_pixel_to_mm(width_px, height_px, Some(target_width_mm), Some(target_height_mm));
+        let pixel_to_mm = compute_pixel_to_mm(
+            width_px,
+            height_px,
+            Some(target_width_mm),
+            Some(target_height_mm),
+        );
         let scale_w = target_width_mm / width_px as f32;
         let scale_h = target_height_mm / height_px as f32;
-        assert_eq!(pixel_to_mm, scale_w.min(scale_h), "pixel_to_mm = min(scale_w, scale_h)");
-        assert!((pixel_to_mm - 0.5).abs() < 1e-5, "100x100 px → 50x70 mm gives 0.5 mm/px");
+        assert_eq!(
+            pixel_to_mm,
+            scale_w.min(scale_h),
+            "pixel_to_mm = min(scale_w, scale_h)"
+        );
+        assert!(
+            (pixel_to_mm - 0.5).abs() < 1e-5,
+            "100x100 px → 50x70 mm gives 0.5 mm/px"
+        );
         let mesh_width_mm = (width_px - 1) as f32 * pixel_to_mm;
         let mesh_height_mm = (height_px - 1) as f32 * pixel_to_mm;
         assert!(

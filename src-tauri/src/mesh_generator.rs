@@ -381,9 +381,7 @@ pub fn validate_mesh_for_export(mesh: &MeshData) -> Result<(), MeshValidationErr
         ];
         let area_sq = cross[0] * cross[0] + cross[1] * cross[1] + cross[2] * cross[2];
         if area_sq < 1e-20 {
-            return Err(MeshValidationError::DegenerateTriangle {
-                triangle_index: t,
-            });
+            return Err(MeshValidationError::DegenerateTriangle { triangle_index: t });
         }
     }
     Ok(())
@@ -484,8 +482,8 @@ pub fn write_stl_binary<W: Write>(writer: &mut W, mesh: &MeshData) -> Result<(),
 
 /// Write binary STL to a file path (BACK-701 convenience wrapper).
 pub fn write_stl_to_file(path: &str, mesh: &MeshData) -> Result<(), anyhow::Error> {
-    let file = std::fs::File::create(path)
-        .with_context(|| format!("Cannot create STL file: {}", path))?;
+    let file =
+        std::fs::File::create(path).with_context(|| format!("Cannot create STL file: {}", path))?;
     let mut writer = std::io::BufWriter::new(file);
     write_stl_binary(&mut writer, mesh)
 }
@@ -550,11 +548,7 @@ pub fn write_obj_ascii<W: Write>(
         let i0 = indices[t * 3] + 1; // OBJ is 1-based
         let i1 = indices[t * 3 + 1] + 1;
         let i2 = indices[t * 3 + 2] + 1;
-        writeln!(
-            writer,
-            "f {}//{} {}//{} {}//{}",
-            i0, i0, i1, i1, i2, i2
-        )?;
+        writeln!(writer, "f {}//{} {}//{} {}//{}", i0, i0, i1, i1, i2, i2)?;
     }
 
     writer.flush()?;
@@ -578,7 +572,11 @@ pub fn write_mtl<W: Write>(writer: &mut W) -> Result<(), anyhow::Error> {
 }
 
 /// Write OBJ + optional MTL to files (BACK-801 convenience wrapper).
-pub fn write_obj_to_file(path: &str, mesh: &MeshData, write_mtl_file: bool) -> Result<(), anyhow::Error> {
+pub fn write_obj_to_file(
+    path: &str,
+    mesh: &MeshData,
+    write_mtl_file: bool,
+) -> Result<(), anyhow::Error> {
     let obj_path = std::path::Path::new(path);
     let mtl_filename = if write_mtl_file {
         obj_path
@@ -590,8 +588,8 @@ pub fn write_obj_to_file(path: &str, mesh: &MeshData, write_mtl_file: bool) -> R
     };
 
     // Write OBJ
-    let file = std::fs::File::create(path)
-        .with_context(|| format!("Cannot create OBJ file: {}", path))?;
+    let file =
+        std::fs::File::create(path).with_context(|| format!("Cannot create OBJ file: {}", path))?;
     let mut writer = std::io::BufWriter::new(file);
     write_obj_ascii(&mut writer, mesh, mtl_filename.as_deref())?;
 
@@ -830,8 +828,8 @@ mod tests {
         let height_px = 100u32;
         let target_width_mm = 50.0f32;
         let target_height_mm = 70.0f32;
-        let pixel_to_mm = (target_width_mm / width_px as f32)
-            .min(target_height_mm / height_px as f32);
+        let pixel_to_mm =
+            (target_width_mm / width_px as f32).min(target_height_mm / height_px as f32);
         let depth: Vec<f32> = (0..(width_px * height_px) as usize)
             .map(|i| (i as f32) / ((width_px * height_px) as f32 - 1.0))
             .collect();
@@ -928,7 +926,12 @@ mod tests {
     // so mesh XY fits inside the target rectangle with aspect ratio preserved.
 
     /// Helper: compute pixel_to_mm from target dimensions (same formula as lib.rs compute_pixel_to_mm).
-    fn target_to_pixel_to_mm(width_px: u32, height_px: u32, target_width_mm: f32, target_height_mm: f32) -> f32 {
+    fn target_to_pixel_to_mm(
+        width_px: u32,
+        height_px: u32,
+        target_width_mm: f32,
+        target_height_mm: f32,
+    ) -> f32 {
         let scale_w = target_width_mm / width_px as f32;
         let scale_h = target_height_mm / height_px as f32;
         scale_w.min(scale_h)
@@ -973,8 +976,18 @@ mod tests {
         let extent_w = max_x - min_x;
         let extent_h = max_y - min_y;
 
-        assert!(extent_w <= target_w + 1e-5, "mesh width {} should fit in target {}", extent_w, target_w);
-        assert!(extent_h <= target_h + 1e-5, "mesh height {} should fit in target {}", extent_h, target_h);
+        assert!(
+            extent_w <= target_w + 1e-5,
+            "mesh width {} should fit in target {}",
+            extent_w,
+            target_w
+        );
+        assert!(
+            extent_h <= target_h + 1e-5,
+            "mesh height {} should fit in target {}",
+            extent_h,
+            target_h
+        );
         // Scaled size (width_px * pixel_to_mm) fits in target; mesh extent is (n-1)*pixel_to_mm so slightly smaller
         let scaled_w = width_px as f32 * pixel_to_mm;
         let scaled_h = height_px as f32 * pixel_to_mm;
@@ -1026,19 +1039,27 @@ mod tests {
         let height_px = 8u32;
         let depth: Vec<f32> = vec![0.5; (width_px * height_px) as usize];
 
-        let mesh_default = depth_to_point_cloud(&depth, width_px, height_px, &MeshParams::default()).unwrap();
+        let mesh_default =
+            depth_to_point_cloud(&depth, width_px, height_px, &MeshParams::default()).unwrap();
         let (min_x, max_x, min_y, max_y) = mesh_xy_bounds(&mesh_default.positions);
         let extent_w = max_x - min_x;
         let extent_h = max_y - min_y;
 
-        assert!((extent_w - (width_px - 1) as f32).abs() < 1e-5, "default: width extent = width_px - 1 (0-indexed)");
-        assert!((extent_h - (height_px - 1) as f32).abs() < 1e-5, "default: height extent = height_px - 1");
+        assert!(
+            (extent_w - (width_px - 1) as f32).abs() < 1e-5,
+            "default: width extent = width_px - 1 (0-indexed)"
+        );
+        assert!(
+            (extent_h - (height_px - 1) as f32).abs() < 1e-5,
+            "default: height extent = height_px - 1"
+        );
         // Explicit pixel_to_mm 1.0 should match default
         let params_explicit = MeshParams {
             pixel_to_mm: 1.0,
             ..MeshParams::default()
         };
-        let mesh_explicit = depth_to_point_cloud(&depth, width_px, height_px, &params_explicit).unwrap();
+        let mesh_explicit =
+            depth_to_point_cloud(&depth, width_px, height_px, &params_explicit).unwrap();
         let (min_x2, max_x2, min_y2, max_y2) = mesh_xy_bounds(&mesh_explicit.positions);
         assert!((max_x - min_x - (max_x2 - min_x2)).abs() < 1e-5);
         assert!((max_y - min_y - (max_y2 - min_y2)).abs() < 1e-5);
@@ -1146,7 +1167,11 @@ mod tests {
         let v2 = mesh.positions[idx[2] as usize];
         let normal = compute_face_normal(&v0, &v1, &v2);
         // Should point in +Z direction
-        assert!(normal[2] > 0.9, "face normal should point +Z, got {:?}", normal);
+        assert!(
+            normal[2] > 0.9,
+            "face normal should point +Z, got {:?}",
+            normal
+        );
     }
 
     #[test]
@@ -1248,11 +1273,26 @@ mod tests {
 
         // Parse first triangle from buffer
         let offset = 84; // after header + tri count
-        // Normal (3 x f32) = 12 bytes, then v0,v1,v2 (9 x f32 = 36 bytes), then u16 = 2
-        // Triangle 1: indices 0,2,1 -> positions[0], positions[2], positions[1]
-        let v0_x = f32::from_le_bytes([buf[offset + 12], buf[offset + 13], buf[offset + 14], buf[offset + 15]]);
-        let v0_y = f32::from_le_bytes([buf[offset + 16], buf[offset + 17], buf[offset + 18], buf[offset + 19]]);
-        let v0_z = f32::from_le_bytes([buf[offset + 20], buf[offset + 21], buf[offset + 22], buf[offset + 23]]);
+                         // Normal (3 x f32) = 12 bytes, then v0,v1,v2 (9 x f32 = 36 bytes), then u16 = 2
+                         // Triangle 1: indices 0,2,1 -> positions[0], positions[2], positions[1]
+        let v0_x = f32::from_le_bytes([
+            buf[offset + 12],
+            buf[offset + 13],
+            buf[offset + 14],
+            buf[offset + 15],
+        ]);
+        let v0_y = f32::from_le_bytes([
+            buf[offset + 16],
+            buf[offset + 17],
+            buf[offset + 18],
+            buf[offset + 19],
+        ]);
+        let v0_z = f32::from_le_bytes([
+            buf[offset + 20],
+            buf[offset + 21],
+            buf[offset + 22],
+            buf[offset + 23],
+        ]);
         assert!((v0_x - 0.0).abs() < 1e-5);
         assert!((v0_y - 0.0).abs() < 1e-5);
         assert!((v0_z - 5.0).abs() < 1e-5);
@@ -1342,11 +1382,7 @@ mod tests {
     #[test]
     fn validate_rejects_nan_position() {
         let mesh = MeshData {
-            positions: vec![
-                [0.0, 0.0, f32::NAN],
-                [1.0, 0.0, 0.0],
-                [0.0, 1.0, 0.0],
-            ],
+            positions: vec![[0.0, 0.0, f32::NAN], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
             normals: vec![[0.0, 0.0, 1.0]; 3],
             indices: Some(vec![0, 1, 2]),
         };
@@ -1359,11 +1395,7 @@ mod tests {
     #[test]
     fn validate_rejects_inf_position() {
         let mesh = MeshData {
-            positions: vec![
-                [0.0, 0.0, 0.0],
-                [f32::INFINITY, 0.0, 0.0],
-                [0.0, 1.0, 0.0],
-            ],
+            positions: vec![[0.0, 0.0, 0.0], [f32::INFINITY, 0.0, 0.0], [0.0, 1.0, 0.0]],
             normals: vec![[0.0, 0.0, 1.0]; 3],
             indices: Some(vec![0, 1, 2]),
         };
@@ -1457,17 +1489,31 @@ mod tests {
 
     /// Helper: parse binary STL buffer into (header, tri_count, Vec<(normal, [v0,v1,v2], attr)>).
     fn parse_stl_binary(buf: &[u8]) -> (Vec<u8>, u32, Vec<([f32; 3], [[f32; 3]; 3], u16)>) {
-        assert!(buf.len() >= 84, "STL buffer too short for header + tri count");
+        assert!(
+            buf.len() >= 84,
+            "STL buffer too short for header + tri count"
+        );
         let header = buf[..80].to_vec();
         let tri_count = u32::from_le_bytes([buf[80], buf[81], buf[82], buf[83]]);
         let expected_len = 84 + tri_count as usize * 50;
-        assert_eq!(buf.len(), expected_len, "STL file size mismatch: expected {}, got {}", expected_len, buf.len());
+        assert_eq!(
+            buf.len(),
+            expected_len,
+            "STL file size mismatch: expected {}, got {}",
+            expected_len,
+            buf.len()
+        );
 
         let mut triangles = Vec::with_capacity(tri_count as usize);
         for t in 0..tri_count as usize {
             let base = 84 + t * 50;
             let read_f32 = |offset: usize| -> f32 {
-                f32::from_le_bytes([buf[offset], buf[offset + 1], buf[offset + 2], buf[offset + 3]])
+                f32::from_le_bytes([
+                    buf[offset],
+                    buf[offset + 1],
+                    buf[offset + 2],
+                    buf[offset + 3],
+                ])
             };
             let read_vec3 = |offset: usize| -> [f32; 3] {
                 [read_f32(offset), read_f32(offset + 4), read_f32(offset + 8)]
@@ -1515,12 +1561,26 @@ mod tests {
             let i2 = idx[t * 3 + 2] as usize;
             let (_, verts, attr) = &triangles[t];
             for c in 0..3 {
-                assert!((verts[0][c] - mesh.positions[i0][c]).abs() < 1e-5,
-                    "tri {} v0[{}] mismatch: {} vs {}", t, c, verts[0][c], mesh.positions[i0][c]);
-                assert!((verts[1][c] - mesh.positions[i1][c]).abs() < 1e-5,
-                    "tri {} v1[{}] mismatch", t, c);
-                assert!((verts[2][c] - mesh.positions[i2][c]).abs() < 1e-5,
-                    "tri {} v2[{}] mismatch", t, c);
+                assert!(
+                    (verts[0][c] - mesh.positions[i0][c]).abs() < 1e-5,
+                    "tri {} v0[{}] mismatch: {} vs {}",
+                    t,
+                    c,
+                    verts[0][c],
+                    mesh.positions[i0][c]
+                );
+                assert!(
+                    (verts[1][c] - mesh.positions[i1][c]).abs() < 1e-5,
+                    "tri {} v1[{}] mismatch",
+                    t,
+                    c
+                );
+                assert!(
+                    (verts[2][c] - mesh.positions[i2][c]).abs() < 1e-5,
+                    "tri {} v2[{}] mismatch",
+                    t,
+                    c
+                );
             }
             assert_eq!(*attr, 0, "attribute byte count should be 0");
         }
@@ -1551,7 +1611,10 @@ mod tests {
     fn jr2_701_stl_header_exactly_80_bytes() {
         let mesh = MeshData {
             positions: vec![
-                [0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [1.0, 1.0, 0.0],
             ],
             normals: vec![[0.0, 0.0, 1.0]; 4],
             indices: Some(triangulate_grid(2, 2)),
@@ -1575,19 +1638,33 @@ mod tests {
             let n = grid_size * grid_size;
             let depth: Vec<f32> = vec![0.5; n];
             let mesh = depth_to_point_cloud(
-                &depth, grid_size as u32, grid_size as u32, &MeshParams::default()
-            ).unwrap();
+                &depth,
+                grid_size as u32,
+                grid_size as u32,
+                &MeshParams::default(),
+            )
+            .unwrap();
             let mut buf = Vec::new();
             write_stl_binary(&mut buf, &mesh).unwrap();
 
             let expected_tris = ((grid_size - 1) * (grid_size - 1) * 2) as u32;
             let expected_size = 84 + expected_tris as usize * 50;
-            assert_eq!(buf.len(), expected_size,
-                "grid {}x{}: expected size {}, got {}", grid_size, grid_size, expected_size, buf.len());
+            assert_eq!(
+                buf.len(),
+                expected_size,
+                "grid {}x{}: expected size {}, got {}",
+                grid_size,
+                grid_size,
+                expected_size,
+                buf.len()
+            );
 
             let tri_count = u32::from_le_bytes([buf[80], buf[81], buf[82], buf[83]]);
-            assert_eq!(tri_count, expected_tris,
-                "grid {}x{}: expected {} tris, got {}", grid_size, grid_size, expected_tris, tri_count);
+            assert_eq!(
+                tri_count, expected_tris,
+                "grid {}x{}: expected {} tris, got {}",
+                grid_size, grid_size, expected_tris, tri_count
+            );
         }
     }
 
@@ -1601,9 +1678,15 @@ mod tests {
 
         let (_, _, triangles) = parse_stl_binary(&buf);
         for (t, (normal, _, _)) in triangles.iter().enumerate() {
-            let len = (normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]).sqrt();
-            assert!((len - 1.0).abs() < 1e-4,
-                "triangle {} normal not unit length: {:?} (len={})", t, normal, len);
+            let len =
+                (normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]).sqrt();
+            assert!(
+                (len - 1.0).abs() < 1e-4,
+                "triangle {} normal not unit length: {:?} (len={})",
+                t,
+                normal,
+                len
+            );
         }
     }
 
@@ -1612,8 +1695,10 @@ mod tests {
         // For a flat mesh (all z=0), face normals from CCW winding should point +Z
         let mesh = MeshData {
             positions: vec![
-                [0.0, 0.0, 0.0], [1.0, 0.0, 0.0],
-                [0.0, 1.0, 0.0], [1.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [1.0, 1.0, 0.0],
             ],
             normals: vec![[0.0, 0.0, 1.0]; 4],
             indices: Some(triangulate_grid(2, 2)),
@@ -1622,10 +1707,18 @@ mod tests {
         write_stl_binary(&mut buf, &mesh).unwrap();
         let (_, _, triangles) = parse_stl_binary(&buf);
         for (t, (normal, _, _)) in triangles.iter().enumerate() {
-            assert!(normal[2] > 0.99,
-                "triangle {} normal z should be ~1.0, got {:?}", t, normal);
-            assert!(normal[0].abs() < 1e-5 && normal[1].abs() < 1e-5,
-                "triangle {} normal x,y should be ~0, got {:?}", t, normal);
+            assert!(
+                normal[2] > 0.99,
+                "triangle {} normal z should be ~1.0, got {:?}",
+                t,
+                normal
+            );
+            assert!(
+                normal[0].abs() < 1e-5 && normal[1].abs() < 1e-5,
+                "triangle {} normal x,y should be ~0, got {:?}",
+                t,
+                normal
+            );
         }
     }
 
@@ -1646,19 +1739,17 @@ mod tests {
         let (_, tri_count, triangles) = parse_stl_binary(&buf);
         assert_eq!(tri_count, 1);
         // Verify large values round-trip correctly
-        assert!((triangles[0].1[0][0] - 1e6).abs() < 1.0,
-            "large coordinate round-trip failed");
+        assert!(
+            (triangles[0].1[0][0] - 1e6).abs() < 1.0,
+            "large coordinate round-trip failed"
+        );
     }
 
     #[test]
     fn jr2_701_extreme_coordinates_small() {
         // Test with very small coordinate values
         let mesh = MeshData {
-            positions: vec![
-                [1e-6, 1e-6, 1e-6],
-                [1e-5, 1e-6, 1e-6],
-                [1e-6, 1e-5, 1e-6],
-            ],
+            positions: vec![[1e-6, 1e-6, 1e-6], [1e-5, 1e-6, 1e-6], [1e-6, 1e-5, 1e-6]],
             normals: vec![[0.0, 0.0, 1.0]; 3],
             indices: Some(vec![0, 1, 2]),
         };
@@ -1712,12 +1803,24 @@ mod tests {
             let i2 = idx[t * 3 + 2] as usize;
             let (_, verts, _) = &triangles[t];
             for c in 0..3 {
-                assert!((verts[0][c] - mesh.positions[i0][c]).abs() < 1e-5,
-                    "roundtrip: tri {} v0[{}]", t, c);
-                assert!((verts[1][c] - mesh.positions[i1][c]).abs() < 1e-5,
-                    "roundtrip: tri {} v1[{}]", t, c);
-                assert!((verts[2][c] - mesh.positions[i2][c]).abs() < 1e-5,
-                    "roundtrip: tri {} v2[{}]", t, c);
+                assert!(
+                    (verts[0][c] - mesh.positions[i0][c]).abs() < 1e-5,
+                    "roundtrip: tri {} v0[{}]",
+                    t,
+                    c
+                );
+                assert!(
+                    (verts[1][c] - mesh.positions[i1][c]).abs() < 1e-5,
+                    "roundtrip: tri {} v1[{}]",
+                    t,
+                    c
+                );
+                assert!(
+                    (verts[2][c] - mesh.positions[i2][c]).abs() < 1e-5,
+                    "roundtrip: tri {} v2[{}]",
+                    t,
+                    c
+                );
             }
         }
     }
@@ -1762,8 +1865,11 @@ mod tests {
         // 2. Triangle count matches
         let tri_count = u32::from_le_bytes([buf[80], buf[81], buf[82], buf[83]]);
         let expected_tris = ((w - 1) * (h - 1) * 2) as u32;
-        assert_eq!(tri_count, expected_tris,
-            "triangle count: expected {}, got {}", expected_tris, tri_count);
+        assert_eq!(
+            tri_count, expected_tris,
+            "triangle count: expected {}, got {}",
+            expected_tris, tri_count
+        );
 
         // 3. File size matches formula
         let expected_size = 84 + tri_count as usize * 50;
@@ -1780,24 +1886,41 @@ mod tests {
             let nx = read_f32(base);
             let ny = read_f32(base + 4);
             let nz = read_f32(base + 8);
-            assert!(nx.is_finite() && ny.is_finite() && nz.is_finite(),
-                "triangle {} has non-finite normal", t);
+            assert!(
+                nx.is_finite() && ny.is_finite() && nz.is_finite(),
+                "triangle {} has non-finite normal",
+                t
+            );
             let nlen = (nx * nx + ny * ny + nz * nz).sqrt();
-            assert!((nlen - 1.0).abs() < 1e-3,
-                "triangle {} normal not unit length (len={})", t, nlen);
+            assert!(
+                (nlen - 1.0).abs() < 1e-3,
+                "triangle {} normal not unit length (len={})",
+                t,
+                nlen
+            );
 
             // Vertices: 3 vertices x 3 components, all must be finite
             for v in 0..3 {
                 for c in 0..3 {
                     let val = read_f32(base + 12 + v * 12 + c * 4);
-                    assert!(val.is_finite(),
-                        "triangle {} vertex {} component {} is not finite: {}", t, v, c, val);
+                    assert!(
+                        val.is_finite(),
+                        "triangle {} vertex {} component {} is not finite: {}",
+                        t,
+                        v,
+                        c,
+                        val
+                    );
                 }
             }
 
             // Attribute byte count: must be 0
             let attr = u16::from_le_bytes([buf[base + 48], buf[base + 49]]);
-            assert_eq!(attr, 0, "triangle {} attribute byte count should be 0, got {}", t, attr);
+            assert_eq!(
+                attr, 0,
+                "triangle {} attribute byte count should be 0, got {}",
+                t, attr
+            );
         }
     }
 
@@ -1835,11 +1958,7 @@ mod tests {
     fn jr2_703_single_triangle_succeeds() {
         // 3 vertices, 1 triangle
         let mesh = MeshData {
-            positions: vec![
-                [0.0, 0.0, 0.0],
-                [1.0, 0.0, 0.0],
-                [0.0, 1.0, 0.0],
-            ],
+            positions: vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
             normals: vec![[0.0, 0.0, 1.0]; 3],
             indices: Some(vec![0, 1, 2]),
         };
@@ -1864,7 +1983,10 @@ mod tests {
         // All z should be the same
         let z_val = mesh.positions[0][2];
         for p in &mesh.positions {
-            assert!((p[2] - z_val).abs() < 1e-5, "flat depth should give uniform z");
+            assert!(
+                (p[2] - z_val).abs() < 1e-5,
+                "flat depth should give uniform z"
+            );
         }
 
         // Validation should pass (triangles have area from x,y differences)
@@ -1923,8 +2045,14 @@ mod tests {
         };
         let mesh = depth_to_point_cloud(&depth, 2, 2, &params).unwrap();
         // Negative values clamped to 0 -> z = depth_min_mm = 2.0
-        assert!((mesh.positions[0][2] - 2.0).abs() < 1e-5, "negative depth clamped to min");
-        assert!((mesh.positions[1][2] - 2.0).abs() < 1e-5, "negative depth clamped to min");
+        assert!(
+            (mesh.positions[0][2] - 2.0).abs() < 1e-5,
+            "negative depth clamped to min"
+        );
+        assert!(
+            (mesh.positions[1][2] - 2.0).abs() < 1e-5,
+            "negative depth clamped to min"
+        );
     }
 
     #[test]
@@ -1937,8 +2065,14 @@ mod tests {
             ..Default::default()
         };
         let mesh = depth_to_point_cloud(&depth, 2, 2, &params).unwrap();
-        assert!((mesh.positions[0][2] - 10.0).abs() < 1e-5, "depth>1 clamped to max");
-        assert!((mesh.positions[1][2] - 10.0).abs() < 1e-5, "depth>1 clamped to max");
+        assert!(
+            (mesh.positions[0][2] - 10.0).abs() < 1e-5,
+            "depth>1 clamped to max"
+        );
+        assert!(
+            (mesh.positions[1][2] - 10.0).abs() < 1e-5,
+            "depth>1 clamped to max"
+        );
     }
 
     #[test]
@@ -2068,7 +2202,10 @@ mod tests {
             println!("  Mesh generation: {:?}", mesh_time);
             println!("  STL write:       {:?}", stl_time);
             println!("  Total:           {:?}", total);
-            println!("  STL size:        {:.1} MB", buf.len() as f64 / (1024.0 * 1024.0));
+            println!(
+                "  STL size:        {:.1} MB",
+                buf.len() as f64 / (1024.0 * 1024.0)
+            );
             println!();
 
             // Verify correctness
@@ -2076,8 +2213,11 @@ mod tests {
 
             // For the 1M case, assert total < 5s (target from task)
             if *size == 1000 {
-                assert!(total.as_secs() < 5,
-                    "1M vertex export took {:?}, exceeds 5s target", total);
+                assert!(
+                    total.as_secs() < 5,
+                    "1M vertex export took {:?}, exceeds 5s target",
+                    total
+                );
             }
         }
         println!("=== Benchmark complete ===\n");
@@ -2094,7 +2234,9 @@ mod tests {
         let mut faces = Vec::new();
         for line in text.lines() {
             let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.is_empty() { continue; }
+            if parts.is_empty() {
+                continue;
+            }
             match parts[0] {
                 "v" if parts.len() >= 4 => {
                     verts.push([
@@ -2168,8 +2310,14 @@ mod tests {
         // Verify vertex positions match
         for (i, pos) in mesh.positions.iter().enumerate() {
             for c in 0..3 {
-                assert!((verts[i][c] - pos[c]).abs() < 1e-4,
-                    "vertex {} component {} mismatch: {} vs {}", i, c, verts[i][c], pos[c]);
+                assert!(
+                    (verts[i][c] - pos[c]).abs() < 1e-4,
+                    "vertex {} component {} mismatch: {} vs {}",
+                    i,
+                    c,
+                    verts[i][c],
+                    pos[c]
+                );
             }
         }
 
@@ -2185,32 +2333,37 @@ mod tests {
     #[test]
     fn jr2_801_obj_with_mtl_reference() {
         let mesh = MeshData {
-            positions: vec![
-                [0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0],
-            ],
+            positions: vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
             normals: vec![[0.0, 0.0, 1.0]; 3],
             indices: Some(vec![0, 1, 2]),
         };
         let mut buf = Vec::new();
         write_obj_ascii(&mut buf, &mesh, Some("test.mtl")).unwrap();
         let text = String::from_utf8(buf).unwrap();
-        assert!(text.contains("mtllib test.mtl"), "should reference MTL file");
-        assert!(text.contains("usemtl default"), "should use default material");
+        assert!(
+            text.contains("mtllib test.mtl"),
+            "should reference MTL file"
+        );
+        assert!(
+            text.contains("usemtl default"),
+            "should use default material"
+        );
     }
 
     #[test]
     fn jr2_801_obj_without_mtl_reference() {
         let mesh = MeshData {
-            positions: vec![
-                [0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0],
-            ],
+            positions: vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
             normals: vec![[0.0, 0.0, 1.0]; 3],
             indices: Some(vec![0, 1, 2]),
         };
         let mut buf = Vec::new();
         write_obj_ascii(&mut buf, &mesh, None).unwrap();
         let text = String::from_utf8(buf).unwrap();
-        assert!(!text.contains("mtllib"), "should not reference MTL without param");
+        assert!(
+            !text.contains("mtllib"),
+            "should not reference MTL without param"
+        );
     }
 
     #[test]
@@ -2229,8 +2382,10 @@ mod tests {
     fn jr2_801_obj_header_comment() {
         let mesh = MeshData {
             positions: vec![
-                [0.0, 0.0, 0.0], [1.0, 0.0, 0.0],
-                [0.0, 1.0, 0.0], [1.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [1.0, 1.0, 0.0],
             ],
             normals: vec![[0.0, 0.0, 1.0]; 4],
             indices: Some(triangulate_grid(2, 2)),
@@ -2276,8 +2431,10 @@ mod tests {
     fn jr2_802_obj_write_to_file_roundtrip() {
         let mesh = MeshData {
             positions: vec![
-                [0.0, 0.0, 0.0], [1.0, 0.0, 0.0],
-                [0.0, 1.0, 0.0], [1.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [1.0, 1.0, 0.0],
             ],
             normals: vec![[0.0, 0.0, 1.0]; 4],
             indices: Some(triangulate_grid(2, 2)),
@@ -2295,7 +2452,10 @@ mod tests {
 
         // Verify MTL file exists
         let mtl_path = dir.join("test_roundtrip.mtl");
-        assert!(mtl_path.exists(), "MTL file should be created alongside OBJ");
+        assert!(
+            mtl_path.exists(),
+            "MTL file should be created alongside OBJ"
+        );
         let mtl_content = std::fs::read_to_string(&mtl_path).unwrap();
         assert!(mtl_content.contains("newmtl default"));
 
@@ -2307,8 +2467,10 @@ mod tests {
     fn jr2_802_obj_write_to_file_no_mtl() {
         let mesh = MeshData {
             positions: vec![
-                [0.0, 0.0, 0.0], [1.0, 0.0, 0.0],
-                [0.0, 1.0, 0.0], [1.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [1.0, 1.0, 0.0],
             ],
             normals: vec![[0.0, 0.0, 1.0]; 4],
             indices: Some(triangulate_grid(2, 2)),
@@ -2319,10 +2481,16 @@ mod tests {
         write_obj_to_file(&obj_path, &mesh, false).unwrap();
 
         let obj_content = std::fs::read_to_string(&obj_path).unwrap();
-        assert!(!obj_content.contains("mtllib"), "no MTL reference when write_mtl_file=false");
+        assert!(
+            !obj_content.contains("mtllib"),
+            "no MTL reference when write_mtl_file=false"
+        );
 
         let mtl_path = dir.join("test_no_mtl.mtl");
-        assert!(!mtl_path.exists(), "MTL file should not exist when write_mtl_file=false");
+        assert!(
+            !mtl_path.exists(),
+            "MTL file should not exist when write_mtl_file=false"
+        );
 
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -2339,7 +2507,10 @@ mod tests {
     #[test]
     fn jr2_803_generate_export_filename_stl_backwards_compat() {
         let name = generate_export_filename("test.png");
-        assert!(name.ends_with(".stl"), "backwards-compatible wrapper should use .stl");
+        assert!(
+            name.ends_with(".stl"),
+            "backwards-compatible wrapper should use .stl"
+        );
     }
 
     // --- JR2-803: Settings corruption test ---

@@ -20,6 +20,9 @@ from model_downloader import (
     check_model_installed,
     get_model_info,
     get_model_dir,
+    load_expected_hashes,
+    verify_model_sha256,
+    write_current_hashes,
     REQUIRED_FILES,
     DEFAULT_MODEL_ID,
     MODELS_BASE_DIR,
@@ -115,6 +118,54 @@ class TestGetModelDir:
         """get_model_dir should return a Path object."""
         model_dir = get_model_dir()
         assert isinstance(model_dir, Path)
+
+
+class TestVerifyModelSha256:
+    """Tests for SEC-202 SHA256 verification."""
+
+    def test_verify_empty_expected_passes(self, tmp_path):
+        """When expected_hashes is empty, verification passes."""
+        (tmp_path / "config.json").write_text("{}")
+        ok, err = verify_model_sha256(tmp_path, {})
+        assert ok is True
+        assert err == ""
+
+    def test_verify_matching_hash_passes(self, tmp_path):
+        """When file exists and hash matches, verification passes."""
+        content = b"test content"
+        (tmp_path / "config.json").write_bytes(content)
+        import hashlib
+        expected = {"config.json": hashlib.sha256(content).hexdigest().lower()}
+        ok, err = verify_model_sha256(tmp_path, expected)
+        assert ok is True
+        assert err == ""
+
+    def test_verify_mismatch_fails(self, tmp_path):
+        """When hash does not match, verification fails."""
+        (tmp_path / "config.json").write_text("x")
+        expected = {"config.json": "0" * 64}
+        ok, err = verify_model_sha256(tmp_path, expected)
+        assert ok is False
+        assert "mismatch" in err
+
+    def test_verify_missing_file_fails(self, tmp_path):
+        """When expected file is missing, verification fails."""
+        expected = {"config.json": "a" * 64}
+        ok, err = verify_model_sha256(tmp_path, expected)
+        assert ok is False
+        assert "not found" in err
+
+    def test_verify_nonexistent_dir_fails(self, tmp_path):
+        """When model_dir does not exist, verification fails."""
+        ok, err = verify_model_sha256(tmp_path / "nonexistent", {"a": "b"})
+        assert ok is False
+        assert "does not exist" in err
+
+    def test_load_expected_hashes_empty_or_missing(self):
+        """load_expected_hashes returns empty dict when file missing or invalid."""
+        with patch("model_downloader._expected_hashes_path") as p:
+            p.return_value = Path("/nonexistent/path/hashes.json")
+            assert load_expected_hashes() == {}
 
 
 class TestJsonOutput:

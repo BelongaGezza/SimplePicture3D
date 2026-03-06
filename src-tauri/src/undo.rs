@@ -126,8 +126,14 @@ mod tests {
 
         let mut state = initial.clone();
         cmd.apply_new(&mut state);
-        assert!((state.brightness - 0.25).abs() < 1e-6, "execute should apply new params");
-        assert!((state.gamma - 1.5).abs() < 1e-6, "execute should apply new params");
+        assert!(
+            (state.brightness - 0.25).abs() < 1e-6,
+            "execute should apply new params"
+        );
+        assert!(
+            (state.gamma - 1.5).abs() < 1e-6,
+            "execute should apply new params"
+        );
 
         cmd.apply_previous(&mut state);
         assert!(
@@ -158,7 +164,11 @@ mod tests {
             };
             hist.push(cmd);
         }
-        assert_eq!(hist.len_undo(), MAX_HISTORY_LEN, "history must not exceed 20");
+        assert_eq!(
+            hist.len_undo(),
+            MAX_HISTORY_LEN,
+            "history must not exceed 20"
+        );
     }
 
     #[test]

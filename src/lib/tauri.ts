@@ -92,6 +92,18 @@ export async function saveSettings(newSettings: AppSettings): Promise<void> {
   return invoke("save_settings", { newSettings });
 }
 
+/** Payload for "depth-progress" Tauri event (BACK-205-STREAM). Emitted during depth estimation. */
+export interface DepthProgressEvent {
+  percent: number;
+  stage?: string;
+}
+
+/** Payload for "depth-progress" Tauri event (BACK-205-STREAM). Emitted during depth estimation. */
+export interface DepthProgressEvent {
+  percent: number;
+  stage?: string;
+}
+
 /** Success response from generate_depth_map (BACK-303, BACK-304). Row-major depth array in [0, 1]. */
 export interface DepthMapResult {
   width: number;
@@ -128,6 +140,16 @@ export interface DepthAdjustmentParams {
   curveControlPoints?: CurvePoint[] | null;
 }
 
+/**
+ * Runs AI depth estimation on the image at the given path (BACK-303, BACK-205-STREAM).
+ * Returns when complete with depth map and stages. Real-time progress is available by
+ * listening to the "depth-progress" Tauri event (payload: DepthProgressEvent) before calling.
+ */
+/**
+ * Run AI depth estimation on the image at path. Returns when complete.
+ * Real-time progress is emitted via the "depth-progress" Tauri event (listen with @tauri-apps/api/event).
+ * Payload: { percent: number, stage?: string } (DepthProgressEvent).
+ */
 export async function generateDepthMap(path: string): Promise<DepthMapResult> {
   return invoke<DepthMapResult>("generate_depth_map", { path });
 }
@@ -301,7 +323,7 @@ export async function savePreset(name: string, path?: string | null): Promise<vo
 
 /** Load preset by name (from presets dir) or by absolute path (import). Applies to app state. BACK-1302. */
 export async function loadPreset(nameOrPath: string): Promise<void> {
-  return invoke("load_preset", { nameOr_path: nameOrPath });
+  return invoke("load_preset", { name_or_path: nameOrPath });
 }
 
 /** Delete user preset by name (BACK-1302, UI-1301). */

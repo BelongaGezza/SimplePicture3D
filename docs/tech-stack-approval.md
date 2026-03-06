@@ -30,7 +30,7 @@ The tech stack per prd.md §5.1 is **approved** with the following decisions and
 | Component | Decision | Versions (from RESEARCH) |
 |-----------|----------|---------------------------|
 | **Core crates** | image, tokio, serde, anyhow | image 0.25.9, tokio 1.49, serde 1.0.228, anyhow 1.0.100 |
-| **Mesh export** | stl_io (STL), obj-exporter + wavefront_obj (OBJ) | stl_io 0.10.0; obj-exporter 0.2.0 |
+| **Mesh export** | Custom binary STL + ASCII OBJ writers in `mesh_generator.rs` | No `stl_io` or `obj-exporter` crates; see Exceptions below |
 | **Error handling** | anyhow for application code | Pattern: `Result<T, anyhow::Error>`, `.context()` |
 
 **Note:** Pin versions in Cargo.toml; run `cargo update` periodically.
@@ -79,6 +79,7 @@ The tech stack per prd.md §5.1 is **approved** with the following decisions and
 |------|-----|----------|
 | MiDaS | Listed as alternative | Repo archived; prefer Depth-Anything-V2. MiDaS remains usable if needed. |
 | PyO3 vs subprocess | PRD mentions PyO3 | **Subprocess** chosen: simpler, no Python embedding; aligns with Tauri shell/sidecar. PyO3 can be revisited if tight coupling needed. |
+| stl_io / obj-exporter | RESEARCH/rust-crates.md originally recommended these crates | **Not used.** ADR-008 (Sprint 1.6) chose grid triangulation inside `mesh_generator.rs`; custom binary STL and ASCII OBJ writers were implemented there to avoid an extra crate dependency. See RESEARCH/architecture.md ADR-008 and RESEARCH/rust-crates.md (as-built note). Reviewed in ARCHITECT_REVIEW_2026-02-21.md §4.2. |
 
 ---
 

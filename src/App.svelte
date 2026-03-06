@@ -10,6 +10,7 @@
   import Button from "./components/Button.svelte";
   import PresetManager from "./components/PresetManager.svelte";
   import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
+  import { listen } from "@tauri-apps/api/event";
   import {
     generateDepthMap,
     getDepthMap,
@@ -27,7 +28,12 @@
     savePreset,
     loadPreset,
   } from "$lib/tauri";
-  import type { LoadImageResult, DepthAdjustmentParams, PresetListItem } from "$lib/tauri";
+  import type {
+    LoadImageResult,
+    DepthAdjustmentParams,
+    PresetListItem,
+    DepthProgressEvent,
+  } from "$lib/tauri";
 
   let status = "Ready";
   let loadPath = "";
@@ -73,6 +79,8 @@
   let depthMap: { width: number; height: number; depth: number[] } | null = null;
   /** True while generate_depth_map is running (UI-304). */
   let depthEstimating = false;
+  /** Progress 0–100 from depth-progress events during estimation (UI-304). */
+  let progressPercent = 0;
   /** Backend error from generate_depth_map (timeout, Python, etc.). */
   let depthError = "";
 
@@ -169,12 +177,16 @@
     status = "Load error";
   }
 
-  /** UI-303: Generate depth map from current image path. */
+  /** UI-303/UI-304: Generate depth map; subscribe to depth-progress for real-time percentage. */
   async function handleGenerateDepth() {
     if (!loadPath || depthEstimating) return;
     depthEstimating = true;
+    progressPercent = 0;
     depthError = "";
     status = "Estimating depth…";
+    const unlisten = await listen<DepthProgressEvent>("depth-progress", (event) => {
+      progressPercent = event.payload.percent;
+    });
     try {
       const result = await generateDepthMap(loadPath);
       depthMap = { width: result.width, height: result.height, depth: result.depth };
@@ -187,6 +199,7 @@
       depthError = String(e);
       status = "Depth error";
     } finally {
+      unlisten();
       depthEstimating = false;
     }
   }
@@ -309,7 +322,8 @@
   async function applyPresetAndRefresh() {
     try {
       const params = await getDepthAdjustmentParams();
-      adjustmentParams = params;
+      // Force new object reference so Svelte/reactivity and child sliders update (preset apply bug fix).
+      adjustmentParams = { ...params };
       const undoState = await getUndoRedoState();
       canUndo = undoState.canUndo;
       canRedo = undoState.canRedo;
@@ -484,16 +498,25 @@
           >
             {depthEstimating ? "Estimating…" : "Generate Depth Map"}
           </Button>
-          <!-- UI-304: Indeterminate progress bar during estimation (MVP: no % until complete) -->
+          <!-- UI-304: Determinate progress bar from depth-progress events -->
           {#if depthEstimating}
             <div
               class="progress-wrapper h-2 rounded-full bg-slate-200 overflow-hidden"
               role="progressbar"
               aria-label="Depth estimation in progress"
-              aria-valuetext="Estimating"
+              aria-valuenow={progressPercent}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuetext={progressPercent === 0 ? "Starting…" : `${progressPercent}%`}
             >
-              <div class="progress-bar-indeterminate h-full rounded-full bg-slate-500"></div>
+              <div
+                class="h-full rounded-full bg-slate-500 transition-[width] duration-200"
+                style="width: {progressPercent === 0 ? 2 : progressPercent}%"
+              ></div>
             </div>
+            <p class="text-xs text-slate-500" role="status">
+              {progressPercent === 0 ? "Starting…" : `${progressPercent}%`}
+            </p>
           {/if}
           {#if depthError}
             <p
@@ -681,18 +704,5 @@
 <style>
   .app-layout {
     /* PRD: window min 1024×768; layout uses flex/grid */
-  }
-  /* UI-304: indeterminate progress bar during depth estimation */
-  .progress-bar-indeterminate {
-    width: 40%;
-    animation: progress-slide 1.5s ease-in-out infinite;
-  }
-  @keyframes progress-slide {
-    0% {
-      transform: translateX(-100%);
-    }
-    100% {
-      transform: translateX(350%);
-    }
   }
 </style>

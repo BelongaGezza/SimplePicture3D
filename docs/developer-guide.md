@@ -137,7 +137,7 @@ The frontend calls the Rust backend via `invoke('command_name', { ... })`. Typed
 | Command | Input | Output | Description |
 |---------|--------|--------|-------------|
 | `load_image` | `{ path: string }` | `LoadImageOut` (ok, width, height, fileSizeBytes, downsampled, previewBase64) | Load and validate image; returns dimensions and base64 preview. |
-| `generate_depth_map` | `{ path: string }` | `{ width, height, depth: number[], progress, stages }` | Run AI depth estimation; stores depth in app state. |
+| `generate_depth_map` | `{ path: string }` | `{ width, height, depth: number[], progress, stages }` | Run AI depth estimation; stores depth in app state. **Also emits** `depth-progress` Tauri events with `{ percent, stage? }` during execution for real-time progress bar (Sprint 2.4). |
 | `get_depth_map` | — | `{ width, height, depth } \| null` | Current depth map with adjustments applied. |
 | `get_depth_adjustment_params` | — | `DepthAdjustmentParams` | Current brightness, contrast, gamma, invert, depthMinMm, depthMaxMm. |
 | `set_depth_adjustment_params` | `{ params: DepthAdjustmentParams }` | `void` | Set adjustment params; next get_depth_map uses them. |
@@ -154,6 +154,12 @@ The frontend calls the Rust backend via `invoke('command_name', { ... })`. Typed
 | `check_model` | — | `ModelStatus` (installed, modelDir, modelId, missingFiles, sizeMb?) | Whether AI model is installed. |
 | `get_model_info` | — | `ModelInfo` (modelId, modelDir, license, estimatedSizeMb, description) | Model metadata for UI. |
 | `download_model` | — | `DownloadResult` (status, modelDir?, sizeMb?, error?) | Download AI model (e.g. from Hugging Face). |
+| `list_builtin_presets` | — | `string[]` | Return ordered list of built-in preset IDs (Portrait, Landscape, High Detail, Low Relief). |
+| `list_presets` | — | `string[]` | Return user preset names from `~/.simplepicture3d/presets/`. |
+| `save_preset` | `{ name: string, path?: string }` | `void` | Save current depth params + curve as a named preset (to presets dir) or to an explicit path (export). |
+| `load_preset` | `{ nameOrPath: string }` | `void` | Apply a preset by name (user or built-in) or by absolute path (import); updates app depth state. |
+| `delete_preset` | `{ name: string }` | `void` | Delete a user preset by name. |
+| `rename_preset` | `{ oldName: string, newName: string }` | `void` | Rename a user preset; both names sanitized to prevent path traversal. |
 
 **Frontend API:** Use the typed functions in `src/lib/tauri.ts` (e.g. `loadImage(path)`, `generateDepthMap(path)`, `getMeshData(options)`, `exportStl(path, options)`). They map to the commands above with camelCase args where required.
 
@@ -197,6 +203,7 @@ Output is under `src-tauri/target/doc/`. Open `src-tauri/target/doc/simplepictur
 - `image_loading` — load_image_impl, read_image_bytes_for_depth
 - `python_bridge` — run_depth_estimation, DepthMapOutput
 - `settings` — AppSettings load/save
+- `preset` — Preset schema, built-in presets, sanitize_preset_name (Sprint 2.3)
 
 ---
 

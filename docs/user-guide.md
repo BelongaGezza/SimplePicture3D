@@ -11,12 +11,13 @@
 1. [Installation](#installation)
 2. [First conversion walkthrough](#first-conversion-walkthrough)
 3. [Depth controls](#depth-controls)
-4. [Undo and redo (Phase 2)](#undo-and-redo-phase-2)
-5. [3D preview and export](#3d-preview-and-export)
-6. [Settings and target dimensions](#settings-and-target-dimensions)
-7. [AI models and licenses](#ai-models-and-licenses)
-8. [Troubleshooting FAQ](#troubleshooting-faq)
-9. [Related documentation](#related-documentation)
+4. [Presets (Phase 2)](#presets-phase-2)
+5. [Undo and redo (Phase 2)](#undo-and-redo-phase-2)
+6. [3D preview and export](#3d-preview-and-export)
+7. [Settings and target dimensions](#settings-and-target-dimensions)
+8. [AI models and licenses](#ai-models-and-licenses)
+9. [Troubleshooting FAQ](#troubleshooting-faq)
+10. [Related documentation](#related-documentation)
 
 ---
 
@@ -63,7 +64,7 @@ Follow these steps to convert your first 2D image into a 2.5D mesh for laser eng
 
 1. Click **Generate** (or **Generate depth**) in the right sidebar.
 2. The first time you use a model, the app may download it (see [Troubleshooting FAQ](#troubleshooting-faq) if download fails).
-3. A progress indicator shows while the AI runs. When finished, a **depth map preview** appears (grayscale: darker = closer, brighter = farther).
+3. A **percentage progress bar** shows while the AI runs (0–100%). When finished, a **depth map preview** appears (grayscale: darker = closer, brighter = farther).
 4. If the near/far sense looks wrong, you can fix it later with **Invert depth** in the depth controls.
 
 ![Depth map generated — preview in sidebar](images/user-guide-depth-preview.png)  
@@ -137,6 +138,49 @@ After generating a depth map, the **Depth controls** panel appears in the right 
 - Use **Depth range** to match your laser’s working range (e.g. 2–10 mm for many internal engravers).
 - Use **Invert depth** if the near/far sense is reversed for your image.
 - Use **Reset** to start over from the raw AI output if you’ve changed too much.
+
+---
+
+## Presets (Phase 2)
+
+Presets let you save your current depth settings (brightness, contrast, gamma, invert, depth range, and curve) and reapply them later — useful for standard crystal sizes or subject types.
+
+### Built-in presets
+
+Four built-in presets are always available from the **Apply preset** dropdown:
+
+| Preset | Best for |
+|--------|---------|
+| **Portrait** | Faces and figures; slight S-curve to accentuate midtone depth. |
+| **Landscape** | Scenic images; moderate contrast, wider depth range (2–12 mm). |
+| **High Detail** | Intricate subjects; increased contrast and gamma for sharp relief. |
+| **Low Relief** | Shallow engravings; reduced depth range (2–6 mm), soft contrast. |
+
+Select a built-in preset and click **Apply** to load it immediately. Built-in presets cannot be renamed or deleted.
+
+### Saving a preset
+
+1. Adjust depth settings to your liking.
+2. In the **right sidebar**, click **Save as preset…**.
+3. Enter a name (letters, numbers, spaces, hyphens, and underscores; no path characters).
+4. Click **Save**. The preset appears in your **Saved presets** list.
+
+### Applying a saved preset
+
+- Choose a preset from the **Apply preset** dropdown (built-ins appear first, then your saved presets).
+- Click **Apply**. All depth parameters update immediately; undo is available to revert.
+
+### Managing saved presets
+
+Open the **Saved presets** panel to see your user presets. For each preset you can:
+
+- **Rename** — Click **Rename**, enter a new name, and press **Save**.
+- **Delete** — Click **Delete**, then confirm. This cannot be undone.
+
+### Import and export
+
+- **Export preset…** — Saves the current depth settings to a `.json` file you choose. Share this file with other users or keep it as a backup.
+- **Import preset…** — Opens a `.json` file and immediately applies the preset. The imported settings are not automatically saved to your presets list; use **Save as preset…** if you want to keep them.
 
 ---
 
@@ -234,4 +278,4 @@ The app shows which model is in use and its license when you set up or download 
 - [Architecture](architecture.md) — Technical design (for developers).
 - [Screenshot index](images/SCREENSHOTS.md) — List of UI screenshots and where they are used.
 
-**Last updated:** 2026-03-01 (Sprint 2.2; Documentation Specialist — Undo/Redo and curve persistence sections)
+**Last updated:** 2026-03-06 (Sprint 2.3; Documentation Specialist — Presets section added)

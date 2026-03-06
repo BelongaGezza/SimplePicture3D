@@ -51,7 +51,7 @@ pub fn invert(v: f32) -> f32 {
 }
 
 /// Single control point for curve remapping (BACK-1102). x = input depth [0,1], y = output [0,1].
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CurvePoint {
     pub x: f32,

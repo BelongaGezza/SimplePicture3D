@@ -50,7 +50,28 @@ Execute with the app running (`npm run tauri dev` or installed build).
 
 ---
 
-## 4. First-run and model wizard
+## 4. Presets (Sprint 2.3)
+
+Requires a depth map to be loaded (complete core workflow step 3 first).
+
+| # | Step | How to verify | Pass? |
+|---|------|----------------|-------|
+| 1 | **Apply built-in preset** | Open Apply preset dropdown; select e.g. "Portrait"; click Apply. Depth sliders update to preset values; depth preview refreshes. | ☐ |
+| 2 | **Save user preset** | Adjust sliders; click "Save as preset…"; enter a name; confirm. Preset appears in Saved presets list and Apply preset dropdown. | ☐ |
+| 3 | **Apply user preset** | Select saved preset from dropdown; click Apply. Depth params match the saved values. | ☐ |
+| 4 | **Rename preset** | In Saved presets panel, click Rename; enter new name; save. Old name gone; new name appears in list and dropdown. | ☐ |
+| 5 | **Delete preset** | Click Delete on a user preset; confirm. Preset removed from list; built-ins are unaffected. | ☐ |
+| 6 | **Export preset** | Click "Export preset…"; choose path. JSON file written; open it and confirm depth params are present (brightness, contrast, gamma, etc.). | ☐ |
+| 7 | **Import preset** | Click "Import preset…"; choose a valid `.json` file. Depth params update to those in the file immediately. | ☐ |
+
+**Edge cases (optional):**
+
+- Try saving a preset with an invalid name (e.g. `../bad`) → app shows error, no file written.
+- Import a malformed JSON file → app shows clear error, no crash.
+
+---
+
+## 5. First-run and model wizard
 
 | # | Step | How to verify | Pass? |
 |---|------|----------------|-------|
@@ -60,7 +81,7 @@ Execute with the app running (`npm run tauri dev` or installed build).
 
 ---
 
-## 5. Platform-specific (Phase 3)
+## 6. Platform-specific (Phase 3)
 
 Deferred to Phase 3; placeholder for:
 
@@ -72,7 +93,7 @@ Deferred to Phase 3; placeholder for:
 
 ---
 
-## 6. Accessibility (Phase 4)
+## 7. Accessibility (Phase 4)
 
 Deferred to Phase 4; placeholder for:
 
