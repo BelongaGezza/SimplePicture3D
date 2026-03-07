@@ -393,16 +393,28 @@
           "markdownDescription": "Enables the export_stl command."
         },
         {
-          "description": "Enables the generate_depth_map and get_depth_map commands.",
+          "description": "Enables depth map generation, retrieval, adjustment, undo/redo, and mesh generation commands.",
           "type": "string",
           "const": "allow-generate-depth-map",
-          "markdownDescription": "Enables the generate_depth_map and get_depth_map commands."
+          "markdownDescription": "Enables depth map generation, retrieval, adjustment, undo/redo, and mesh generation commands."
+        },
+        {
+          "description": "Enables the get_export_defaults command.",
+          "type": "string",
+          "const": "allow-get-export-defaults",
+          "markdownDescription": "Enables the get_export_defaults command."
         },
         {
           "description": "Enables the load_image command.",
           "type": "string",
           "const": "allow-load-image",
           "markdownDescription": "Enables the load_image command."
+        },
+        {
+          "description": "Enables preset save, load, and list commands (Sprint 2.3).",
+          "type": "string",
+          "const": "allow-presets",
+          "markdownDescription": "Enables preset save, load, and list commands (Sprint 2.3)."
         },
         {
           "description": "Default core plugins set.\n#### This default permission set includes:\n\n- `core:path:default`\n- `core:event:default`\n- `core:window:default`\n- `core:webview:default`\n- `core:app:default`\n- `core:image:default`\n- `core:resources:default`\n- `core:menu:default`\n- `core:tray:default`",
