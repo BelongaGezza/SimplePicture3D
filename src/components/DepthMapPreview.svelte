@@ -5,9 +5,11 @@
    * DepthMapPreview — displays depth map as grayscale image (JR1-301, UI-301/302).
    * Zoom/pan: mouse wheel zoom, drag to pan (JR1-302).
    * Fit-to-view: when a new depth map loads or "Fit" is used, scale to fit the fixed panel (right sidebar).
+   * UI-1202/1203: mask overlay and brush/eraser painting when activeMaskTool is set.
    */
   import { onMount, afterUpdate } from "svelte";
   import { renderDepthToCanvas } from "$lib/depthCanvas";
+  import type { MaskData } from "$lib/tauri";
 
   export let width = 0;
   export let height = 0;
@@ -17,8 +19,22 @@
   /** When true, an image is loaded but depth not yet generated — show hint to click Generate. */
   export let hasImage = false;
 
+  /** UI-1203: mask for overlay (semi-transparent where true). */
+  export let maskData: MaskData | null = null;
+  /** UI-1203: whether to draw the mask overlay. */
+  export let showMaskOverlay = true;
+  /** UI-1202: when "brush" or "eraser", pointer events paint/erase mask; when null, pan as usual. */
+  export let activeMaskTool: "brush" | "eraser" | null = null;
+  /** UI-1204: brush/eraser radius in depth-map pixels. */
+  export let brushSize = 20;
+  /** Called with depth-map pixel (x, y) and value (true = paint, false = erase). */
+  export let onMaskPaint: (x: number, y: number, value: boolean) => void = () => {};
+
   let canvas: HTMLCanvasElement;
+  let maskCanvas: HTMLCanvasElement;
   let container: HTMLDivElement;
+  let zoomPanDiv: HTMLDivElement;
+  let isPainting = false;
 
   /** Allow zoom out enough to fit large images in the fixed w-64 sidebar (~256px). e.g. 4K width needs ~0.067. */
   const MIN_ZOOM = 0.02;
@@ -39,6 +55,44 @@
     canvas.width = width;
     canvas.height = height;
     renderDepthToCanvas(ctx, width, height, depth);
+  }
+
+  /** UI-1203: draw mask overlay on maskCanvas (semi-transparent where mask is set). */
+  function drawMaskOverlay() {
+    if (!maskCanvas || !maskData || maskData.width !== width || maskData.height !== height) return;
+    const ctx = maskCanvas.getContext("2d");
+    if (!ctx) return;
+    maskCanvas.width = width;
+    maskCanvas.height = height;
+    ctx.clearRect(0, 0, width, height);
+    const imageData = ctx.createImageData(width, height);
+    for (let i = 0; i < maskData.data.length; i++) {
+      if (maskData.data[i]) {
+        const j = i * 4;
+        imageData.data[j] = 0;
+        imageData.data[j + 1] = 100;
+        imageData.data[j + 2] = 255;
+        imageData.data[j + 3] = 90;
+      }
+    }
+    ctx.putImageData(imageData, 0, 0);
+  }
+
+  /** Map client coords to depth-map pixel. Returns [px, py] or null if out of bounds. */
+  function clientToDepth(clientX: number, clientY: number): [number, number] | null {
+    if (!zoomPanDiv || width <= 0 || height <= 0) return null;
+    const rect = zoomPanDiv.getBoundingClientRect();
+    const x = ((clientX - rect.left) / rect.width) * width;
+    const y = ((clientY - rect.top) / rect.height) * height;
+    if (x < 0 || x >= width || y < 0 || y >= height) return null;
+    return [Math.floor(x), Math.floor(y)];
+  }
+
+  function doPaint(clientX: number, clientY: number) {
+    const pt = clientToDepth(clientX, clientY);
+    if (!pt) return;
+    const value = activeMaskTool === "brush";
+    onMaskPaint(pt[0], pt[1], value);
   }
 
   /** Set zoom and pan so the depth map fits inside the container and is centered. */
@@ -77,6 +131,12 @@
 
   function handleMouseDown(e: MouseEvent) {
     if (e.button !== 0) return;
+    if (activeMaskTool === "brush" || activeMaskTool === "eraser") {
+      e.preventDefault();
+      isPainting = true;
+      doPaint(e.clientX, e.clientY);
+      return;
+    }
     isDragging = true;
     dragStartX = e.clientX;
     dragStartY = e.clientY;
@@ -85,22 +145,31 @@
   }
 
   function handleMouseMove(e: MouseEvent) {
+    if (isPainting) {
+      doPaint(e.clientX, e.clientY);
+      return;
+    }
     if (!isDragging) return;
     panX = panStartX + (e.clientX - dragStartX);
     panY = panStartY + (e.clientY - dragStartY);
   }
 
   function handleMouseUp() {
+    isPainting = false;
     isDragging = false;
   }
 
   function handleMouseLeave() {
+    isPainting = false;
     isDragging = false;
   }
 
   $: transformStyle = `transform: scale(${zoom}) translate(${panX}px, ${panY}px);`;
 
-  afterUpdate(draw);
+  afterUpdate(() => {
+    draw();
+    if (maskData && showMaskOverlay) drawMaskOverlay();
+  });
   onMount(() => {
     draw();
     if (width > 0 && height > 0 && depth.length > 0) scheduleFitToView();
@@ -115,8 +184,8 @@
 
 <!-- svelte-ignore a11y-no-noninteractive-tabindex a11y-no-noninteractive-element-interactions -->
 <div
-  class="depth-preview-wrapper w-full h-full min-h-[200px] flex items-center justify-center bg-slate-100 rounded overflow-hidden select-none cursor-grab"
-  class:cursor-grabbing={isDragging}
+  class="depth-preview-wrapper w-full h-full min-h-[200px] flex items-center justify-center bg-slate-100 rounded overflow-hidden select-none {activeMaskTool === 'brush' || activeMaskTool === 'eraser' ? 'cursor-crosshair' : 'cursor-grab'}"
+  class:cursor-grabbing={isDragging && !isPainting}
   bind:this={container}
   style="contain: layout;"
   role="application"
@@ -140,6 +209,7 @@
     </div>
   {:else if width > 0 && height > 0 && depth.length > 0}
     <div
+      bind:this={zoomPanDiv}
       class="depth-zoom-pan"
       style="width: {width}px; height: {height}px; {transformStyle}"
       aria-hidden="true"
@@ -150,6 +220,14 @@
         style="image-rendering: pixelated; image-rendering: crisp-edges; display: block;"
         aria-label="Depth map (grayscale: near dark, far light)"
       />
+      {#if maskData && showMaskOverlay}
+        <canvas
+          bind:this={maskCanvas}
+          class="mask-overlay-canvas"
+          style="pointer-events: none; image-rendering: pixelated;"
+          aria-hidden="true"
+        />
+      {/if}
     </div>
     <button
       type="button"
@@ -182,6 +260,12 @@
     will-change: transform;
   }
   .depth-canvas {
+    display: block;
+  }
+  .mask-overlay-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
     display: block;
   }
   .depth-fit-btn {

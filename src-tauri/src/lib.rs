@@ -10,6 +10,7 @@
 pub mod depth_adjust;
 mod file_io;
 mod image_loading;
+pub mod mask;
 pub mod mesh_generator;
 pub mod preset;
 mod python_bridge;
@@ -24,7 +25,32 @@ use tauri::State;
 use depth_adjust::{apply_adjustments, compute_histogram, DepthAdjustmentParams};
 use mesh_generator::{depth_to_point_cloud, MeshData, MeshParams};
 use preset::{get_builtin_preset, sanitize_preset_name, Preset};
-use undo::{SetDepthParamsCommand, UndoRedoHistory};
+use undo::{SetDepthParamsCommand, SetMaskCommand, UndoRedoHistory, UndoableCommand};
+
+/// BACK-1202, BACK-1203: Apply depth adjustments with optional mask and feathering.
+/// When mask is None or dimensions don't match, returns full apply_adjustments(original, params).
+/// When mask is Some, adjusted depth is blended: weight = soft_mask (feather at edges), out = weight*adjusted + (1-weight)*original.
+pub(crate) fn apply_adjustments_with_mask(
+    original: &[f32],
+    width: u32,
+    height: u32,
+    params: &DepthAdjustmentParams,
+    mask: Option<&mask::MaskBitmap>,
+) -> Vec<f32> {
+    let adjusted = apply_adjustments(original, params);
+    let mask = match mask {
+        Some(m) if m.dimensions_match(width, height) => m,
+        _ => return adjusted,
+    };
+    let weights = mask.to_soft_mask(params.feather_radius_px);
+    let n = original.len().min(adjusted.len()).min(weights.len());
+    (0..n)
+        .map(|i| {
+            let w = weights[i];
+            (w * adjusted[i] + (1.0 - w) * original[i]).clamp(0.0, 1.0)
+        })
+        .collect()
+}
 
 /// ADR-009: Compute pixel_to_mm from optional target dimensions. When both are present and positive,
 /// returns min(target_width_mm/width_px, target_height_mm/height_px) so mesh fits inside target rect.
@@ -135,11 +161,13 @@ struct AppState {
     depth: Mutex<Option<python_bridge::DepthMapOutput>>,
     /// Current adjustment params; get_depth_map returns original transformed by these (BACK-402).
     adjustment_params: Mutex<DepthAdjustmentParams>,
+    /// Mask for regional depth adjustments (BACK-1201, ARCH-502). Cleared when depth is replaced.
+    mask: Mutex<Option<mask::MaskBitmap>>,
     /// Path to the source image (for filename generation, BACK-705).
     source_image_path: Mutex<Option<String>>,
     /// Persistent app settings (BACK-706).
     app_settings: Mutex<settings::AppSettings>,
-    /// Undo/redo history for depth params (BACK-1402).
+    /// Undo/redo history for depth and mask (BACK-1402, ARCH-502).
     undo_redo: Mutex<UndoRedoHistory>,
 }
 
@@ -207,9 +235,16 @@ fn export_stl(
     };
     let pixel_to_mm = compute_pixel_to_mm(original.width, original.height, tw, th);
 
-    // Apply adjustments
+    // Apply adjustments (BACK-1202, BACK-1203: masked + feathering when mask present)
     let params_guard = state.adjustment_params.lock().map_err(|e| e.to_string())?;
-    let adjusted = apply_adjustments(&original.depth, &params_guard);
+    let mask_guard = state.mask.lock().map_err(|e| e.to_string())?;
+    let adjusted = apply_adjustments_with_mask(
+        &original.depth,
+        original.width,
+        original.height,
+        &params_guard,
+        mask_guard.as_ref(),
+    );
     let mesh_params = MeshParams {
         step_x: 1,
         step_y: 1,
@@ -218,6 +253,7 @@ fn export_stl(
         pixel_to_mm,
     };
     drop(params_guard);
+    drop(mask_guard);
 
     // Generate triangulated mesh
     let mesh = depth_to_point_cloud(&adjusted, original.width, original.height, &mesh_params)
@@ -274,9 +310,16 @@ fn export_obj(
     };
     let pixel_to_mm = compute_pixel_to_mm(original.width, original.height, tw, th);
 
-    // Apply adjustments
+    // Apply adjustments (BACK-1202, BACK-1203: masked + feathering when mask present)
     let params_guard = state.adjustment_params.lock().map_err(|e| e.to_string())?;
-    let adjusted = apply_adjustments(&original.depth, &params_guard);
+    let mask_guard = state.mask.lock().map_err(|e| e.to_string())?;
+    let adjusted = apply_adjustments_with_mask(
+        &original.depth,
+        original.width,
+        original.height,
+        &params_guard,
+        mask_guard.as_ref(),
+    );
     let mesh_params = MeshParams {
         step_x: 1,
         step_y: 1,
@@ -285,6 +328,7 @@ fn export_obj(
         pixel_to_mm,
     };
     drop(params_guard);
+    drop(mask_guard);
 
     // Generate triangulated mesh
     let mesh = depth_to_point_cloud(&adjusted, original.width, original.height, &mesh_params)
@@ -445,7 +489,7 @@ fn load_preset(name_or_path: String, state: State<AppState>) -> Result<UndoRedoS
     *state.adjustment_params.lock().map_err(|e| e.to_string())? = new_params.clone();
     {
         let mut hist = state.undo_redo.lock().map_err(|e| e.to_string())?;
-        hist.push(cmd);
+        hist.push(UndoableCommand::Depth(cmd));
     }
     {
         let mut app_settings = state.app_settings.lock().map_err(|e| e.to_string())?;
@@ -715,6 +759,8 @@ fn generate_depth_map(
     *state.depth.lock().map_err(|e| e.to_string())? = Some(depth.clone());
     // Store source image path for filename generation (BACK-705).
     *state.source_image_path.lock().map_err(|e| e.to_string())? = Some(path.clone());
+    // Clear mask when depth map is replaced (ARCH-502).
+    *state.mask.lock().map_err(|e| e.to_string())? = None;
     // Clear undo/redo history on new depth map (PRD F2.4).
     state.undo_redo.lock().map_err(|e| e.to_string())?.clear();
     // Leave adjustment_params unchanged (user may have presets); reset is explicit (BACK-405).
@@ -731,7 +777,7 @@ fn generate_depth_map(
 }
 
 /// Returns histogram of current (adjusted) depth map for UI (BACK-1101).
-/// Bins = 256 over [0, 1]. Returns None if no depth map loaded.
+/// Bins = 256 over [0, 1]. Returns None if no depth map loaded. Uses masked adjustment when mask present.
 #[tauri::command]
 fn get_depth_histogram(state: State<AppState>) -> Result<Option<Vec<u32>>, String> {
     const BINS: usize = 256;
@@ -741,8 +787,19 @@ fn get_depth_histogram(state: State<AppState>) -> Result<Option<Vec<u32>>, Strin
         None => return Ok(None),
     };
     drop(guard);
-    let params = state.adjustment_params.lock().map_err(|e| e.to_string())?;
-    let adjusted = apply_adjustments(&original.depth, &params);
+    let params = state
+        .adjustment_params
+        .lock()
+        .map_err(|e| e.to_string())?
+        .clone();
+    let mask_guard = state.mask.lock().map_err(|e| e.to_string())?;
+    let adjusted = apply_adjustments_with_mask(
+        &original.depth,
+        original.width,
+        original.height,
+        &params,
+        mask_guard.as_ref(),
+    );
     Ok(Some(compute_histogram(&adjusted, BINS)))
 }
 
@@ -756,7 +813,7 @@ struct UndoRedoState {
 }
 
 /// Returns the current depth map from app state with adjustments applied (BACK-302, BACK-402).
-/// Original depth is preserved; display = apply_adjustments(original, adjustment_params).
+/// When a mask is present, only masked regions (and feathered blend) are adjusted (BACK-1202, BACK-1203).
 #[tauri::command]
 fn get_depth_map(state: State<AppState>) -> Result<Option<python_bridge::DepthMapOutput>, String> {
     let guard = state.depth.lock().map_err(|e| e.to_string())?;
@@ -765,8 +822,19 @@ fn get_depth_map(state: State<AppState>) -> Result<Option<python_bridge::DepthMa
         None => return Ok(None),
     };
     drop(guard);
-    let params = state.adjustment_params.lock().map_err(|e| e.to_string())?;
-    let adjusted = apply_adjustments(&original.depth, &params);
+    let params = state
+        .adjustment_params
+        .lock()
+        .map_err(|e| e.to_string())?
+        .clone();
+    let mask_guard = state.mask.lock().map_err(|e| e.to_string())?;
+    let adjusted = apply_adjustments_with_mask(
+        &original.depth,
+        original.width,
+        original.height,
+        &params,
+        mask_guard.as_ref(),
+    );
     Ok(Some(python_bridge::DepthMapOutput {
         width: original.width,
         height: original.height,
@@ -786,11 +854,14 @@ fn set_depth_adjustment_params(
         .lock()
         .map_err(|e| e.to_string())?
         .clone();
-    let cmd = SetDepthParamsCommand {
-        previous: previous.clone(),
-        new: params.clone(),
-    };
     *state.adjustment_params.lock().map_err(|e| e.to_string())? = params.clone();
+    {
+        let mut hist = state.undo_redo.lock().map_err(|e| e.to_string())?;
+        hist.push(UndoableCommand::Depth(SetDepthParamsCommand {
+            previous: previous.clone(),
+            new: params.clone(),
+        }));
+    }
     {
         let mut settings = state.app_settings.lock().map_err(|e| e.to_string())?;
         settings.curve_control_points = params.curve_control_points.clone();
@@ -800,10 +871,6 @@ fn set_depth_adjustment_params(
                 e
             );
         }
-    }
-    {
-        let mut hist = state.undo_redo.lock().map_err(|e| e.to_string())?;
-        hist.push(cmd);
     }
     let hist = state.undo_redo.lock().map_err(|e| e.to_string())?;
     Ok(UndoRedoState {
@@ -839,7 +906,7 @@ fn get_undo_redo_state(state: State<AppState>) -> Result<UndoRedoState, String> 
     })
 }
 
-/// Undo last depth adjustment (BACK-1404). Restores previous params; returns new state for UI.
+/// Undo last action (depth or mask) (BACK-1404, ARCH-502). Restores previous state; returns new state for UI.
 /// When nothing to undo, returns current state with can_undo: false so UI can disable button.
 #[tauri::command]
 fn undo(state: State<AppState>) -> Result<UndoRedoState, String> {
@@ -850,7 +917,11 @@ fn undo(state: State<AppState>) -> Result<UndoRedoState, String> {
     let Some(cmd) = cmd else {
         return get_undo_redo_state(state);
     };
-    cmd.apply_previous(&mut *state.adjustment_params.lock().map_err(|e| e.to_string())?);
+    {
+        let mut params = state.adjustment_params.lock().map_err(|e| e.to_string())?;
+        let mut mask = state.mask.lock().map_err(|e| e.to_string())?;
+        cmd.apply_previous(&mut params, &mut mask);
+    }
     {
         let mut hist = state.undo_redo.lock().map_err(|e| e.to_string())?;
         hist.push_redo(cmd);
@@ -858,7 +929,7 @@ fn undo(state: State<AppState>) -> Result<UndoRedoState, String> {
     get_undo_redo_state(state)
 }
 
-/// Redo last undone depth adjustment (BACK-1404). Returns new state for UI.
+/// Redo last undone action (depth or mask) (BACK-1404, ARCH-502). Returns new state for UI.
 /// When nothing to redo, returns current state with can_redo: false so UI can disable button.
 #[tauri::command]
 fn redo(state: State<AppState>) -> Result<UndoRedoState, String> {
@@ -869,7 +940,11 @@ fn redo(state: State<AppState>) -> Result<UndoRedoState, String> {
     let Some(cmd) = cmd else {
         return get_undo_redo_state(state);
     };
-    cmd.apply_new(&mut *state.adjustment_params.lock().map_err(|e| e.to_string())?);
+    {
+        let mut params = state.adjustment_params.lock().map_err(|e| e.to_string())?;
+        let mut mask = state.mask.lock().map_err(|e| e.to_string())?;
+        cmd.apply_new(&mut params, &mut mask);
+    }
     {
         let mut hist = state.undo_redo.lock().map_err(|e| e.to_string())?;
         hist.push_undo(cmd);
@@ -881,6 +956,101 @@ fn redo(state: State<AppState>) -> Result<UndoRedoState, String> {
 #[tauri::command]
 fn clear_history(state: State<AppState>) -> Result<UndoRedoState, String> {
     state.undo_redo.lock().map_err(|e| e.to_string())?.clear();
+    get_undo_redo_state(state)
+}
+
+/// Mask response for IPC (BACK-1201, ARCH-502). Row-major data; dimensions match depth map.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MaskOut {
+    width: u32,
+    height: u32,
+    data: Vec<bool>,
+}
+
+/// Returns current mask for overlay (BACK-1201). None if no depth map; else dimensions + row-major bools.
+#[tauri::command]
+fn get_mask(state: State<AppState>) -> Result<Option<MaskOut>, String> {
+    let guard = state.depth.lock().map_err(|e| e.to_string())?;
+    let (width, height) = match guard.as_ref() {
+        Some(d) => (d.width, d.height),
+        None => return Ok(None),
+    };
+    drop(guard);
+    let mask_guard = state.mask.lock().map_err(|e| e.to_string())?;
+    let out = match mask_guard.as_ref() {
+        Some(m) if m.dimensions_match(width, height) => MaskOut {
+            width,
+            height,
+            data: m.to_bool_vec(),
+        },
+        _ => MaskOut {
+            width,
+            height,
+            data: mask::MaskBitmap::all_false(width, height).to_bool_vec(),
+        },
+    };
+    Ok(Some(out))
+}
+
+/// Set a rectangular region of the mask (BACK-1201). Creates mask if none; pushes to undo stack.
+#[tauri::command]
+fn set_mask_region(
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+    value: bool,
+    state: State<AppState>,
+) -> Result<UndoRedoState, String> {
+    let (depth_w, depth_h) = {
+        let guard = state.depth.lock().map_err(|e| e.to_string())?;
+        let d = guard
+            .as_ref()
+            .ok_or_else(|| "No depth map loaded. Generate a depth map first.".to_string())?;
+        (d.width, d.height)
+    };
+    let previous = state.mask.lock().map_err(|e| e.to_string())?.clone();
+    let previous = previous.unwrap_or_else(|| mask::MaskBitmap::all_false(depth_w, depth_h));
+    if !previous.dimensions_match(depth_w, depth_h) {
+        return Err("Mask dimensions do not match depth map.".to_string());
+    }
+    let mut new_mask = previous.clone();
+    new_mask.set_region(x, y, width, height, value);
+    let cmd = SetMaskCommand {
+        previous: previous.clone(),
+        new: new_mask.clone(),
+    };
+    *state.mask.lock().map_err(|e| e.to_string())? = Some(new_mask);
+    {
+        let mut hist = state.undo_redo.lock().map_err(|e| e.to_string())?;
+        hist.push(UndoableCommand::Mask(cmd));
+    }
+    get_undo_redo_state(state)
+}
+
+/// Clear the mask to all false (BACK-1201). Pushes to undo stack. Requires depth map.
+#[tauri::command]
+fn clear_mask(state: State<AppState>) -> Result<UndoRedoState, String> {
+    let (depth_w, depth_h) = {
+        let guard = state.depth.lock().map_err(|e| e.to_string())?;
+        let d = guard
+            .as_ref()
+            .ok_or_else(|| "No depth map loaded. Generate a depth map first.".to_string())?;
+        (d.width, d.height)
+    };
+    let previous = state.mask.lock().map_err(|e| e.to_string())?.clone();
+    let previous = previous.unwrap_or_else(|| mask::MaskBitmap::all_false(depth_w, depth_h));
+    let new_mask = mask::MaskBitmap::all_false(depth_w, depth_h);
+    let cmd = SetMaskCommand {
+        previous: previous.clone(),
+        new: new_mask.clone(),
+    };
+    *state.mask.lock().map_err(|e| e.to_string())? = Some(new_mask);
+    {
+        let mut hist = state.undo_redo.lock().map_err(|e| e.to_string())?;
+        hist.push(UndoableCommand::Mask(cmd));
+    }
     get_undo_redo_state(state)
 }
 
@@ -900,7 +1070,7 @@ fn reset_depth_adjustments(state: State<AppState>) -> Result<UndoRedoState, Stri
     *state.adjustment_params.lock().map_err(|e| e.to_string())? = new_params.clone();
     {
         let mut hist = state.undo_redo.lock().map_err(|e| e.to_string())?;
-        hist.push(cmd);
+        hist.push(UndoableCommand::Depth(cmd));
     }
     Ok(UndoRedoState {
         can_undo: state
@@ -915,6 +1085,120 @@ fn reset_depth_adjustments(state: State<AppState>) -> Result<UndoRedoState, Stri
             .can_redo(),
         params: new_params,
     })
+}
+
+/// Set the full mask from row-major bool data (JR1-1203 load, JR1-1202 lasso fill). Pushes to undo stack.
+#[tauri::command]
+fn set_mask(
+    width: u32,
+    height: u32,
+    data: Vec<bool>,
+    state: State<AppState>,
+) -> Result<UndoRedoState, String> {
+    let (depth_w, depth_h) = {
+        let guard = state.depth.lock().map_err(|e| e.to_string())?;
+        let d = guard
+            .as_ref()
+            .ok_or_else(|| "No depth map loaded. Generate a depth map first.".to_string())?;
+        (d.width, d.height)
+    };
+    if width != depth_w || height != depth_h {
+        return Err(format!(
+            "Mask dimensions {}x{} do not match depth map {}x{}.",
+            width, height, depth_w, depth_h
+        ));
+    }
+    let new_mask =
+        mask::MaskBitmap::from_bool_vec(width, height, &data).map_err(|e| e.to_string())?;
+    let previous = state.mask.lock().map_err(|e| e.to_string())?.clone();
+    let previous = previous.unwrap_or_else(|| mask::MaskBitmap::all_false(depth_w, depth_h));
+    let cmd = SetMaskCommand {
+        previous: previous.clone(),
+        new: new_mask.clone(),
+    };
+    *state.mask.lock().map_err(|e| e.to_string())? = Some(new_mask);
+    {
+        let mut hist = state.undo_redo.lock().map_err(|e| e.to_string())?;
+        hist.push(UndoableCommand::Mask(cmd));
+    }
+    get_undo_redo_state(state)
+}
+
+/// Mask file format (JR1-1203). JSON: { "width", "height", "data": boolean[] } row-major.
+#[derive(serde::Serialize, serde::Deserialize)]
+struct MaskFile {
+    width: u32,
+    height: u32,
+    data: Vec<bool>,
+}
+
+/// Save current mask to a JSON file (JR1-1203). Path must be .json and writable.
+#[tauri::command]
+fn save_mask_to_path(path: String, state: State<AppState>) -> Result<(), String> {
+    let (canonical_path, _) = validate_preset_export_path(&path)?;
+    let (width, height, data) = {
+        let guard = state.depth.lock().map_err(|e| e.to_string())?;
+        let (w, h) = match guard.as_ref() {
+            Some(d) => (d.width, d.height),
+            None => return Err("No depth map loaded.".to_string()),
+        };
+        drop(guard);
+        let mask_guard = state.mask.lock().map_err(|e| e.to_string())?;
+        let data = match mask_guard.as_ref() {
+            Some(m) if m.dimensions_match(w, h) => m.to_bool_vec(),
+            _ => mask::MaskBitmap::all_false(w, h).to_bool_vec(),
+        };
+        (w, h, data)
+    };
+    let file = MaskFile {
+        width,
+        height,
+        data,
+    };
+    let f = std::fs::File::create(&canonical_path)
+        .map_err(|e| format!("Could not create file: {}", e))?;
+    serde_json::to_writer_pretty(f, &file).map_err(|e| format!("Could not write mask: {}", e))?;
+    Ok(())
+}
+
+/// Load mask from a JSON file (JR1-1203). Dimensions must match current depth map.
+#[tauri::command]
+fn load_mask_from_path(path: String, state: State<AppState>) -> Result<UndoRedoState, String> {
+    let path_buf = std::path::Path::new(&path);
+    let canonical = path_buf
+        .canonicalize()
+        .map_err(|_| "File does not exist or is not accessible.".to_string())?;
+    let content =
+        std::fs::read_to_string(&canonical).map_err(|e| format!("Could not read file: {}", e))?;
+    let file: MaskFile =
+        serde_json::from_str(&content).map_err(|e| format!("Invalid mask file: {}", e))?;
+    let (depth_w, depth_h) = {
+        let guard = state.depth.lock().map_err(|e| e.to_string())?;
+        let d = guard
+            .as_ref()
+            .ok_or_else(|| "No depth map loaded. Generate a depth map first.".to_string())?;
+        (d.width, d.height)
+    };
+    if file.width != depth_w || file.height != depth_h {
+        return Err(format!(
+            "Saved mask is {}x{} but current depth map is {}x{}. Load an image with matching dimensions.",
+            file.width, file.height, depth_w, depth_h
+        ));
+    }
+    let new_mask = mask::MaskBitmap::from_bool_vec(file.width, file.height, &file.data)
+        .map_err(|e| e.to_string())?;
+    let previous = state.mask.lock().map_err(|e| e.to_string())?.clone();
+    let previous = previous.unwrap_or_else(|| mask::MaskBitmap::all_false(depth_w, depth_h));
+    let cmd = SetMaskCommand {
+        previous: previous.clone(),
+        new: new_mask.clone(),
+    };
+    *state.mask.lock().map_err(|e| e.to_string())? = Some(new_mask);
+    {
+        let mut hist = state.undo_redo.lock().map_err(|e| e.to_string())?;
+        hist.push(UndoableCommand::Mask(cmd));
+    }
+    get_undo_redo_state(state)
 }
 
 /// Returns mesh data (point cloud with normals) from current adjusted depth map (BACK-501–505, BACK-601, BACK-602, BACK-603).
@@ -951,8 +1235,19 @@ fn get_mesh_data(
     };
     let pixel_to_mm = compute_pixel_to_mm(original.width, original.height, tw, th);
 
-    let params_guard = state.adjustment_params.lock().map_err(|e| e.to_string())?;
-    let adjusted = apply_adjustments(&original.depth, &params_guard);
+    let params_guard = state
+        .adjustment_params
+        .lock()
+        .map_err(|e| e.to_string())?
+        .clone();
+    let mask_guard = state.mask.lock().map_err(|e| e.to_string())?;
+    let adjusted = apply_adjustments_with_mask(
+        &original.depth,
+        original.width,
+        original.height,
+        &params_guard,
+        mask_guard.as_ref(),
+    );
     let step = preview_step.unwrap_or(1).max(1);
     let mesh_params = MeshParams {
         step_x: step,
@@ -961,7 +1256,6 @@ fn get_mesh_data(
         depth_max_mm: params_guard.depth_max_mm,
         pixel_to_mm,
     };
-    drop(params_guard);
     let mesh = depth_to_point_cloud(&adjusted, original.width, original.height, &mesh_params)
         .map_err(|e| e.to_string())?;
     Ok(Some(mesh))
@@ -983,6 +1277,7 @@ pub fn run() {
         .manage(AppState {
             depth: Mutex::new(None),
             adjustment_params: Mutex::new(adjustment_params),
+            mask: Mutex::new(None),
             source_image_path: Mutex::new(None),
             app_settings: Mutex::new(app_settings),
             undo_redo: Mutex::new(UndoRedoHistory::new()),
@@ -1001,6 +1296,12 @@ pub fn run() {
             undo,
             redo,
             clear_history,
+            get_mask,
+            set_mask_region,
+            set_mask,
+            clear_mask,
+            save_mask_to_path,
+            load_mask_from_path,
             reset_depth_adjustments,
             get_mesh_data,
             get_settings,
@@ -1089,6 +1390,57 @@ mod tests {
             "error message should indicate invalid/corrupt/format: {}",
             err
         );
+    }
+
+    /// BACK-1202: No mask -> same as apply_adjustments.
+    #[test]
+    fn apply_adjustments_with_mask_none_equals_full() {
+        let depth = vec![0.0, 0.25, 0.5, 0.75, 1.0];
+        let params = DepthAdjustmentParams {
+            brightness: 0.1,
+            gamma: 1.2,
+            ..Default::default()
+        };
+        let out = apply_adjustments_with_mask(&depth, 5, 1, &params, None);
+        let expected = apply_adjustments(&depth, &params);
+        for (a, b) in out.iter().zip(expected.iter()) {
+            assert!((a - b).abs() < 1e-6, "no mask should match full adjustment");
+        }
+    }
+
+    /// BACK-1202: Masked region only gets adjusted; unmasked keeps original.
+    #[test]
+    fn apply_adjustments_with_mask_isolates_region() {
+        let depth = vec![0.5, 0.5, 0.5, 0.5]; // 4x1
+        let params = DepthAdjustmentParams {
+            brightness: 0.5, // would make 0.5 -> 1.0
+            ..Default::default()
+        };
+        let mut mask = mask::MaskBitmap::all_false(4, 1);
+        mask.set(1, 0, true);
+        mask.set(2, 0, true);
+        let out = apply_adjustments_with_mask(&depth, 4, 1, &params, Some(&mask));
+        assert!((out[0] - 0.5).abs() < 1e-6, "unmasked stays original");
+        assert!((out[3] - 0.5).abs() < 1e-6, "unmasked stays original");
+        assert!((out[1] - 1.0).abs() < 1e-5, "masked gets adjusted");
+        assert!((out[2] - 1.0).abs() < 1e-5, "masked gets adjusted");
+    }
+
+    /// BACK-1203: Feather radius > 0 produces blend between original and adjusted.
+    #[test]
+    fn apply_adjustments_with_mask_feather_blend() {
+        let depth = vec![0.5, 0.5, 0.5]; // 3x1
+        let params = DepthAdjustmentParams {
+            brightness: 0.5,
+            feather_radius_px: 1.0,
+            ..Default::default()
+        };
+        let mut mask = mask::MaskBitmap::all_false(3, 1);
+        mask.set(1, 0, true); // only center masked
+        let out = apply_adjustments_with_mask(&depth, 3, 1, &params, Some(&mask));
+        // With feather, center is blended (between original 0.5 and adjusted 1.0)
+        assert!(out[1] >= 0.5 && out[1] <= 1.0, "center should be blended");
+        assert!(out.iter().all(|&v| v >= 0.0 && v <= 1.0), "output in [0,1]");
     }
 
     /// JR2-202: When Python exits non-zero (e.g. invalid image), Rust returns Err without panic.
@@ -1342,5 +1694,53 @@ mod tests {
             1.0,
             "negative height → 1.0"
         );
+    }
+
+    /// BACK-1202: With no mask, apply_adjustments_with_mask matches apply_adjustments.
+    #[test]
+    fn apply_adjustments_with_mask_no_mask_matches_full() {
+        let depth = vec![0.2, 0.5, 0.8];
+        let params = DepthAdjustmentParams {
+            brightness: 0.1,
+            ..Default::default()
+        };
+        let out = apply_adjustments_with_mask(&depth, 3, 1, &params, None);
+        let expected = apply_adjustments(&depth, &params);
+        assert_eq!(out.len(), expected.len());
+        for (a, b) in out.iter().zip(expected.iter()) {
+            assert!((a - b).abs() < 1e-6, "no mask should match full apply");
+        }
+    }
+
+    /// BACK-1202: Mask all false => output equals original (no adjustment applied).
+    #[test]
+    fn apply_adjustments_with_mask_all_false_unchanged() {
+        let depth = vec![0.2, 0.5, 0.8];
+        let params = DepthAdjustmentParams {
+            brightness: 0.2,
+            ..Default::default()
+        };
+        let mask = mask::MaskBitmap::all_false(3, 1);
+        let out = apply_adjustments_with_mask(&depth, 3, 1, &params, Some(&mask));
+        assert_eq!(out.len(), depth.len());
+        for (a, o) in out.iter().zip(depth.iter()) {
+            assert!((a - o).abs() < 1e-6, "mask all false => original");
+        }
+    }
+
+    /// BACK-1202: Single pixel masked => only that pixel adjusted.
+    #[test]
+    fn apply_adjustments_with_mask_single_pixel_adjusted() {
+        let depth = vec![0.0, 0.5, 1.0];
+        let params = DepthAdjustmentParams {
+            brightness: 0.2,
+            ..Default::default()
+        };
+        let mut mask = mask::MaskBitmap::all_false(3, 1);
+        mask.set(1, 0, true); // center pixel only
+        let out = apply_adjustments_with_mask(&depth, 3, 1, &params, Some(&mask));
+        assert!((out[0] - 0.0).abs() < 1e-6, "unmasked stays 0");
+        assert!((out[1] - 0.7).abs() < 1e-5, "masked 0.5+0.2=0.7");
+        assert!((out[2] - 1.0).abs() < 1e-6, "unmasked stays 1");
     }
 }

@@ -1,12 +1,14 @@
 // Copyright (c) 2026 SimplePicture3D Contributors
 // SPDX-License-Identifier: MIT
 
-//! Undo/redo for depth adjustment state (BACK-1401, BACK-1402, ARCH-403).
+//! Undo/redo for depth adjustment and mask state (BACK-1401, BACK-1402, ARCH-403, ARCH-502).
 //!
 //! Command pattern: each command stores previous and new state; execute applies new,
 //! undo restores previous. History limited to last 20 actions (drop oldest when full).
+//! Single stack with heterogeneous commands (Depth | Mask) per ARCH-502.
 
 use crate::depth_adjust::DepthAdjustmentParams;
+use crate::mask::MaskBitmap;
 use std::collections::VecDeque;
 
 /// Maximum number of undo steps (ARCH-403).
@@ -32,11 +34,59 @@ impl SetDepthParamsCommand {
     }
 }
 
+/// A single undoable mutation of the mask bitmap (ARCH-502).
+#[derive(Debug, Clone)]
+pub struct SetMaskCommand {
+    pub previous: MaskBitmap,
+    pub new: MaskBitmap,
+}
+
+impl SetMaskCommand {
+    /// Apply the "undo" state (previous mask).
+    pub fn apply_previous(&self, mask: &mut Option<MaskBitmap>) {
+        *mask = Some(self.previous.clone());
+    }
+
+    /// Apply the "do" state (new mask). Used for redo.
+    pub fn apply_new(&self, mask: &mut Option<MaskBitmap>) {
+        *mask = Some(self.new.clone());
+    }
+}
+
+/// Heterogeneous undoable command (ARCH-502). One stack for both depth and mask.
+#[derive(Debug, Clone)]
+pub enum UndoableCommand {
+    Depth(SetDepthParamsCommand),
+    Mask(SetMaskCommand),
+}
+
+impl UndoableCommand {
+    /// Apply undo (restore previous state) to the relevant state.
+    pub fn apply_previous(
+        &self,
+        params: &mut DepthAdjustmentParams,
+        mask: &mut Option<MaskBitmap>,
+    ) {
+        match self {
+            UndoableCommand::Depth(cmd) => cmd.apply_previous(params),
+            UndoableCommand::Mask(cmd) => cmd.apply_previous(mask),
+        }
+    }
+
+    /// Apply redo (restore new state) to the relevant state.
+    pub fn apply_new(&self, params: &mut DepthAdjustmentParams, mask: &mut Option<MaskBitmap>) {
+        match self {
+            UndoableCommand::Depth(cmd) => cmd.apply_new(params),
+            UndoableCommand::Mask(cmd) => cmd.apply_new(mask),
+        }
+    }
+}
+
 /// Undo and redo stacks with a fixed capacity (ARCH-403).
 /// When undo stack exceeds MAX_HISTORY_LEN, oldest entry is dropped.
 pub struct UndoRedoHistory {
-    undo_stack: VecDeque<SetDepthParamsCommand>,
-    redo_stack: Vec<SetDepthParamsCommand>,
+    undo_stack: VecDeque<UndoableCommand>,
+    redo_stack: Vec<UndoableCommand>,
     max_len: usize,
 }
 
@@ -50,7 +100,7 @@ impl UndoRedoHistory {
     }
 
     /// Push a completed command onto the undo stack. Clears redo. Drops oldest if at capacity.
-    pub fn push(&mut self, cmd: SetDepthParamsCommand) {
+    pub fn push(&mut self, cmd: UndoableCommand) {
         self.redo_stack.clear();
         if self.undo_stack.len() >= self.max_len {
             self.undo_stack.pop_front();
@@ -59,22 +109,22 @@ impl UndoRedoHistory {
     }
 
     /// Pop the most recent command for undo. Returns None if nothing to undo.
-    pub fn pop_undo(&mut self) -> Option<SetDepthParamsCommand> {
+    pub fn pop_undo(&mut self) -> Option<UndoableCommand> {
         self.undo_stack.pop_back()
     }
 
     /// Push a command back onto the redo stack (after undo).
-    pub fn push_redo(&mut self, cmd: SetDepthParamsCommand) {
+    pub fn push_redo(&mut self, cmd: UndoableCommand) {
         self.redo_stack.push(cmd);
     }
 
     /// Pop from redo stack for redo. Returns None if nothing to redo.
-    pub fn pop_redo(&mut self) -> Option<SetDepthParamsCommand> {
+    pub fn pop_redo(&mut self) -> Option<UndoableCommand> {
         self.redo_stack.pop()
     }
 
     /// Push a command back onto the undo stack (after redo).
-    pub fn push_undo(&mut self, cmd: SetDepthParamsCommand) {
+    pub fn push_undo(&mut self, cmd: UndoableCommand) {
         if self.undo_stack.len() >= self.max_len {
             self.undo_stack.pop_front();
         }
@@ -151,8 +201,6 @@ mod tests {
     fn history_cap_at_max() {
         let mut hist = UndoRedoHistory::new();
         let default = DepthAdjustmentParams::default();
-        let mut other = DepthAdjustmentParams::default();
-        other.brightness = 0.1;
 
         for i in 0..MAX_HISTORY_LEN + 3 {
             let cmd = SetDepthParamsCommand {
@@ -162,7 +210,7 @@ mod tests {
                     ..default.clone()
                 },
             };
-            hist.push(cmd);
+            hist.push(UndoableCommand::Depth(cmd));
         }
         assert_eq!(
             hist.len_undo(),
@@ -180,23 +228,31 @@ mod tests {
         let mut c = DepthAdjustmentParams::default();
         c.brightness = 0.4;
 
-        hist.push(SetDepthParamsCommand {
+        hist.push(UndoableCommand::Depth(SetDepthParamsCommand {
             previous: a.clone(),
             new: b.clone(),
-        });
-        hist.push(SetDepthParamsCommand {
+        }));
+        hist.push(UndoableCommand::Depth(SetDepthParamsCommand {
             previous: b.clone(),
             new: c.clone(),
-        });
+        }));
 
         let cmd = hist.pop_undo().unwrap();
-        assert!(cmd.new.brightness - 0.4 < 1e-6);
+        if let UndoableCommand::Depth(d) = &cmd {
+            assert!(d.new.brightness - 0.4 < 1e-6);
+        } else {
+            panic!("expected Depth command");
+        }
         hist.push_redo(cmd);
         assert!(hist.can_undo());
         assert!(hist.can_redo());
 
         let cmd = hist.pop_redo().unwrap();
-        assert!(cmd.new.brightness - 0.4 < 1e-6);
+        if let UndoableCommand::Depth(d) = &cmd {
+            assert!(d.new.brightness - 0.4 < 1e-6);
+        } else {
+            panic!("expected Depth command");
+        }
         hist.push_undo(cmd);
         assert!(hist.can_undo());
         assert!(!hist.can_redo());
@@ -208,19 +264,19 @@ mod tests {
         let a = DepthAdjustmentParams::default();
         let mut b = DepthAdjustmentParams::default();
         b.brightness = 0.1;
-        hist.push(SetDepthParamsCommand {
+        hist.push(UndoableCommand::Depth(SetDepthParamsCommand {
             previous: a.clone(),
             new: b.clone(),
-        });
+        }));
         let cmd = hist.pop_undo().unwrap();
         hist.push_redo(cmd);
         assert!(hist.can_redo());
         let mut c = DepthAdjustmentParams::default();
         c.brightness = 0.2;
-        hist.push(SetDepthParamsCommand {
+        hist.push(UndoableCommand::Depth(SetDepthParamsCommand {
             previous: b.clone(),
             new: c.clone(),
-        });
+        }));
         assert!(!hist.can_redo());
     }
 }

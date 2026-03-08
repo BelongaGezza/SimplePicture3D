@@ -200,6 +200,65 @@ export async function clearHistory(): Promise<UndoRedoState> {
   return invoke<UndoRedoState>("clear_history");
 }
 
+// --- Sprint 2.5: Mask (BACK-1201, ARCH-502, UI-1201) ---
+
+/** Current mask from backend (dimensions + row-major booleans). Null if no depth map. */
+export interface MaskData {
+  width: number;
+  height: number;
+  data: boolean[];
+}
+
+export async function getMask(): Promise<MaskData | null> {
+  return invoke<MaskData | null>("get_mask");
+}
+
+/** Set a rectangle of the mask (paint/erase). Returns updated undo/redo state. */
+export async function setMaskRegion(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  value: boolean
+): Promise<UndoRedoState> {
+  return invoke<UndoRedoState>("set_mask_region", {
+    x,
+    y,
+    width,
+    height,
+    value,
+  });
+}
+
+/** Clear mask to all false. Returns updated undo/redo state. */
+export async function clearMask(): Promise<UndoRedoState> {
+  return invoke<UndoRedoState>("clear_mask");
+}
+
+/** Set the full mask from row-major data (JR1-1203 load, JR1-1202 lasso fill). Dimensions must match current depth map. */
+export async function setMask(
+  width: number,
+  height: number,
+  data: boolean[]
+): Promise<UndoRedoState> {
+  return invoke<UndoRedoState>("set_mask", { width, height, data });
+}
+
+/** Save current mask to a JSON file (JR1-1203). Path must be .json and writable. */
+export async function saveMaskToPath(path: string): Promise<void> {
+  return invoke("save_mask_to_path", { path });
+}
+
+/**
+ * Load mask from a JSON file (JR1-1203).
+ * Dimension mismatch: backend requires saved mask width×height to match the current depth map.
+ * If the loaded image has different dimensions, the backend returns an error; the user must
+ * load an image with matching dimensions or re-paint the mask.
+ */
+export async function loadMaskFromPath(path: string): Promise<UndoRedoState> {
+  return invoke<UndoRedoState>("load_mask_from_path", { path });
+}
+
 /** Mesh data for 3D preview (BACK-601, BACK-602, 3D_PREVIEW_API.md). Positions/normals in mm. Optional indices for triangulated mesh (wireframe/solid). */
 export interface MeshData {
   positions: [number, number, number][];

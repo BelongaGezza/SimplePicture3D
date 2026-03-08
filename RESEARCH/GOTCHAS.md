@@ -124,3 +124,13 @@ These capture recurring cross-cutting rules that apply to all sprints. Unlike th
 **Symptom:** Build fails with "Permission allow-load-image not found" (or "identifiers can only include lowercase ASCII, hyphens...").  
 **Cause:** Tauri v2 does not auto-generate permissions for app commands; capability identifiers must use kebab-case (hyphens), not underscores; app permissions must be defined in `src-tauri/permissions/`.  
 **Fix:** (1) Create `src-tauri/permissions/allow-load-image.toml` (and similar) with `[[permission]] identifier = "allow-load-image"` and `commands.allow = ["load_image"]`. (2) In capabilities/default.json use `"allow-load-image"`, `"allow-export-stl"` (kebab-case), not `allow-load_image`.
+
+### 2026-03-07 — macOS / CI scripts — `timeout` command not found
+**Symptom:** Script or automation runs `timeout 15 npm run tauri dev` (or similar) to do a short smoke test; on macOS the command fails with "timeout: command not found" and the inner command may never run.  
+**Cause:** `timeout` is from GNU coreutils; it is not installed by default on macOS (BSD userland).  
+**Fix:** Do not rely on `timeout` in cross-platform or macOS-only scripts. For a brief Tauri dev smoke test on macOS, start in background and kill after a few seconds: `(npm run tauri dev &); TAURI_PID=$!; sleep 12; kill $TAURI_PID 2>/dev/null; wait $TAURI_PID 2>/dev/null`. Or run `npm run tauri dev` interactively (it is long-running by design).
+
+### 2026-03-08 — Rust / Mask (Sprint 2.5) — Feather soft-mask and test assertions
+**Symptom:** Tests for `to_soft_mask` (feather) or `apply_adjustments_with_mask` fail when asserting that the blended value at the centre is "large" (e.g. > 0.5 or near 1.0).  
+**Cause:** Box-blur with radius r averages over (2r+1)² pixels. A single masked pixel with r=1 gives centre weight 1/9, not 1.0. Similarly, a 3×1 strip with only the centre masked gives weight 1/3 at centre, so blended depth is 2/3 original + 1/3 adjusted.  
+**Fix:** Assert "feather produces partial values" (e.g. centre > 0 and has mid-range values), not "centre ≈ 1.0". For blend tests, assert "blended toward adjusted" (e.g. output at centre > 0.5) rather than "nearly full adjusted". See `src-tauri/src/mask.rs` and lib tests `apply_adjustments_with_mask_*`.

@@ -223,6 +223,7 @@ impl Preset {
             depth_min_mm: self.depth_min_mm,
             depth_max_mm: self.depth_max_mm,
             curve_control_points: self.curve_control_points.clone(),
+            feather_radius_px: 0.0, // BACK-1203: presets don't persist feather; use 0
         }
     }
 

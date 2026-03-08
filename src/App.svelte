@@ -9,6 +9,7 @@
   import FirstRunWizard from "./components/FirstRunWizard.svelte";
   import Button from "./components/Button.svelte";
   import PresetManager from "./components/PresetManager.svelte";
+  import MaskingTools from "./components/MaskingTools.svelte";
   import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
   import { listen } from "@tauri-apps/api/event";
   import {
@@ -21,6 +22,9 @@
     getUndoRedoState,
     undo as tauriUndo,
     redo as tauriRedo,
+    getMask,
+    setMaskRegion,
+    clearMask,
     checkModel,
     getSettings,
     saveSettings,
@@ -33,6 +37,7 @@
     DepthAdjustmentParams,
     PresetListItem,
     DepthProgressEvent,
+    MaskData,
   } from "$lib/tauri";
 
   let status = "Ready";
@@ -114,6 +119,13 @@
   let canUndo = false;
   let canRedo = false;
 
+  /** Sprint 2.5: mask for regional adjustments (UI-1201–1204). Fetched from backend; mirrored for overlay. */
+  let maskData: MaskData | null = null;
+  let maskTool: "brush" | "eraser" | "select" = "brush";
+  let brushSize = 20;
+  let brushHardness = 1;
+  let showMaskOverlay = true;
+
   /** Sprint 2.3: Preset list (built-in + user) for dropdown and Load preset (UI-1301, UI-1303). */
   let presetList: PresetListItem[] = [];
   let presetDropdownOpen = false;
@@ -146,9 +158,20 @@
     depthMap = null;
     depthError = "";
     histogramData = null;
+    maskData = null;
     // Backend clears undo history on new image load (ARCH); keep UI in sync.
     canUndo = false;
     canRedo = false;
+  }
+
+  /** Fetch current mask from backend for overlay (UI-1203). */
+  async function refreshMask() {
+    if (!depthMap) return;
+    try {
+      maskData = await getMask();
+    } catch {
+      maskData = null;
+    }
   }
 
   async function handleLoadSuccess(result: LoadImageResult) {
@@ -194,6 +217,7 @@
       adjustmentParams = params;
       const hist = await getDepthHistogram();
       histogramData = hist;
+      await refreshMask();
       status = "Depth ready";
     } catch (e) {
       depthError = String(e);
@@ -279,6 +303,7 @@
         const [result, hist] = await Promise.all([getDepthMap(), getDepthHistogram()]);
         if (result) depthMap = { width: result.width, height: result.height, depth: result.depth };
         histogramData = hist;
+        await refreshMask();
       }
       status = "Undo";
     } catch {
@@ -298,11 +323,47 @@
         const [result, hist] = await Promise.all([getDepthMap(), getDepthHistogram()]);
         if (result) depthMap = { width: result.width, height: result.height, depth: result.depth };
         histogramData = hist;
+        await refreshMask();
       }
       status = "Redo";
     } catch {
       canUndo = false;
       canRedo = false;
+    }
+  }
+
+  /** UI-1201: Clear mask via backend; refresh overlay and undo state. */
+  async function handleClearMask() {
+    if (!depthMap) return;
+    try {
+      const state = await clearMask();
+      canUndo = state.canUndo;
+      canRedo = state.canRedo;
+      await refreshMask();
+      status = "Mask cleared";
+    } catch (e) {
+      status = "Clear mask failed: " + String(e);
+    }
+  }
+
+  /** UI-1202: Paint/erase one stamp at depth-map pixel (x, y). Backend applies and pushes undo. */
+  async function handleMaskPaint(x: number, y: number, value: boolean) {
+    if (!depthMap || (maskTool !== "brush" && maskTool !== "eraser")) return;
+    const w = depthMap.width;
+    const h = depthMap.height;
+    const half = Math.max(0, Math.floor(brushSize / 2));
+    const x0 = Math.max(0, Math.min(w, x - half));
+    const y0 = Math.max(0, Math.min(h, y - half));
+    const rw = Math.min(brushSize, w - x0);
+    const rh = Math.min(brushSize, h - y0);
+    if (rw <= 0 || rh <= 0) return;
+    try {
+      const state = await setMaskRegion(x0, y0, rw, rh, value);
+      canUndo = state.canUndo;
+      canRedo = state.canRedo;
+      await refreshMask();
+    } catch {
+      // Non-fatal; e.g. rapid strokes
     }
   }
 
@@ -403,6 +464,18 @@
     }
   }
 
+  /** Sprint 2.5: After mask change (save/load/clear/apply selection), refresh overlay and undo state. */
+  async function handleMaskChange() {
+    try {
+      const undoState = await getUndoRedoState();
+      canUndo = undoState.canUndo;
+      canRedo = undoState.canRedo;
+      await refreshMask();
+    } catch {
+      // Non-critical
+    }
+  }
+
   /** UI-1402: Keyboard shortcuts for undo (Ctrl+Z) and redo (Ctrl+Y / Ctrl+Shift+Z). */
   function onKeyDown(e: KeyboardEvent) {
     if ((e.ctrlKey || e.metaKey) && e.key === "z") {
@@ -486,6 +559,11 @@
             depth={depthMap?.depth ?? []}
             estimating={depthEstimating}
             hasImage={!!loadPath}
+            maskData={maskData}
+            showMaskOverlay={showMaskOverlay}
+            activeMaskTool={maskTool === "brush" || maskTool === "eraser" ? maskTool : null}
+            brushSize={brushSize}
+            onMaskPaint={handleMaskPaint}
           />
         </div>
         <!-- UI-303: Generate Depth Map button; UI-304: progress during inference -->
@@ -538,6 +616,20 @@
           onReset={handleResetDepth}
           advancedMode={advancedMode}
           onAdvancedModeChange={(v) => (advancedMode = v)}
+        />
+        <!-- UI-1201–1204: Mask tools (brush, eraser, select, size, hardness); JR1-1202/1203 save/load/apply selection -->
+        <MaskingTools
+          hasDepth={depthMap != null && depthMap.depth.length > 0}
+          depthWidth={depthMap?.width ?? 0}
+          depthHeight={depthMap?.height ?? 0}
+          tool={maskTool}
+          onToolChange={(t) => (maskTool = t)}
+          brushSize={brushSize}
+          onBrushSizeChange={(v) => (brushSize = v)}
+          brushHardness={brushHardness}
+          onBrushHardnessChange={(v) => (brushHardness = v)}
+          onClearMask={handleClearMask}
+          onMaskChange={handleMaskChange}
         />
         <!-- UI-1301, UI-1302: Preset manager and Save/Load -->
         <PresetManager onListChange={refreshPresetList} onPresetApplied={applyPresetAndRefresh} />

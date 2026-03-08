@@ -149,6 +149,9 @@ pub struct DepthAdjustmentParams {
     /// Optional curve control points (BACK-1102). When None or len < 2, no curve (identity).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub curve_control_points: Option<Vec<CurvePoint>>,
+    /// Feather radius in pixels at mask edges (BACK-1203). 0 = hard edge.
+    #[serde(default)]
+    pub feather_radius_px: f32,
 }
 
 impl Default for DepthAdjustmentParams {
@@ -161,6 +164,7 @@ impl Default for DepthAdjustmentParams {
             depth_min_mm: 2.0,
             depth_max_mm: 10.0,
             curve_control_points: None,
+            feather_radius_px: 0.0,
         }
     }
 }

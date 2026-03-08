@@ -444,7 +444,41 @@ Returns the index buffer for the grid. Called after `depth_to_point_cloud` to po
 
 **Pre-Sprint 2.5 action (Consultant_Review_1Mar2026 §4.5, §6):** Before masking sprint planning begins, the Architect and Senior Engineer must assess whether the current `SetDepthParamsCommand` struct (a flat snapshot of `DepthAdjustmentParams`) adequately models mask state (regions, brush strokes, layer blending). Masking likely requires a new command type. ADR-010 should be extended — or a new ADR authored — covering the mask command contract before Sprint 2.5 begins.
 
-**Consequences:**
+#### ARCH-502: Mask state and command contract (Sprint 2.5)
+
+**Status:** Accepted  
+**Date:** 2026-03-07  
+**Context:** Sprint 2.5 introduces masking (brush, eraser, select). Mask state (2D bitmap, dimensions tied to depth map) and its undo/redo semantics must be defined before BACK-1201 and UI-1201.
+
+**Assessment:** `SetDepthParamsCommand` holds only `DepthAdjustmentParams` (scalars + curve). It does **not** model mask state (regions, brush strokes, layer blending). A **new command type** is required for mask mutations.
+
+**Decisions:**
+
+1. **Mask data ownership**
+   - **Backend (Rust) is authoritative.** Mask is stored in `AppState` (e.g. `mask: Mutex<Option<MaskBitmap>>`). Dimensions must match the current depth map (width × height); mask is cleared or invalidated when depth map is replaced (new image or new depth generation).
+   - **Frontend mirrors** for reactivity: after any mask mutation (paint, eraser, set_region, clear), backend returns or emits updated mask (or a delta); frontend updates local state for overlay and tool feedback. No local-only mask as source of truth.
+
+2. **Mask command contract**
+   - **New command type:** `SetMaskCommand { previous: MaskBitmap, new: MaskBitmap }` (or equivalent: full snapshot of mask bitmap for undo/redo). Mask bitmap is a 2D boolean array or packed bitmap matching depth dimensions; serialization for history can be compressed (e.g. run-length or packed bits) to keep 20 entries within memory budget.
+   - **Single undo stack with heterogeneous commands.** The undo stack holds an **enum**: `UndoableCommand::Depth(SetDepthParamsCommand) | UndoableCommand::Mask(SetMaskCommand)`. One undo/redo flow: "last action" is either a depth change or a mask change. Same 20-entry cap (ARCH-403); push clears redo; on undo, pop and apply `apply_previous` to the correct state (adjustment_params or mask); on redo, apply `apply_new`. This preserves user expectation (Ctrl+Z undoes the last action regardless of type) without two separate stacks.
+
+3. **Undo/redo semantics for mask mutations**
+   - Every mask mutation that changes the authoritative mask (brush stroke, eraser stroke, set_region, clear_mask, fill_selection) creates a `SetMaskCommand` and pushes it onto the same history as depth commands. Undo restores the previous mask bitmap; redo restores the new mask bitmap. When the user loads a new image or generates a new depth map, history is cleared (existing behaviour); mask is also cleared or set to empty.
+
+4. **IPC (Tauri commands)**
+   - **Get mask:** `get_mask()` → returns current mask (e.g. dimensions + packed or flattened boolean data) or empty if no depth map. Frontend uses this for overlay and to mirror state after load.
+   - **Mutate mask:** `set_mask_region(x, y, width, height, value: bool)` and/or `apply_mask_stroke(points: [[x,y], ...], value: bool)` and/or `clear_mask()`. Each mutation: (1) read current mask (or empty); (2) apply change; (3) build `SetMaskCommand { previous, new }`; (4) push to history; (5) write new mask to AppState; (6) return success + optional updated mask or undo_redo_state.
+   - Exact command set is left to BACK-1201; the contract is that **every mutation goes through the backend** and **mask commands participate in the same undo stack**.
+
+5. **Feathering and mask application**
+   - Feathering (soft edge) is a **processing parameter** applied when computing adjusted depth from mask + depth params (BACK-1203). It does not change the stored mask bitmap; the mask remains boolean. Feather radius (or equivalent) can live in `DepthAdjustmentParams` or a separate field; undo of a "depth params" change can include feather, and undo of a "mask" change does not alter feather. (If product later wants "feather" as a per-mask-layer setting, that can be a separate command or folded into a combined snapshot.)
+
+**Consequences (ARCH-502, Sprint 2.5):**
+- BACK-1201: Implement mask in AppState, `SetMaskCommand`, extend `UndoRedoHistory` to hold `VecDeque<UndoableCommand>` (enum), and add Tauri commands get_mask / set_mask_region / clear_mask (or equivalent). Validate mask dimensions against current depth map.
+- UI-1201: MaskingTools invoke backend for every mask mutation; frontend mirrors mask for overlay (UI-1203) and does not hold authoritative state.
+- QA-1203: Manual test undo/redo with mixed depth and mask actions to confirm correct restore of both.
+
+**Consequences (original ADR-010):**
 - BACK-1401–1404 implement command trait, history stack, and Tauri undo/redo/clear_history; frontend uses command responses to update UI.
 - CURVE-001 persists curve in AppSettings; load/save round-trip through backend.
 - UI-1401/1402 wire buttons and shortcuts to backend; disable state derived from backend return values.
@@ -507,7 +541,8 @@ Tauri desktop app: Rust backend, Svelte 4 frontend, Python subprocess for AI inf
 | `mesh_generator.rs` | Point cloud, grid triangulation (ADR-008), STL/OBJ writers, validation (BACK-501–506, BACK-700–702, BACK-801–803) |
 | `python_bridge.rs` | Subprocess depth estimation (BACK-201–205), progress protocol |
 | `settings.rs` | AppSettings load/save (BACK-706, BACK-804–805) |
-| `undo.rs` | Undo/redo command pattern, history stack (BACK-1401–1404, ARCH-403); `SetDepthParamsCommand`, `UndoRedoHistory` |
+| `undo.rs` | Undo/redo command pattern, history stack (BACK-1401–1404, ARCH-403, ARCH-502); `SetDepthParamsCommand`, `SetMaskCommand`, `UndoableCommand` enum, `UndoRedoHistory` |
+| `mask.rs` | Mask bitmap for regional adjustments (BACK-1201); packed bits, dimensions match depth map |
 
 **STL/OBJ export:** Implemented as **custom** binary STL and ASCII OBJ (+ MTL) writers in `mesh_generator.rs`; the project does **not** use `stl_io` or `obj-exporter` crates (see Key Interfaces below).
 
@@ -708,7 +743,7 @@ See **ADR-009** above for full decision, API options, and UI/preset notes.
 
 ## Key Interfaces
 
-- **Tauri commands:** `load_image`, `generate_depth_map`, `get_depth_map`, **`get_depth_histogram`** (256 bins of current adjusted depth, BACK-1101), `set_depth_adjustment_params`, `get_depth_adjustment_params`, `reset_depth_adjustments`, **`undo`, `redo`, `clear_history`** (Sprint 2.2, BACK-1404 — return success + current params + can_undo/can_redo), `get_mesh_data` (optional `target_width_mm`, `target_height_mm`), `export_stl`, `export_obj`, `get_settings`, `save_settings`, `check_model`, `get_model_info`, `download_model`
+- **Tauri commands:** `load_image`, `generate_depth_map`, `get_depth_map`, **`get_depth_histogram`** (256 bins of current adjusted depth, BACK-1101), `set_depth_adjustment_params`, `get_depth_adjustment_params`, `reset_depth_adjustments`, **`undo`, `redo`, `clear_history`** (Sprint 2.2, BACK-1404 — return success + current params + can_undo/can_redo), **`get_mask`, `set_mask_region`, `clear_mask`, `set_mask`** (Sprint 2.5, BACK-1201 — mask for regional adjustments), `get_mesh_data` (optional `target_width_mm`, `target_height_mm`), `export_stl`, `export_obj`, `get_settings`, `save_settings`, `check_model`, `get_model_info`, `download_model`
 - **STL/OBJ export:** Implemented as **custom** binary STL and ASCII OBJ (with .mtl) writers in `src-tauri/src/mesh_generator.rs`. The project does **not** use the `stl_io` or `obj-exporter` crates; the PRD §5.4 notion of a separate `exporters/` module was consolidated into `mesh_generator.rs` (ADR-008, Sprint 1.8/1.9). See RESEARCH/rust-crates.md for crate guidance vs as-built.
 - **Python interface (Sprint 1.3):** See **docs/architecture.md** § "Rust–Python Bridge (Sprint 1.3)" for the full IPC contract:
   - **Image input:** Temp file path only (`--input <path>`); path validated, under system temp dir (ARCH-102).
