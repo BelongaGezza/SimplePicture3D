@@ -1,7 +1,7 @@
 # Verification Checklist — Sprint 2.5
 
 **Sprint:** 2.5 — Masking & Regional Adjustments
-**Last Updated:** 2026-03-08
+**Last Updated:** 2026-03-14
 
 Sign off each item before closing the sprint. All critical items must pass; non-critical items may be deferred with a filed ticket.
 
@@ -41,11 +41,11 @@ Sign off each item before closing the sprint. All critical items must pass; non-
 
 ## 4. QA Sign-off
 
-- [ ] **QA-1201** — Manual test: paint mask, adjust depth, verify isolation (procedure in TEST_PLAN_2_5.md §3.2 Case 1; ready for human execution)
-- [ ] **QA-1202** — Manual test: mask feathering (soft edges) (procedure in TEST_PLAN_2_5.md §3.2 Case 2; ready for human execution)
-- [ ] **QA-1203** — Manual test: undo/redo with masking (procedure in TEST_PLAN_2_5.md §3.2 Case 3; ready for human execution)
+- [x] **QA-1201** — Manual test: paint mask, adjust depth, verify isolation — **FAIL** (2026-03-14): mask has no visible effect; brush/overlay/depth isolation non-functional → **P0 bug**
+- [ ] **QA-1202** — Manual test: mask feathering — **Blocked** (deferred until P0 fix)
+- [ ] **QA-1203** — Manual test: undo/redo with masking — **Blocked** (deferred until P0 fix)
 - [x] `SPRINTS/Sprint_2_5/MANUAL_TEST_REPORT.md` — filled (template + automated gate PASS 2026-03-08; Quick start for human tester added; manual Cases 1–3 ready)
-- [ ] Any P0/P1 issues resolved or deferred with ticket
+- [ ] **P0:** Mask has no visible effect (brush, overlay, depth isolation). Fix required before QA-1202/1203 and sprint close. Ticket: *(create or link)*
 
 ---
 
@@ -65,6 +65,6 @@ Sign off each item before closing the sprint. All critical items must pass; non-
 | UI Designer | | | ☐ |
 | Quality Engineer | Agent (QE) | 2026-03-08 | ☐ Automated gate PASS; manual cases handed off to human |
 
-**Sprint Close Decision:** ☐ CLOSED — all critical items passed / ☐ DEFERRED — see notes
+**Sprint Close Decision:** ☐ CLOSED / ☑ **DEFERRED** — P0: mask has no visible effect (Case 1 FAIL 2026-03-14). Fix mask pipeline, re-run manual Cases 1–3, then re-verify.
 
-**Note:** Manual Cases 1–3 (QA-1201–QA-1203) require a human to run `npm run tauri dev` and follow TEST_PLAN_2_5.md §3.2. MANUAL_TEST_REPORT.md includes a "Quick start for human tester" section. Once filled, update checklist items above and sign off.
+**Note:** Case 1 executed 2026-03-14; Cases 2–3 blocked until P0 fixed. See MANUAL_TEST_REPORT.md.

@@ -859,7 +859,12 @@ The Role Assignment table enables agents to claim roles:
 
 **Recommended sequencing (Consultant_Review_1Mar2026 §6):** Sprint 2.2 ✅ delivered (Undo/Redo, curve persistence, state ADR, Wireframe/Solid). Sprint 2.3 = Presets (ready to begin — undo foundation in place). Sprint 2.4 = Progress streaming (do not defer; highest UX priority). Sprint 2.5 = Masking (confirm ADR-010 covers mask state before sprint begins). Sprint 2.6 = Enhanced 3D + A11y polish. Sprint 2.7 = Material Presets. Sprint 2.8 = Async export (reuse Sprint 2.4 async-command pattern).
 
-**URGENT — Before Sprint 2.6:** Complete **Sprint 2.5 manual testing** (QA-1201–QA-1203). Implementation and automated gate are complete; a human tester must run `npm run tauri dev`, execute the three manual cases in `SPRINTS/Sprint_2_5/TEST_PLAN_2_5.md` §3.2 (paint mask + isolation, feathering, undo/redo with masking), and fill Actual result / Pass-Fail in `SPRINTS/Sprint_2_5/MANUAL_TEST_REPORT.md`. Quick start: see MANUAL_TEST_REPORT.md "Quick start for human tester". Do not start Sprint 2.6 until manual sign-off is recorded in VERIFICATION_CHECKLIST.md.
+**⚠️ STUCK AT SPRINT 2.5 — Do not start Sprint 2.6 until resolved.** Manual test Case 1 (QA-1201) failed 2026-03-14: **P0 — mask has no visible effect** (brush mask, overlay, and depth isolation do not work). Sprint 2.5 is deferred until this is fixed.
+
+**Next steps (Sprint 2.5):**
+1. **Fix P0:** Debug and fix mask pipeline so brush strokes are visible, mask overlay shows, and depth adjustments apply only to masked regions. See `SPRINTS/Sprint_2_5/MANUAL_TEST_REPORT.md` and `VERIFICATION_CHECKLIST.md`.
+2. **Re-run manual tests:** After fix, run `npm run tauri dev` and execute all three manual cases in `SPRINTS/Sprint_2_5/TEST_PLAN_2_5.md` §3.2 (Cases 1–3); record Actual result / Pass-Fail in `SPRINTS/Sprint_2_5/MANUAL_TEST_REPORT.md`.
+3. **Close Sprint 2.5:** When QA-1201–QA-1203 pass, complete `SPRINTS/Sprint_2_5/VERIFICATION_CHECKLIST.md` and sign off. Only then may Sprint 2.6 begin.
 
 **Phase 2 security (SEC-202):** SHA256 model download verification remains unconfirmed at Sprint 2.2 close. **Security Specialist must verify implementation before Sprint 2.4** (Consultant_Review_1Mar2026 §3.1, action item #1). Either confirm SHA256 check exists and document the trusted checksum source, or raise as a new security task. See RESEARCH/architecture.md ADR-003.
 
@@ -1052,6 +1057,8 @@ The Role Assignment table enables agents to claim roles:
 ### Sprint 2.5: Masking & Regional Adjustments (2 weeks)
 
 **Sprint Goal:** Enable selective depth adjustments via masking tools (depends on Sprint 2.2 undo/redo).
+
+**⚠️ Status: BLOCKED (as of 2026-03-14).** Implementation and automated gate are complete, but manual test Case 1 **FAILED**: mask has no visible effect (brush, overlay, depth isolation). **We are stuck at Sprint 2.5** until P0 is fixed. Next steps: (1) Fix P0 mask pipeline, (2) Re-run manual Cases 1–3 and record results, (3) Close sprint via VERIFICATION_CHECKLIST.md. Do not start Sprint 2.6 until Sprint 2.5 is closed. See `SPRINTS/Sprint_2_5/MANUAL_TEST_REPORT.md`, `SPRINTS/Sprint_2_5/VERIFICATION_CHECKLIST.md`, and Phase 2 "Next steps (Sprint 2.5)" above.
 
 #### Tasks
 
