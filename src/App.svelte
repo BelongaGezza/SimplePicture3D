@@ -381,9 +381,15 @@
 
   /** Apply preset and refresh UI state (depth params, preview, undo state). */
   async function applyPresetAndRefresh() {
+    // Clear any pending debounce so applyParamsToBackend does not overwrite backend state
+    // with stale params after load_preset (CONSULTANT_TASK_PRESET_APPLY: preset-apply race fix).
+    if (debounceTimer != null) {
+      clearTimeout(debounceTimer);
+      debounceTimer = null;
+    }
     try {
       const params = await getDepthAdjustmentParams();
-      // Force new object reference so Svelte/reactivity and child sliders update (preset apply bug fix).
+      // Force new object reference so Svelte/reactivity and child sliders update.
       adjustmentParams = { ...params };
       const undoState = await getUndoRedoState();
       canUndo = undoState.canUndo;
@@ -425,6 +431,10 @@
   async function handleLoadPreset(nameOrPath: string) {
     presetDropdownOpen = false;
     presetSaveLoadOpen = false;
+    if (debounceTimer != null) {
+      clearTimeout(debounceTimer);
+      debounceTimer = null;
+    }
     try {
       await loadPreset(nameOrPath);
       await applyPresetAndRefresh();
@@ -450,6 +460,10 @@
 
   /** UI-1304: Import preset from JSON file. */
   async function handleImportPreset() {
+    if (debounceTimer != null) {
+      clearTimeout(debounceTimer);
+      debounceTimer = null;
+    }
     try {
       const path = await openDialog({
         multiple: false,

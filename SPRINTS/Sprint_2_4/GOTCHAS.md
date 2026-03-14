@@ -34,6 +34,13 @@
 **Fix:** Changed `{ nameOr_path: nameOrPath }` → `{ name_or_path: nameOrPath }` in `tauri.ts:326`. Updated the corresponding unit-test assertion in `tauri.test.ts:271`.
 **Watch out for:** Tauri v2 IPC arg keys must exactly match the Rust parameter name in snake_case (e.g. `name_or_path`, `old_name`, `new_name`). A typo that is neither snake_case nor camelCase silently fails at the IPC boundary — the backend command never runs, but the error may be swallowed by a `try/catch` that only sets a status string, making the symptom look like a frontend reactivity problem. Always verify the arg key against the `#[tauri::command]` function signature, and write a unit test that asserts the exact `invoke` call (command name + args object).
 
+### 2026-03-14 — Senior Engineer — Preset apply: debounce overwrote backend after load_preset
+**Context:** CONSULTANT_TASK_PRESET_APPLY. After fixing IPC arg key, applying a preset still did not update depth sliders when the user had recently moved a slider.
+**Problem:** `load_preset` updated backend state; `applyPresetAndRefresh()` then called `getDepthAdjustmentParams()` and set `adjustmentParams`, but sliders showed old values. Backend was correct; frontend was displaying stale params.
+**Root cause:** A pending debounce timer from `handleParamsChange` (slider change) could fire *after* `load_preset` returned but before or during `applyPresetAndRefresh()`. That timer called `applyParamsToBackend()` with the *previous* `adjustmentParams`, overwriting the backend with old values. Then `getDepthAdjustmentParams()` returned those old values, so the UI showed the wrong state.
+**Fix:** Clear the debounce timer at the start of `handleLoadPreset`, `handleImportPreset`, and `applyPresetAndRefresh()` so no pending `applyParamsToBackend` runs after `load_preset` (see `App.svelte`).
+**Watch out for:** When a flow updates backend state and then syncs UI from backend, cancel any debounced writes that might overwrite that state before the sync completes.
+
 ---
 
 ## Known risks to watch for in Sprint 2.4

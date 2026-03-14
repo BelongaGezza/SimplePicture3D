@@ -110,5 +110,18 @@ Status text may show "Preset applied" (backend reports success) while the contro
 
 ---
 
+## 8. Fix Summary (2026-03-14)
+
+**Root cause:** A **debounce race**. Depth param changes are debounced (80 ms) before calling `setDepthAdjustmentParams`. When the user moved a slider and then quickly applied a preset: (1) `load_preset` updated backend state correctly; (2) a pending debounce timer could fire after `load_preset` returned but before `applyPresetAndRefresh()` finished; (3) that timer ran `applyParamsToBackend()` with the *previous* `adjustmentParams`, overwriting the backend with old values; (4) `getDepthAdjustmentParams()` then returned those old values, so the UI did not reflect the preset.
+
+**Change:** In `src/App.svelte`, clear the debounce timer when loading/applying a preset so no stale `applyParamsToBackend` runs:
+- At the start of `applyPresetAndRefresh()` (clears any pending timer before fetching params).
+- At the start of `handleLoadPreset(nameOrPath)` (before `await loadPreset(...)`).
+- At the start of `handleImportPreset()` (before opening the dialog / `loadPreset`).
+
+**Verification:** Manual reproduction: load image → generate depth → change sliders → apply built-in or user preset → sliders now update. Automated: `cargo test --manifest-path src-tauri/Cargo.toml` (181 passed), `npm test` (47 passed, including preset-apply debounce unit test), `cargo clippy -- -D warnings`, no regressions. See `SPRINTS/Sprint_2_4/GOTCHAS.md` entry "Preset apply: debounce overwrote backend after load_preset". Unit test: `src/lib/__tests__/presetApplyDebounce.test.ts` — asserts that when applyPresetAndRefresh runs, a pending debounce is cleared so setDepthAdjustmentParams is not later called with stale params.
+
+---
+
 **Document version:** 1.0  
-**Status:** Ready for consultant handoff
+**Status:** Ready for consultant handoff → **Fixed 2026-03-14**
