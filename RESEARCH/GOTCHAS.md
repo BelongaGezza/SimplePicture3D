@@ -130,6 +130,16 @@ These capture recurring cross-cutting rules that apply to all sprints. Unlike th
 **Cause:** `timeout` is from GNU coreutils; it is not installed by default on macOS (BSD userland).  
 **Fix:** Do not rely on `timeout` in cross-platform or macOS-only scripts. For a brief Tauri dev smoke test on macOS, start in background and kill after a few seconds: `(npm run tauri dev &); TAURI_PID=$!; sleep 12; kill $TAURI_PID 2>/dev/null; wait $TAURI_PID 2>/dev/null`. Or run `npm run tauri dev` interactively (it is long-running by design).
 
+### 2026-02-04 — Python / Testing — Simulating "Python not available" for manual tests
+**Symptom:** Clearing PATH entirely (`$env:Path = ''`) to hide Python also hides Node/npm, so `npm run tauri dev` fails and the app never starts — the test case cannot be exercised.
+**Cause:** Both Python and Node must be on PATH, but removing all of PATH removes both.
+**Fix:** (A) Temporarily rename `python.exe` (e.g. in `venv\Scripts\` or the system Python dir) to `python.exe.bak`, start the app from a normal terminal — app runs, Generate fails with "failed to spawn Python". Or (B) selectively filter PATH to exclude only Python/venv: `$env:Path = ($env:Path -split ';' | Where-Object { $_ -notmatch 'Python' -and $_ -notmatch '\\venv\\' }) -join ';'`, then run the app in that terminal.
+
+### 2026-02-04 — Three.js / Frontend — Depth map canvas rendering performance (Sprint 1.4)
+**Symptom:** Need to confirm depth map preview rendering is fast enough for interactive use.
+**Cause:** Implementation (`src/lib/depthCanvas.ts`) is a single synchronous pass (depth 0–1 → ImageData grayscale → `putImageData`) with no Web Worker.
+**Fix:** This is acceptable for up to 4K. Expected timings: ~2M pixels (1080p) ≈ 20–80 ms; ~8.3M pixels (4K) ≈ 80–300 ms. If preview feels sluggish for very large maps, consider downsampling for display only (keep full resolution for mesh pipeline) or a future OffscreenCanvas/chunked render.
+
 ### 2026-03-08 — Rust / Mask (Sprint 2.5) — Feather soft-mask and test assertions
 **Symptom:** Tests for `to_soft_mask` (feather) or `apply_adjustments_with_mask` fail when asserting that the blended value at the centre is "large" (e.g. > 0.5 or near 1.0).  
 **Cause:** Box-blur with radius r averages over (2r+1)² pixels. A single masked pixel with r=1 gives centre weight 1/9, not 1.0. Similarly, a 3×1 strip with only the centre masked gives weight 1/3 at centre, so blended depth is 2/3 original + 1/3 adjusted.  

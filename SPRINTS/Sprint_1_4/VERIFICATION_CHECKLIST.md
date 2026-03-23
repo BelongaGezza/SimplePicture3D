@@ -25,7 +25,7 @@
 ## Process
 
 - [x] Gotchas recorded in `SPRINTS/Sprint_1_4/GOTCHAS.md`
-- [ ] Optional: merge notable gotchas to `RESEARCH/GOTCHAS.md`
+- [x] Optional: merge notable gotchas to `RESEARCH/GOTCHAS.md` — done 2026-03-23: Python-unavailability testing workaround and canvas rendering performance entries merged
 - [x] Manual test report completed (Cases 1–4 executed and Pass; see MANUAL_TEST_REPORT.md)
 - [x] Progress report filed (PROGRESS_REPORT.md) — updated 2026-02-04
 

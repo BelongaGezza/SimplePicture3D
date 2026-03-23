@@ -39,7 +39,7 @@
 ## Process
 
 - [x] Gotchas recorded in `SPRINTS/Sprint_1_5A/GOTCHAS.md`
-- [ ] Optional: merge notable gotchas to `RESEARCH/GOTCHAS.md`
+- [x] Optional: merge notable gotchas to `RESEARCH/GOTCHAS.md` — done 2026-03-23: IPC latency spike entry already covered by existing 2026-02-01 "IPC large payloads slow" entry; no additional merge needed
 - [x] Progress report filed (PROGRESS_REPORT.md)
 - [x] Security sign-off completed (SECURITY_SIGNOFF.md)
 
