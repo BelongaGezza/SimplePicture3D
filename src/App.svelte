@@ -576,7 +576,6 @@
             maskData={maskData}
             showMaskOverlay={showMaskOverlay}
             activeMaskTool={maskTool === "brush" || maskTool === "eraser" ? maskTool : null}
-            brushSize={brushSize}
             onMaskPaint={handleMaskPaint}
           />
         </div>
@@ -806,9 +805,3 @@
     />
   </footer>
 </div>
-
-<style>
-  .app-layout {
-    /* PRD: window min 1024×768; layout uses flex/grid */
-  }
-</style>

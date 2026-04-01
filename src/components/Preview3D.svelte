@@ -11,6 +11,14 @@
   import { getMeshData } from "$lib/tauri";
   import type { MeshData } from "$lib/tauri";
 
+  function disposeMaterial(m: THREE.Material | THREE.Material[]) {
+    if (Array.isArray(m)) {
+      for (const x of m) x.dispose();
+    } else {
+      m.dispose();
+    }
+  }
+
   let container: HTMLDivElement;
   /** Target dimensions in mm from App (scaling: mesh and preview dimension to fit). When set, getMeshData uses these. */
   export let targetWidthMm: number | undefined = undefined;
@@ -70,7 +78,7 @@
     const mat = triangulatedMeshObj.material as THREE.Material;
     if (renderMode === "wireframe") {
       if (!(mat instanceof THREE.MeshBasicMaterial) || !mat.wireframe) {
-        triangulatedMeshObj.material.dispose();
+        disposeMaterial(triangulatedMeshObj.material);
         triangulatedMeshObj.material = new THREE.MeshBasicMaterial({
           color: 0x4a90d9,
           wireframe: true,
@@ -78,7 +86,7 @@
       }
     } else {
       if (!(mat instanceof THREE.MeshPhongMaterial)) {
-        triangulatedMeshObj.material.dispose();
+        disposeMaterial(triangulatedMeshObj.material);
         triangulatedMeshObj.material = new THREE.MeshPhongMaterial({
           color: 0x4a90d9,
           side: THREE.DoubleSide,
@@ -260,7 +268,7 @@
       if (triangulatedMeshObj) {
         scene.remove(triangulatedMeshObj);
         triangulatedMeshObj.geometry.dispose();
-        triangulatedMeshObj.material.dispose();
+        disposeMaterial(triangulatedMeshObj.material);
         triangulatedMeshObj = null;
       }
       if (pointCloud) {
@@ -431,7 +439,7 @@
     if (triangulatedMeshObj) {
       scene?.remove(triangulatedMeshObj);
       triangulatedMeshObj.geometry.dispose();
-      triangulatedMeshObj.material.dispose();
+      disposeMaterial(triangulatedMeshObj.material);
       triangulatedMeshObj = null;
     }
     if (pointCloud) {

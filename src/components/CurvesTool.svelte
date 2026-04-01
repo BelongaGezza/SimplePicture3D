@@ -166,9 +166,10 @@
 </script>
 
 <div class="curves-tool rounded border border-slate-200 bg-slate-50 p-3 flex flex-col gap-2" role="group" aria-label="Curves tool">
-  <label class="text-xs text-slate-600">Curve</label>
+  <label for="curve-preset-select" class="text-xs text-slate-600">Curve</label>
   <div class="flex items-center gap-2 flex-wrap">
     <select
+      id="curve-preset-select"
       class="text-xs border border-slate-300 rounded px-2 py-1 bg-white"
       aria-label="Curve preset"
       on:change={handlePresetChange}
@@ -190,7 +191,6 @@
     width={CANVAS_SIZE}
     height={CANVAS_SIZE}
     class="rounded border border-slate-200 cursor-crosshair block touch-none"
-    role="img"
     aria-label="Curve graph: drag points to adjust"
     on:pointerdown={handlePointerDown}
     on:pointermove={handlePointerMove}

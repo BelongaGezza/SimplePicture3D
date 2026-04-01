@@ -21,6 +21,8 @@ export interface LoadImageResult {
   downsampled: boolean;
   /** Base64-encoded PNG (RGB) for preview; use as data URL: data:image/png;base64,${previewBase64} */
   previewBase64: string;
+  /** Present when ok is false (if backend returns in-band errors). */
+  message?: string;
 }
 
 /** Arguments for export_stl command (ADR-009: optional target dimensions). */

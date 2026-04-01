@@ -110,7 +110,7 @@
         </h2>
         <!-- JR1-901: Step indicator -->
         <div class="flex gap-1.5 mt-3" aria-label="Wizard progress">
-          {#each ["welcome", "downloading", "complete"] as s, i}
+          {#each ["welcome", "downloading", "complete"] as _, i}
             <div
               class="h-1 flex-1 rounded-full {
                 step === 'skipped' || step === 'error'

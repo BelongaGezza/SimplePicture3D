@@ -9,7 +9,6 @@
   import { save } from "@tauri-apps/plugin-dialog";
   import { open as shellOpen } from "@tauri-apps/plugin-shell";
   import { exportStl, exportObj, getSettings, saveSettings } from "$lib/tauri";
-  import type { AppSettings } from "$lib/tauri";
   import { onMount } from "svelte";
 
   /** Whether a depth map / mesh is available for export. */
@@ -200,7 +199,7 @@
   }
 
   /** Close dropdown when clicking outside. */
-  function handleDropdownBlur(e: FocusEvent) {
+  function handleDropdownBlur(_e: FocusEvent) {
     setTimeout(() => {
       dropdownOpen = false;
     }, 150);

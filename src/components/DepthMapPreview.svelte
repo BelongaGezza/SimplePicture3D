@@ -25,8 +25,6 @@
   export let showMaskOverlay = true;
   /** UI-1202: when "brush" or "eraser", pointer events paint/erase mask; when null, pan as usual. */
   export let activeMaskTool: "brush" | "eraser" | null = null;
-  /** UI-1204: brush/eraser radius in depth-map pixels. */
-  export let brushSize = 20;
   /** Called with depth-map pixel (x, y) and value (true = paint, false = erase). */
   export let onMaskPaint: (x: number, y: number, value: boolean) => void = () => {};
 
@@ -118,9 +116,6 @@
     prevFitKey = fitKey;
     scheduleFitToView();
   }
-
-  /** Re-fit when container is resized so depth map stays fitted. */
-  let resizeObserver: ResizeObserver | null = null;
 
   function handleWheel(e: WheelEvent) {
     e.preventDefault();
@@ -249,7 +244,8 @@
     position: relative;
   }
   .depth-preview-wrapper:focus {
-    outline: 2px solid var(--tw-ring-color, theme(colors.slate.400));
+    /* Tailwind slate-400 — plain CSS so svelte-check accepts the block (no Tailwind theme() here). */
+    outline: 2px solid var(--tw-ring-color, #94a3b8);
     outline-offset: 2px;
   }
   .depth-zoom-pan {
@@ -275,20 +271,20 @@
     padding: 0.2rem 0.5rem;
     font-size: 0.75rem;
     font-weight: 500;
-    color: theme(colors.slate.600);
-    background: theme(colors.slate.100);
-    border: 1px solid theme(colors.slate.300);
+    color: #475569;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
     border-radius: 4px;
     cursor: pointer;
     z-index: 1;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   }
   .depth-fit-btn:hover {
-    background: theme(colors.slate.200);
-    color: theme(colors.slate.800);
+    background: #e2e8f0;
+    color: #1e293b;
   }
   .depth-fit-btn:focus {
-    outline: 2px solid theme(colors.slate.400);
+    outline: 2px solid #94a3b8;
     outline-offset: 1px;
   }
 
@@ -309,12 +305,7 @@
   .skeleton-bar {
     width: 2rem;
     height: 3rem;
-    background: linear-gradient(
-      90deg,
-      theme(colors.slate.200) 25%,
-      theme(colors.slate.300) 50%,
-      theme(colors.slate.200) 75%
-    );
+    background: linear-gradient(90deg, #e2e8f0 25%, #cbd5e1 50%, #e2e8f0 75%);
     background-size: 200% 100%;
     animation: skeleton-shimmer 1.2s ease-in-out infinite;
     border-radius: 4px;
