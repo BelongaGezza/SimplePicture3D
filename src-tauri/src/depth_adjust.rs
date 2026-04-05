@@ -323,7 +323,7 @@ mod tests {
         let out = apply_adjustments(&depth, &params);
         for (i, &v) in out.iter().enumerate() {
             assert!(
-                v >= 0.0 && v <= 1.0,
+                (0.0..=1.0).contains(&v),
                 "index {}: output must be in [0,1], got {}",
                 i,
                 v
@@ -347,7 +347,7 @@ mod tests {
         let out = apply_adjustments(&depth, &params);
         for (i, &v) in out.iter().enumerate() {
             assert!(
-                v >= 0.0 && v <= 1.0,
+                (0.0..=1.0).contains(&v),
                 "index {}: output must be in [0,1], got {}",
                 i,
                 v
@@ -369,7 +369,7 @@ mod tests {
         let out = apply_adjustments(&depth, &params);
         for (i, &v) in out.iter().enumerate() {
             assert!(
-                v >= 0.0 && v <= 1.0,
+                (0.0..=1.0).contains(&v),
                 "index {}: output must be in [0,1], got {}",
                 i,
                 v
@@ -397,13 +397,13 @@ mod tests {
             },
         );
         for &v in &out_plus {
-            assert!(v >= 0.0 && v <= 1.0 && !v.is_nan());
+            assert!((0.0..=1.0).contains(&v) && !v.is_nan());
         }
         assert_eq!(out_plus[0], 1.0);
         assert_eq!(out_plus[1], 1.0);
         assert_eq!(out_plus[2], 1.0);
         for &v in &out_minus {
-            assert!(v >= 0.0 && v <= 1.0 && !v.is_nan());
+            assert!((0.0..=1.0).contains(&v) && !v.is_nan());
         }
         assert_eq!(out_minus[0], 0.0);
         assert_eq!(out_minus[1], 0.0);
@@ -425,7 +425,7 @@ mod tests {
         let out_low = apply_adjustments(&depth, &params_low);
         let out_high = apply_adjustments(&depth, &params_high);
         for &v in out_low.iter().chain(out_high.iter()) {
-            assert!(v >= 0.0 && v <= 1.0, "output must be in [0,1], got {}", v);
+            assert!((0.0..=1.0).contains(&v), "output must be in [0,1], got {}", v);
             assert!(!v.is_nan());
         }
         assert_eq!(out_low[0], 0.0);
@@ -459,7 +459,7 @@ mod tests {
             },
         );
         for &v in &out_high {
-            assert!(v >= 0.0 && v <= 1.0 && !v.is_nan());
+            assert!((0.0..=1.0).contains(&v) && !v.is_nan());
         }
     }
 
