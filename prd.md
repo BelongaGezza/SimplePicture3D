@@ -1,8 +1,8 @@
 # SimplePicture3D - Product Requirements Document
 
-**Version:** 1.6
-**Date:** March 1, 2026
-**Status:** Phase 1 MVP complete (Sprint 1.12 exit gate: GO); Phase 2 in progress (Sprint 2.2 delivered)
+**Version:** 1.8
+**Date:** April 5, 2026
+**Status:** Phase 1 MVP complete (Sprint 1.12 exit gate: GO); Phase 2 in progress (Sprint 2.2 delivered). Crystal volumetric branch specified in RESEARCH/architecture.md ADR-011 (planning; not yet in product build). **Deprecated for volumetric crystal:** extending only the 2.5D relief point cloud (ADR-006) for internal bulk engraving — superseded by ADR-011 on `feature/crystal-volumetric-pointcloud`.
 **License:** MIT  
 
 ---
@@ -10,7 +10,7 @@
 ## 1. Executive Summary
 
 ### 1.1 Product Overview
-SimplePicture3D is an open-source desktop application that converts 2D images into 2.5D STL/OBJ mesh files optimized for internal UV laser engraving of K9 crystal and similar materials. The application combines AI-powered depth estimation with manual control tools, enabling hobbyists to create stunning 3D engravings from photographs, artwork, and graphics.
+SimplePicture3D is an open-source desktop application that converts 2D images into 2.5D STL/OBJ mesh files optimized for internal UV laser engraving of K9 crystal and similar materials. The application combines AI-powered depth estimation with manual control tools, enabling hobbyists to create stunning 3D engravings from photographs, artwork, and graphics. A **crystal volumetric** track (RESEARCH/architecture.md **ADR-011**) is planned to produce **pseudo-3D point clouds** fitted to a user-specified physical blank (e.g. 80×50×50 mm) for workflows that require dense 3D coordinates inside the block; see §11.1 item 12.
 
 ### 1.2 Key Objectives
 - **Accessibility**: Enable hobbyists without 3D modeling expertise to create laser-engravable meshes
@@ -1241,12 +1241,14 @@ The following are valuable but not required for v1.0:
 8. **Video Input** - Convert video frames to animated depth sequences
 9. **3D Scanning Integration** - Import depth maps from structured light scanners
 10. **Commercial Material Library** - Paid presets from professional engravers
-11. **Full 3D Reconstruction Mode** - Optional pipeline: single image → AI mesh (TripoSR) → **surface-sampled point cloud** → scale to crystal blank dimensions → export **point cloud** (XYZ/PLY/CSV) or mesh (STL/OBJ). Laser engravers consume point clouds; Full 3D output is a dimensioned point cloud in mm, like 2.5D, but from Poisson-disk sampling the mesh. Use cases: 3D crystal engraving, 3D printing, multi-angle viewing. Recommended model: **TripoSR** (MIT, 6 GB VRAM, ~0.5 s). Implementation: Python `reconstruction_3d.py` (TripoSR + trimesh sampling → point cloud); Rust blank dimensioning, point cloud import, XYZ/PLY/CSV exporters; UI mode toggle, blank size and point spacing. See RESEARCH/3d-reconstruction.md (last checked 2026-02-22). Planned for Phase 2 (~4–5 sprints).
+11. **Full 3D Reconstruction Mode** - Optional pipeline: single image → AI mesh (TripoSR) → **surface-sampled point cloud** → scale to crystal blank dimensions → export **point cloud** (XYZ/PLY/CSV) or mesh (STL/OBJ). Laser engravers consume point clouds; Full 3D output is a dimensioned point cloud in mm, like 2.5D, but from Poisson-disk sampling the mesh. Use cases: 3D crystal engraving, 3D printing, multi-angle viewing. Recommended model: **TripoSR** (MIT, 6 GB VRAM, ~0.5 s). Implementation: Python `reconstruction_3d.py` (TripoSR + trimesh sampling → point cloud); Rust blank dimensioning, point cloud import, XYZ/PLY/CSV exporters; UI mode toggle, blank size and point spacing. See RESEARCH/3d-reconstruction.md (last checked 2026-02-22). Planned for Phase 2 (~4–5 sprints). **Relationship to item 12:** Both use **blank dimensioning** and point-cloud export; item 12 is the **depth-first volumetric** path; this item is the **AI mesh** path. Coordinate via RESEARCH/architecture.md ADR-011 and **Future: Full 3D** subsection.
+
+12. **Crystal volumetric / pseudo-3D point cloud (ADR-011)** - Optional product track and git branch (`feature/crystal-volumetric-pointcloud` or successor) for internal engraving workflows that need **many points distributed through the volume** of a blank, not only a single 2.5D heightfield sheet. User specifies a **3D blank envelope** up front (example default **80 × 50 × 50 mm**), margin, and axis convention; the app generates a **pseudo-3D** point cloud (credible x, y, z samples from a single image), applies **`fit_to_blank`** (uniform scale + translate), and exports formats such as **PLY/XYZ/CSV** (STL/OBJ optional). MVP algorithm options are documented in ADR-011 (e.g. column-sweep volumetric sampling from the adjusted depth map); **Full 3D Reconstruction** (item 11) remains an optional higher-quality path. Planning uses **epics E1–E5** in ADR-011 until the first validated engraver file exists. Canonical spec: RESEARCH/architecture.md **ADR-011**. **Deprecated approach:** using the existing **2.5D relief point cloud** pipeline alone as the volumetric crystal solution — see ADR-011 subsection *Deprecated: “2.5D-only” point cloud for volumetric crystal* (relief 2.5D remains in scope for relief STL/OBJ).
 
 ### 11.2 Non-Goals
 These will NOT be pursued:
 
-- ❌ Full 3D modeling suite (interactive modeling/editing like Blender; use Blender instead). *Note: "Full 3D reconstruction" from a single image via AI (deferred feature §11.1) is a separate, planned option.*
+- ❌ Full 3D modeling suite (interactive modeling/editing like Blender; use Blender instead). *Note: "Full 3D reconstruction" from a single image via AI (deferred feature §11.1 item 11) and the **crystal volumetric** track (§11.1 item 12, ADR-011) are separate, planned options—not interactive CAD.*
 - ❌ Laser hardware control (safety/liability concerns)
 - ❌ Image editing beyond depth adjustment (use GIMP/Photoshop)
 - ❌ Marketplace for selling models (focus on creation tool)
@@ -1299,6 +1301,8 @@ The following are **not** scheduled for Phases 1–4 but are candidates for a fu
 ### 13.1 Glossary
 
 - **2.5D:** Representation where each (x,y) coordinate has single depth (z) value (unlike full 3D)
+- **Blank envelope:** User-specified physical extent of the crystal blank (length × width × height in mm) plus margin and axis mapping; used by ADR-011 to bound exported point clouds
+- **Pseudo-3D point cloud:** Point set with independent (x,y,z) per sample derived from a single image (e.g. volumetric sweep from depth or AI mesh sampling); not claimed to be a unique true solid
 - **Depth Map:** Grayscale image where brightness represents distance from camera
 - **Heightmap:** Similar to depth map, used for terrain or relief modeling
 - **K9 Crystal:** Optical-grade glass commonly used for laser engraving (K9 ≈ BK7)
@@ -1338,6 +1342,7 @@ The following are **not** scheduled for Phases 1–4 but are candidates for a fu
 | 1.4 | 2026-02-22 | System Architect | §11.1 Full 3D: Revised to align with RESEARCH/3d-reconstruction.md (2026-02-22). Pipeline is point-cloud-centric: TripoSR → surface sampling (Poisson) → dimensioned point cloud; crystal blank dimensioning; XYZ/PLY/CSV export for engravers; ~4–5 sprints. todo.md and RESEARCH/architecture.md "Future: Full 3D" updated to match. |
 | 1.5 | 2026-02-28 | System Architect | Consultant_Critical_Review_28Feb2026 response: Status header → Phase 1 complete, Phase 2 in progress. §2.4 timeline → as-built 13 sprints. F1.6 Technical Notes → custom STL/OBJ writers (ADR-008), no stl_io crate. §5.2 diagram → Svelte 4, subprocess (temp file → stdout). |
 | 1.6 | 2026-03-01 | System Architect | Consultant_Review_1Mar2026 response (Sprint 2.2): Status → Sprint 2.2 delivered. Current progress updated. §5.1 Frontend → Svelte 4 + TypeScript (ADR-001), Svelte stores (ADR-010). §5.1 Data Processing File Export → custom writers (ADR-008), no stl_io. F1.7 Technical Notes → Svelte 4. Phase 2 security note updated (SEC-202 still open). |
+| 1.7 | 2026-04-05 | System Architect | §1.1: Crystal volumetric track (ADR-011) summary. §11.1: New deferred feature item 12 (ADR-011); item 11 cross-reference. §11.2: Non-goals clarified vs ADR-011. §13.1: Glossary entries for blank envelope and pseudo-3D point cloud. RESEARCH/architecture.md ADR-011 is canonical; todo.md Phase 2 section updated with epic track. |
 
 ---
 

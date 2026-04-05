@@ -1,7 +1,7 @@
 # SimplePicture3D - Development TODO & Sprint Planning
 
-**Version:** 1.3  
-**Last Updated:** February 28, 2026  
+**Version:** 1.4  
+**Last Updated:** April 5, 2026  
 **Repository:** https://github.com/[org]/SimplePicture3D  
 **Project Board:** GitHub Projects (Kanban)
 
@@ -68,6 +68,9 @@ The Role Assignment table enables agents to claim roles:
 - **Template location:** `SPRINTS/SPRINT_TASKING_TEMPLATE.md`
 - **Persona files:** `.agents/*.md`
 - **Coordination:** `RESEARCH/AI_DEVELOPMENT_GUIDE.md`
+
+### 6. ADR-011 (crystal volumetric branch) tasking
+For the **crystal volumetric / pseudo-3D point cloud** track, **RESEARCH/architecture.md ADR-011** is canonical (blank envelope, `fit_to_blank`, epics **E1–E5**, algorithm options). Prefer implementing and validating that **epic sequence** before spinning up many `SPRINTS/Sprint_X_Y/` folders for this track. When parallelizing, create sprint folders from the ADR-011 epic breakdown. See **prd.md** §11.1 item 12.
 
 ---
 
@@ -878,11 +881,39 @@ The Role Assignment table enables agents to claim roles:
 
 ---
 
+### Crystal volumetric point cloud (Phase 2, optional track — ADR-011)
+
+**Canonical spec:** RESEARCH/architecture.md **ADR-011**. **PRD:** `prd.md` §11.1 item 12.
+
+**Goal:** Deliver a **mode** (e.g. "Crystal volume" vs "Relief") that outputs a **pseudo-3D point cloud** bounded by a user-specified **blank envelope** (default example **80 × 50 × 50 mm**), with **PLY/XYZ/CSV** export and preview (blank wireframe + points). Reuse existing image load, depth inference, depth adjustments, and mask/undo where applicable.
+
+**Epic sequence (planning unit until first validated engraver file):**
+
+| Epic | Outcome |
+|------|--------|
+| **E1 — Charter** | Target engraver file format(s), axis convention, acceptance criteria (e.g. all points inside bbox − margin). |
+| **E2 — Blank + preview** | `BlankEnvelope` in settings/state; Three.js blank box; bound validation. |
+| **E3 — Volumetric core** | `adjusted depth + mask + params + envelope →` point list; unit tests on bbox and counts. |
+| **E4 — Export + E2E** | `export_ply` / `export_xyz` (and optional CSV); manual checklist with real control software. |
+| **E5 — (Optional) AI 3D** | TripoSR path per subsection below and RESEARCH/3d-reconstruction.md (overlaps Full 3D track). |
+
+**Git branch:** `feature/crystal-volumetric-pointcloud` (or successor) until the track merges or is archived.
+
+**Deprecated (same track):** Using the **2.5D heightfield point cloud** alone (ADR-006, single Z per (x, y)) as the product answer for **volumetric internal crystal** output. New volumetric work follows ADR-011 only; relief 2.5D on `main` stays valid for relief STL/OBJ. See RESEARCH/architecture.md ADR-011 subsection **Deprecated: “2.5D-only” point cloud for volumetric crystal**.
+
+**Architect / Senior Engineer review (2026-04-05):** Plan is **sound**: epic-first delivery (E1–E5) before heavy sprint-folder churn; **`fit_to_blank`** reuses the spirit of ADR-009 in 3D; column-sweep before TripoSR reduces risk. **Gating:** E1 (engraver file format, axis convention, acceptance tests) blocks E4 export claims. **Dependencies:** crystal mode reuses mask/undo — if Phase 2 mask work remains blocked (Sprint 2.5 P0), either fix on `main` first or isolate crystal branch from mask until fixed. **Engineering:** add volumetric generation and PLY/XYZ in a **dedicated module** (or clearly bounded APIs in `mesh_generator.rs`) to avoid entangling relief triangulation; define **point budget** early (column sweep × resolution). **Risk:** E5 (Full 3D) must not absorb E3–E4 schedule without explicit scope swap.
+
+**Sprint folders:** When decomposing ADR-011 epics into sprints, follow **Sprint Creation Process** above and **§6 ADR-011 (crystal volumetric branch) tasking** in this file.
+
+---
+
 ### Full 3D Reconstruction Mode (Phase 2, optional track)
+
+**Relationship to ADR-011:** This track is the **AI mesh → surface-sampled point cloud** path (TripoSR, etc.). ADR-011’s **E5** and **Crystal volumetric** subsection coordinate here; shared implementation includes **`fit_to_blank`**, **blank envelope** settings, and **XYZ/PLY/CSV** exporters.
 
 **Context:** RESEARCH/3d-reconstruction.md (last checked 2026-02-22). Internal UV laser engraving uses **point clouds** (XYZ coordinates), not meshes. Full 3D mode therefore produces a **dimensioned point cloud** like 2.5D, but from **surface sampling** an AI-generated mesh (TripoSR). **Recommended model: TripoSR** (MIT, 6 GB VRAM, ~0.5 s). Optional Phase 2 track; core Phase 2 (advanced depth, presets, undo) remains independent.
 
-**User-facing behaviour:** Mode toggle "2.5D Relief" (default) vs "Full 3D". In Full 3D: one image → TripoSR mesh → Poisson-disk surface sampling → point cloud → scale to **crystal blank dimensions** (width × height × depth mm) → export **XYZ/PLY/CSV** (direct engraver) or STL/OBJ. Blank size inputs, **point spacing** (mm), optional estimated point count. Preview: crystal blank wireframe, orbit camera. Document that back/sides are AI-hallucinated.
+**User-facing behaviour:** Mode toggle "2.5D Relief" (default) vs "Crystal volume" (ADR-011) vs "Full 3D". In Full 3D: one image → TripoSR mesh → Poisson-disk surface sampling → point cloud → **`fit_to_blank`** / **crystal blank dimensions** (width × height × depth mm) → export **XYZ/PLY/CSV** (direct engraver) or STL/OBJ. Blank size inputs, **point spacing** (mm), optional estimated point count. Preview: crystal blank wireframe, orbit camera. Document that back/sides are AI-hallucinated.
 
 **Implementation outline (~4–5 sprints):**
 
@@ -1074,9 +1105,9 @@ The Role Assignment table enables agents to claim roles:
 - [ ] **UI-1204:** Brush size/hardness controls
 
 **Junior Engineer #1:**
-- [ ] **JR1-1201:** Implement brush stroke smoothing (interpolation)
-- [ ] **JR1-1202:** Add selection tools (rectangle, lasso)
-- [ ] **JR1-1203:** Mask save/load functionality
+- [x] **JR1-1201:** Implement brush stroke smoothing (interpolation)
+- [x] **JR1-1202:** Add selection tools (rectangle, lasso)
+- [x] **JR1-1203:** Mask save/load functionality
 
 **Quality Engineer:**
 - [ ] **QA-1201:** Manual test: paint mask, adjust depth, verify isolation

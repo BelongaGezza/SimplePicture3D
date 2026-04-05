@@ -1,6 +1,6 @@
 [[permission]]
 identifier = "allow-generate-depth-map"
-description = "Enables depth map generation, retrieval, adjustment, undo/redo, and mesh generation commands."
+description = "Enables depth map generation, retrieval, adjustment, undo/redo, mesh generation, and mask (Sprint 2.5) commands."
 commands.allow = [
     "generate_depth_map",
     "get_depth_map",
@@ -13,4 +13,10 @@ commands.allow = [
     "clear_history",
     "reset_depth_adjustments",
     "get_mesh_data",
+    "get_mask",
+    "set_mask_region",
+    "set_mask",
+    "clear_mask",
+    "save_mask_to_path",
+    "load_mask_from_path",
 ]
