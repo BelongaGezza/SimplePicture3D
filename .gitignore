@@ -39,3 +39,12 @@ logs/
 # Coverage and reports (generated locally)
 src-tauri/coverage/
 coverage/
+
+# AI-dev-config block — managed by install.sh
+# ── AI review artifacts ─────────────────────
+# Generated review files are NOT committed; reviews/.gitkeep tracks the directory.
+reviews/SR-*.md
+reviews/JS-*.md
+reviews/IB-*.md
+reviews/APPROVED-*.md
+# End AI-dev-config block

@@ -1,0 +1,66 @@
+---
+description: "CI/CD and GitHub Actions rules. Applied when working with workflow files, Dockerfiles, or build scripts."
+alwaysApply: false
+globs:
+  - ".github/**"
+  - "**/Dockerfile*"
+  - "**/docker-compose*.yml"
+  - "**/Makefile"
+  - "scripts/**"
+---
+
+# CI / CD Rules
+
+## Runner OS Constraints
+
+- Apple build/sign jobs must use `runs-on: macos-latest`.
+- Android builds can run on `ubuntu-latest`.
+- Windows builds must use `windows-latest`.
+- Linux builds use `ubuntu-latest`.
+- Web (Flutter or React) builds use `ubuntu-latest`.
+- Never assume the runner matches any local dev machine.
+
+## No Local Paths
+
+Workflow files and scripts must never contain:
+- `/Users/` paths
+- `C:\Users\` paths
+- `/home/<specific-username>/` paths
+
+Use `$GITHUB_WORKSPACE`, `$RUNNER_TEMP`, or relative paths from repo root.
+
+## Matrix Strategy
+
+For jobs that must run on multiple platforms, use the matrix strategy:
+
+```yaml
+strategy:
+  matrix:
+    os: [ubuntu-latest, windows-latest, macos-latest]
+  runs-on: ${{ matrix.os }}
+```
+
+## Flutter CI Pattern
+
+```yaml
+- uses: subosito/flutter-action@v2
+  with:
+    flutter-version: 'stable'  # pin to specific version in production
+    channel: 'stable'
+- run: flutter pub get
+- run: flutter test
+- run: flutter build <target> --release
+```
+
+## Secrets
+
+- Never hardcode API keys, tokens, or signing credentials in workflow files.
+- Use GitHub Actions Secrets (`${{ secrets.KEY_NAME }}`).
+- Apple signing credentials (certificates, provisioning profiles) must use
+  a secrets-based approach (e.g. `APPLE_CERTIFICATE_BASE64`).
+
+## Caching
+
+- Cache `~/.pub-cache` for Flutter jobs to reduce build time.
+- Cache `node_modules` for React jobs.
+- Use `actions/cache` with a key that includes the lock file hash.
