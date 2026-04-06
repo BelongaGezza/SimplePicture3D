@@ -35,6 +35,8 @@ logs/
 # Local / machine-specific (do not sync across devices)
 .claude/settings.local.json
 .cursor/settings.local.json
+# Claude Code nested worktrees (full working copies; never commit)
+.claude/worktrees/
 
 # Coverage and reports (generated locally)
 src-tauri/coverage/

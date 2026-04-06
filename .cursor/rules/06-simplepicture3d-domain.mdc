@@ -1,0 +1,202 @@
+---
+description: "SimplePicture3D — project-specific domain rules. Always applied. Covers product goals, architecture, stack constraints, privacy, licensing, and acceptance criteria."
+alwaysApply: true
+globs:
+---
+
+# SimplePicture3D — Domain Rules
+
+## Project Identity
+
+- **Project:** SimplePicture3D
+- **Type:** Cross-platform Tauri desktop application (Windows Phase 1+2; macOS + Linux Phase 3)
+- **Purpose:** Convert 2D images into 2.5D STL/OBJ meshes for UV laser engraving of K9 crystal, glass, and acrylic. AI-powered depth estimation combined with manual controls. 100% offline.
+- **Tone:** Approachable maker-tool aesthetic. Clear, practical copy. No jargon in user-facing strings.
+- **Active targets:** Windows (primary). macOS and Linux gated on Phase 3 (Q4 2026).
+- **No mobile, no web.**
+
+## Architecture
+
+```
+┌─────────────────────────────────────────┐
+│       Tauri 2.x Frontend (Svelte 4)     │
+│  UI Components │ Three.js 3D Preview    │
+└──────────────┬──────────────────────────┘
+               │ Tauri IPC Commands
+┌──────────────▼──────────────────────────┐
+│           Rust Backend                  │
+│  Image load │ Depth processing │ Mesh   │
+│  STL/OBJ export │ Settings │ Python bridge │
+└──────────────┬──────────────────────────┘
+               │ subprocess (temp file / stdout)
+┌──────────────▼──────────────────────────┐
+│         Python AI Backend               │
+│  PyTorch │ Depth-Anything-V2 │ MiDaS    │
+└─────────────────────────────────────────┘
+```
+
+- **IPC boundary:** Rust handles all file I/O, mesh generation, and subprocess management.
+  Svelte handles all UI state and Three.js rendering. Do not add file system or subprocess
+  access to the frontend layer.
+- **Python AI backend:** Invoked as a subprocess. Input: image path or bytes.
+  Output: depth map (JSON/binary). Keep it stateless; no persistent server process.
+- **No SwiftUI, Compose, or native UI surfaces** unless product direction changes.
+
+## File Organisation
+
+```
+src/                    Svelte frontend source
+  lib/                  Shared components and utilities
+  routes/               SvelteKit-style page components (if used)
+src-tauri/
+  src/                  Rust source (commands, image, mesh, export, settings)
+  Cargo.toml            Rust dependencies
+  tauri.conf.json       Tauri configuration
+  capabilities/         Tauri 2.x capability files (permissions)
+python/
+  python/               Python package source (depth_estimator, etc.)
+  requirements.txt      Python dependencies
+  README.md             Python backend setup and usage
+.agents/                Agent persona definitions
+RESEARCH/               Technology guides, ADRs, GOTCHAS
+SPRINTS/                Sprint tasking templates and artefacts
+```
+
+Do not reorganise this structure without confirming with the user.
+
+## Code Standards
+
+### Rust (backend)
+
+- Use `anyhow` for error propagation across Tauri commands.
+- Keep Tauri command handlers thin — delegate business logic to dedicated modules.
+- No `unwrap()` or `expect()` in production paths; use `?` with proper error types.
+- Memory budget: target <2GB RAM for 4K input images.
+- Use `tokio` for async Tauri commands where I/O-bound; prefer sync for CPU-bound mesh work.
+- Run `cargo clippy -- -D warnings` before every commit. Zero warnings policy.
+- Format with `cargo fmt`.
+
+### Svelte / TypeScript (frontend)
+
+- Svelte 4 (component API). No Svelte 5 migration without explicit approval (see prd.md §11.3).
+- Use TypeScript strict mode. No implicit `any`.
+- Three.js rendering in isolated components; dispose of geometries and materials when
+  components are destroyed to prevent memory leaks.
+- TailwindCSS utility classes only — no inline styles or CSS modules unless TailwindCSS
+  cannot express the requirement.
+- Vitest for unit tests; `@testing-library/svelte` for component tests.
+
+### Python (AI backend)
+
+- Target Python 3.10–3.12. No 3.13+ features without verification.
+- Stub mode must always work: `SP3D_USE_STUB=1` bypasses model loading for all tests.
+- Depth estimator output: normalised float array in [0, 1], shape (H, W), serialised
+  as JSON or binary per the Rust bridge contract. Do not change this contract without
+  updating the Rust consumer.
+- All pytest tests must pass in stub mode — no AI model download required for CI.
+
+## Offline-First Constraint
+
+- No background network calls under any circumstance without explicit user opt-in.
+- AI models are downloaded once via the first-run wizard and stored in
+  `~/.simplepicture3d/models/`. After download, all inference runs locally.
+- Do not add any third-party SDK that makes telemetry calls, even if optional.
+
+## Privacy
+
+- No analytics, crash reporting, or telemetry by default.
+- Opt-in crash reporting only (planned, not yet implemented) — confirm design with
+  user before implementation.
+- No user accounts, no cloud sync, no data collection.
+- Confirm with the user before adding any third-party service that handles user data.
+
+## Licensing Policy
+
+- Project license: **MIT**.
+- All runtime dependencies: MIT, Apache-2.0, BSD-3, or equivalent permissive.
+- **No GPL or AGPL** dependencies.
+- **Depth-Anything-V2 model weights: CC-BY-NC-4.0** (non-commercial use only).
+  - Flag this whenever a commercial use case or distribution channel is discussed.
+  - MiDaS is MIT-compatible and is the approved commercial alternative (ADR-005).
+- When adding any new dependency (Rust crate, npm package, Python package), check
+  its license and note it if non-permissive.
+
+## Accessibility
+
+- Minimum contrast ratio 4.5:1 for all text.
+- All interactive elements must have accessible labels.
+- Keyboard navigation for all critical workflows (image load, export, settings).
+- Screen reader support: defer to Phase 4, but do not build patterns that block it.
+- Dynamic font scaling: not required for Phase 1 desktop MVP.
+
+## Testing Expectations
+
+- **Rust:** `cargo test --manifest-path src-tauri/Cargo.toml`. Add unit tests for all
+  new mesh generation and image processing functions.
+- **Frontend:** `npm test` (Vitest). Add component tests for new UI features.
+- **Python:** `python -m pytest python/ -v` with `SP3D_USE_STUB=1`. All tests must
+  pass without a model download.
+- **E2E:** Phase 1 uses a manual test checklist (see `SPRINTS/Sprint_1_11/`).
+  Automated E2E (Playwright) is deferred to Phase 2.
+- Use `#[cfg(test)]` and `#[ignore]` attributes in Rust for platform-specific tests
+  that cannot run in CI.
+
+## Agent Roles (reference)
+
+| Agent | Persona File | Primary Focus |
+|---|---|---|
+| System Architect | `.agents/system-architect.md` | Architecture decisions, API design, ADRs |
+| Senior Engineer | `.agents/senior-engineer.md` | Rust backend, Python bridge, sprint creation |
+| UI Designer | `.agents/ui-designer.md` | Svelte frontend, Three.js preview, TailwindCSS |
+| Researcher | `.agents/researcher.md` | RESEARCH/ maintenance, tech verification |
+| Junior Engineer 2D | `.agents/junior-engineer-2d.md` | Image/depth processing |
+| Junior Engineer 3D | `.agents/junior-engineer-3d.md` | Mesh, STL/OBJ, Three.js geometry |
+| Quality Engineer | `.agents/quality-engineer.md` | Test plans, manual/automated QA, E2E |
+| Security Specialist | `.agents/security-specialist.md` | Security review, dependency audits |
+| Documentation Specialist | `.agents/documentation-specialist.md` | User/dev docs |
+
+Always read the relevant persona file from `.agents/` before beginning work in
+that agent's domain.
+
+## Consistency Review Commands
+
+**Trigger phrases:** "consistency check", "check project", "project review", "validate project"
+
+1. Review `RESEARCH/GOTCHAS.md` for known pitfalls relevant to the change.
+2. Verify all Tauri commands declared in Rust are registered in `tauri.conf.json`
+   and have corresponding frontend invocations.
+3. Check that capability files grant only the minimum required permissions.
+4. Confirm Python bridge contract (input/output format) is consistent between
+   Rust bridge code and Python implementation.
+5. Produce a brief findings summary with recommended fixes.
+
+## User Inquiry Triggers
+
+Pause and confirm with the user whenever new work touches these boundaries:
+
+1. Are we still using system Python (no bundled Python), per ADR-003?
+2. Is the new feature intended for commercial distribution? (Depth-Anything-V2
+   CC-BY-NC-4.0 constraint applies.)
+3. Is this a Phase 3 change (macOS/Linux) that cannot be tested on Windows?
+4. Does the new dependency introduce a non-permissive license?
+5. Does this change the Rust ↔ Python bridge data contract?
+6. Should automated E2E tests cover this, or is manual checklist sufficient (Phase 1)?
+
+## Version Control Hygiene
+
+- Commit source files, assets, configuration, and documentation.
+- Exclude: `src-tauri/target/`, `node_modules/`, `dist/`, `python/venv/`,
+  `__pycache__/`, `.pytest_cache/`, `htmlcov/`, `*.log`, `.env`.
+- The `.gitignore` at repo root is the authority.
+- Do not commit `nul` (Windows artefact) — it is already in `.gitignore`.
+
+## Build System Awareness
+
+- `npm run tauri dev` — full hot-reload dev environment (frontend hot, Rust cold).
+- `npm run tauri build` — production build for current platform.
+- After modifying `tauri.conf.json`, do a clean build to ensure config is picked up.
+- After modifying Rust command signatures, update any frontend TypeScript invocations.
+- After modifying `python/requirements.txt`, reinstall and run pytest to verify.
+
+---
+*Last refreshed 2026-04-06. Schema version: 1.0*

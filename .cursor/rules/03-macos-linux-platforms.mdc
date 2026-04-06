@@ -1,0 +1,74 @@
+---
+description: "macOS and Linux platform rules for SimplePicture3D Phase 3. Applied when working with src-tauri/ config, tauri.conf.json, platform capabilities, or build scripts targeting macOS or Linux."
+alwaysApply: false
+globs:
+  - "src-tauri/tauri.conf.json"
+  - "src-tauri/capabilities/**"
+  - "src-tauri/Info.plist"
+  - "src-tauri/*.plist"
+  - "src-tauri/Cargo.toml"
+  - ".github/workflows/**"
+---
+
+# macOS and Linux Platform Rules (Phase 3)
+
+## ⚠️ Phase 3 Constraint — Windows Sessions
+
+SimplePicture3D targets macOS and Linux in **Phase 3 (Q4 2026)**. Until then:
+
+**If the current session is on Windows:**
+1. Do NOT commit macOS/Linux-specific Tauri configuration that requires
+   platform testing or signed builds.
+2. Document required changes in `PENDING_APPLE_CHANGES.md` at repo root.
+3. Mark pending entries with the format below.
+
+```markdown
+## Pending macOS/Linux Change — [DATE]
+**Platform:** [macOS | Linux | both]
+**File:** [path/to/file]
+**Change required:** [description]
+**Reason:** [why this is needed]
+**Action:** [specific steps for the macOS/Linux session]
+```
+
+## When on macOS — Required Checks
+
+- Verify Rust targets are installed before building:
+  - `rustup target add aarch64-apple-darwin` (Apple Silicon)
+  - `rustup target add x86_64-apple-darwin` (Intel, for universal binary)
+- Build universal binary: `npm run tauri build -- --target universal-apple-darwin`
+- Signing and notarisation must be configured via Tauri's `tauri.conf.json`
+  `bundle.macOS` section — do not hand-edit generated `.app` structures.
+- After modifying `tauri.conf.json` bundle settings, do a clean build:
+  `cargo clean --manifest-path src-tauri/Cargo.toml && npm run tauri build`
+
+## When on Linux — Required Checks
+
+- Ensure GTK3, WebKit2GTK, and related dev libraries are installed:
+  ```
+  sudo apt-get install libgtk-3-dev libwebkit2gtk-4.1-dev \
+    libappindicator3-dev librsvg2-dev pkg-config libssl-dev
+  ```
+- Build Linux package: `npm run tauri build`
+  - Output: AppImage and .deb in `src-tauri/target/release/bundle/`
+- Verify `pkg-config --libs gtk+-3.0` returns valid output before building.
+
+## Comment Guards in Platform-Specific Code
+
+Use comment guards in Rust or TypeScript for platform-specific blocks:
+
+```rust
+// [PLATFORM: macOS] ─── begin ─────────────────────────────────────────
+// [PLATFORM: macOS] ─── end ───────────────────────────────────────────
+
+// [PLATFORM: Linux] ─── begin ─────────────────────────────────────────
+// [PLATFORM: Linux] ─── end ───────────────────────────────────────────
+```
+
+## Tauri Capabilities (Permissions)
+
+- Tauri 2.x uses capability files in `src-tauri/capabilities/` to grant
+  frontend access to Tauri APIs. Review platform-specific capability grants
+  carefully — do not grant broader permissions than required.
+- macOS and Linux may require different capability configurations. Keep
+  platform-specific capability files separate and clearly named.
