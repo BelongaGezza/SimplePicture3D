@@ -1,10 +1,10 @@
 # SETUP_NOTES.md
 
-This file documents one-time setup steps when pulling this repository onto a new
-development machine, or after significant toolchain changes.
+This file documents one-time setup steps that must be performed when pulling this
+repository onto a new development machine, or after significant toolchain changes.
 
 Claude Code reads this file at session start and will surface any items relevant
-to the current machine (based on detected OS).
+to the current machine.
 
 **Mark items complete by appending `[DONE — machine name, date]` after the step.**
 
@@ -12,76 +12,81 @@ to the current machine (based on detected OS).
 
 ## All Machines
 
-- Install Node.js LTS: https://nodejs.org
-- Install Rust (stable toolchain): https://rustup.rs
+- Install **Rust** (stable channel via rustup): https://rustup.rs/
+  - Minimum version: 1.70+; run `rustup default stable`
+  - Verify: `rustc --version && cargo --version`
+- Install **Node.js** LTS (18+): https://nodejs.org/
+  - npm 9+ bundled; verify with `node --version && npm --version`
+- Install **Python** 3.10+: https://www.python.org/
+  - Required for AI depth estimation backend
+  - Verify: `python --version` (or `python3 --version`)
+- Configure Git identity: `git config --global user.name "Your Name"` etc.
+- Clone repo and install frontend deps: `npm install`
+- Set up Python virtual environment from repo root:
   ```
-  rustup default stable
-  rustup update
+  python -m venv python/venv
+  # Windows: python\venv\Scripts\activate
+  # macOS/Linux: source python/venv/bin/activate
+  pip install -r python/requirements.txt
   ```
-- Install Python 3.11+: https://python.org (required for depth estimation AI pipeline)
-- Run `npm install` from repo root
-- Run `cargo build` from `src-tauri/` to fetch and compile Rust dependencies
-- Set up Python virtual environment for ML pipeline:
-  ```
-  cd python
-  python -m venv .venv
-  source .venv/bin/activate       # macOS / Linux
-  .venv\Scripts\activate          # Windows
-  pip install -r requirements.txt
-  ```
-- Run `npm run dev` to verify the Tauri dev server starts
-- Run `npm test` to verify the Vitest test suite passes
-- Run `cd src-tauri && cargo test` to verify Rust unit tests pass
-
----
-
-## macOS Only
-
-- Install Xcode Command Line Tools (required for Rust compilation):
-  ```
-  xcode-select --install
-  ```
-- Install Tauri prerequisites as per https://tauri.app/start/prerequisites/#macos
-- For macOS app signing and notarisation, Apple Developer account must be linked
-  in Xcode > Settings > Accounts
-- Verify with `cargo tauri info` that all Tauri dependencies are satisfied
+- Verify setup: `cargo test --manifest-path src-tauri/Cargo.toml && npm test`
+- Run dev server: `npm run tauri dev`
 
 ---
 
 ## Windows Only
 
-- Enable Developer Mode in Windows Settings
-- Install Microsoft C++ Build Tools (required for Rust on Windows):
-  https://visualstudio.microsoft.com/visual-cpp-build-tools/
-  Select: "Desktop development with C++"
-- Install WebView2 (usually pre-installed on Windows 11):
-  https://developer.microsoft.com/en-us/microsoft-edge/webview2/
-- Install Tauri prerequisites as per https://tauri.app/start/prerequisites/#windows
-- Verify with `cargo tauri info` that all Tauri dependencies are satisfied
+- Enable **Developer Mode** in Windows Settings → Privacy & Security → For developers
+- Install **Visual Studio Build Tools** with "Desktop development with C++" workload
+  (required by Rust for Windows targets)
+  - Or install the full Visual Studio Community edition
+  - Verify Rust sees the MSVC toolchain: `rustup show`
+- If `cargo build` in `src-tauri` fails with RC2176 "old DIB" on `icon.ico`, run:
+  `npm run tauri icon path/to/1024x1024.png` then rebuild (see `RESEARCH/GOTCHAS.md`)
+- Note: Tauri on Windows may not see the same PATH as your terminal. Install Python
+  "for all users" or add to the system PATH (not just user PATH).
 
 ---
 
-## Linux Only
+## macOS Only (Phase 3 — Q4 2026 target)
 
-- Install system dependencies for Tauri on Linux:
+- Install **Xcode Command Line Tools**: `xcode-select --install`
+  (required for Rust compiler on macOS; also enables `xcodebuild` for signing)
+- Add Apple Silicon target for universal builds:
+  `rustup target add aarch64-apple-darwin`
+- Add Intel target if needed:
+  `rustup target add x86_64-apple-darwin`
+- Verify Apple Developer account signing config before building signed release packages
+- Build macOS Tauri app: `npm run tauri build -- --target universal-apple-darwin`
+
+---
+
+## Linux Only (Phase 3 — Q4 2026 target)
+
+- Install system libraries required by Tauri:
   ```
-  sudo apt-get update
-  sudo apt-get install libwebkit2gtk-4.1-dev libssl-dev libayatana-appindicator3-dev \
-    librsvg2-dev patchelf build-essential curl wget file libxdo-dev libgtk-3-dev
+  sudo apt-get update && sudo apt-get install -y \
+    libgtk-3-dev \
+    libwebkit2gtk-4.1-dev \
+    libappindicator3-dev \
+    librsvg2-dev \
+    pkg-config \
+    libssl-dev
   ```
-- Install Tauri prerequisites as per https://tauri.app/start/prerequisites/#linux
-- Verify with `cargo tauri info` that all Tauri dependencies are satisfied
+- Verify: `pkg-config --libs gtk+-3.0`
+- Build Linux Tauri app: `npm run tauri build`
+  - Output: AppImage and .deb in `src-tauri/target/release/bundle/`
 
 ---
 
-## Python ML Pipeline Notes
+## Python AI Backend (all machines)
 
-- Depth estimation models (Depth-Anything-V2 / MiDaS) are large and not committed.
-  Download as per `RESEARCH/python-ml.md` instructions.
-- Model weights should be placed in `python/models/` (gitignored).
-- CUDA is optional; CPU inference works but is slower.
-- See `RESEARCH/python-ml.md` for PyTorch version requirements.
+- Stub mode (no model download required): `SP3D_USE_STUB=1`
+- First real inference run downloads Depth-Anything-V2 from Hugging Face (~200MB)
+- For GPU acceleration, install PyTorch with CUDA/Metal support per:
+  https://pytorch.org/get-started/locally/
+- See `python/README.md` for model paths and `--no-model` usage
 
 ---
 
-*Add project-specific setup steps below this line as the project evolves.*
+*Add new setup steps below this line as the project evolves.*

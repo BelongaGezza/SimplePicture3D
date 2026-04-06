@@ -15,7 +15,7 @@ and memory persistence.
 
 ## ✂️ COPY FROM HERE ─────────────────────────────────────────────────────────
 
-You are starting a new development session in a cross-platform project repository.
+You are starting a new development session in the SimplePicture3D repository.
 Before taking any other action, perform the following steps in order and output the
 result of each step before proceeding to the next.
 
@@ -38,10 +38,10 @@ If either file is missing, state which is missing and continue with the other.
 Check for the following and report findings:
 
 - Operating system (Windows / macOS / Linux)
-- `xcodebuild` in PATH (indicates macOS Apple toolchain present)
-- `flutter` and `dart` in PATH (indicates Flutter SDK installed)
-- `node` and `npm` in PATH (indicates Node.js / React target available)
-- `rustc` and `cargo` in PATH (indicates Rust toolchain installed)
+- `rustc` and `cargo` in PATH (Rust toolchain)
+- `node` and `npm` in PATH (Node.js / frontend toolchain)
+- `python` or `python3` in PATH and its version (AI backend)
+- `xcodebuild` in PATH (macOS — required for signed macOS builds in Phase 3)
 - Any CI environment variable set (e.g. `CI`, `GITHUB_ACTIONS`, `CIRCLECI`)
 
 Output this report exactly:
@@ -50,24 +50,20 @@ Output this report exactly:
 ENVIRONMENT REPORT
 ─────────────────────────────────────────────────────────
 OS:                [Windows | macOS | Linux]
-Apple toolchain:   [available | NOT available]
-Flutter SDK:       [version X.Y.Z | NOT available]
-Dart SDK:          [version X.Y.Z | NOT available]
+Rust toolchain:    [rustc X.Y.Z | NOT available]
 Node.js:           [version X.Y.Z | NOT available]
-Rust toolchain:    [version X.Y.Z | NOT available]
+Python:            [version X.Y.Z | NOT available]
+Xcode tools:       [available (macOS Phase 3 builds OK) | NOT available]
 CI mode:           [yes — $VAR_NAME | no]
 ─────────────────────────────────────────────────────────
 Buildable this session:
-  [✓/✗] Android     (requires Flutter)
-  [✓/✗] Web         (requires Flutter or Node)
-  [✓/✗] Windows     (requires Windows OS + Flutter)
-  [✓/✗] Linux       (requires Linux OS + Flutter)
-  [✓/✗] macOS app   (requires macOS + xcodebuild + Flutter)
-  [✓/✗] iOS         (requires macOS + xcodebuild + Flutter)
-  [✓/✗] iPadOS      (requires macOS + xcodebuild + Flutter)
+  [✓/✗] Windows build    (requires Windows OS + Rust + Node)
+  [✓/✗] macOS build      (requires macOS + Rust + Node + xcodebuild for signing)
+  [✓/✗] Linux build      (requires Linux OS + Rust + Node + GTK3/WebKit libs)
+  [✓/✗] Python AI backend (requires Python 3.10+ + venv)
 
 NOT buildable this session:
-  [list excluded platforms with reason, or "none — all platforms buildable"]
+  [list excluded targets with reason, or "none — all targets buildable"]
 ─────────────────────────────────────────────────────────
 ```
 
@@ -77,7 +73,7 @@ NOT buildable this session:
 
 Check whether the following files exist and, if so, read them:
 
-- `PENDING_APPLE_CHANGES.md` — Apple-platform changes required from prior sessions
+- `PENDING_APPLE_CHANGES.md` — macOS/Linux build changes required from prior sessions
 - `SETUP_NOTES.md` — one-time setup steps required on this machine
 
 If either file contains unresolved entries, summarise them and ask:
@@ -92,29 +88,29 @@ If both files are empty or contain no actionable items, state: *"No pending item
 
 Check for the following directories and list what is present:
 
-**`.claude/agents/`** — specialised agent definitions available in this repo:
-- List each `.md` file found and its agent name/purpose (read the `name:` and
-  `description:` frontmatter fields from each file).
+**`.agents/`** — specialised agent personas for this project:
+- List each `.md` file found and its agent name/purpose (read the first heading
+  and a brief description from each file).
 
-**`.claude/resources/`** — development reference documents:
+**`RESEARCH/`** — development reference documents:
 - List each file found with a one-line description of its coverage.
 
-**`.claude/templates/`** — workflow templates:
-- List each file found.
+**`SPRINTS/`** — sprint tasking templates and artefacts:
+- List subdirectories and any top-level template files found.
 
 Output format:
 
 ```
 AGENT & RESOURCE INVENTORY
 ─────────────────────────────────────────────────────────
-Agents (.claude/agents/):
-  • [agent-name] — [description from frontmatter]
+Agents (.agents/):
+  • [agent-name] — [role and focus area]
 
-Resources (.claude/resources/):
+Research (RESEARCH/):
   • [filename] — [coverage summary]
 
-Templates (.claude/templates/):
-  • [filename]
+Sprints (SPRINTS/):
+  • [subdirectory or file]
 ─────────────────────────────────────────────────────────
 ```
 
@@ -130,10 +126,10 @@ State the following confirmation block verbatim, filling in the bracketed values
 CONSTRAINT CONFIRMATION
 ─────────────────────────────────────────────────────────
 Cross-platform guard convention : [PLATFORM: X] comment guards          ✓
-Apple-only session restriction  : [ENFORCED — non-macOS | NOT ACTIVE — macOS session]  ✓
+macOS/Linux Phase 3 restriction : [ENFORCED — Windows session | NOT ACTIVE — macOS/Linux session]  ✓
 Hardcoded path policy           : no absolute paths in committed files   ✓
-Plugin compatibility policy     : pub.dev platform matrix check required ✓
-CI runner policy                : no local paths in workflow files       ✓
+No cloud services               : 100% offline processing required       ✓
+License policy                  : no GPL/AGPL deps; Depth-Anything-V2 CC-BY-NC-4.0  ✓
 Subagent constraint inheritance : all subagents inherit CLAUDE.md rules  ✓
 ─────────────────────────────────────────────────────────
 ```
@@ -145,12 +141,12 @@ Subagent constraint inheritance : all subagents inherit CLAUDE.md rules  ✓
 Write a Claude memory note containing:
 
 - Application name and purpose (from README.md)
-- Full platform target matrix
-- Current dev machine OS and which platforms are buildable this session
-- Available agents and their roles
-- Key conventions: comment guard format, Apple constraint, path policy, plugin check
+- Platform target matrix and current phase
+- Current dev machine OS and which builds are available this session
+- Available agent roles
+- Key conventions: comment guard format, path policy, offline constraint, model license
 
-Title the memory: `[repo-name] Session Context — [OS] — [date]`
+Title the memory: `SimplePicture3D Session Context — [OS] — [date]`
 
 This ensures future sessions start with correct context without re-reading all files.
 
@@ -160,8 +156,8 @@ This ensures future sessions start with correct context without re-reading all f
 
 State:
 
-*"Session initialised on [OS]. [Apple targets ARE / are NOT] available this session.
-Available agents: [comma-separated list]. What would you like to work on?"*
+*"Session initialised on [OS]. [macOS/Linux Phase 3 builds ARE / are NOT] available
+this session. Available agents: [comma-separated list]. What would you like to work on?"*
 
 Then wait for instructions. **Do not write any code or modify any files until
 explicitly instructed.**
@@ -195,9 +191,10 @@ correct it explicitly:
 
 ```
 Your environment report is incorrect. The actual environment is:
-  OS: macOS
-  Apple toolchain: available
-  Flutter: 3.27.1
+  OS: Windows
+  Rust: 1.82.0
+  Node: 20.11.0
+  Python: 3.11.4
 Please update your memory and re-confirm constraints.
 ```
 
@@ -209,8 +206,8 @@ task description with:
 ```
 Before starting your task:
 1. Read CLAUDE.md in full.
-2. Read .claude/agents/[agent-name].md for your role definition.
-3. Read any relevant .claude/resources/*.md files.
+2. Read .agents/[agent-name].md for your role definition.
+3. Read any relevant RESEARCH/*.md files for your domain.
 4. Current OS: [paste OS from Environment Report].
 5. Apply all constraints from CLAUDE.md to your work.
 ```
@@ -219,12 +216,12 @@ Before starting your task:
 
 | When | Update |
 |---|---|
-| New agent added to `.claude/agents/` | No change needed — Step 4 discovers dynamically |
-| New resource added to `.claude/resources/` | No change needed — Step 4 discovers dynamically |
-| New platform target added | Update Step 2 buildable platform list |
-| CLAUDE.md schema version bumped | Update Step 5 if new constraints added |
+| New agent added to `.agents/` | No change needed — Step 4 discovers dynamically |
+| New file added to `RESEARCH/` | No change needed — Step 4 discovers dynamically |
+| New platform target added | Update Step 2 buildable target list |
+| CLAUDE.md cross-platform section updated | Update Step 5 if new constraints added |
 | Memory structure change desired | Update Step 6 instructions |
 
 ---
 
-*Schema version: 1.1 — Aligned with CLAUDE.md v1.0 + agent/resource discovery*
+*Schema version: 1.1 — SimplePicture3D adaptation (Tauri/Rust/Svelte/Python; desktop-only)*

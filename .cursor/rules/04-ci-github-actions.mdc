@@ -1,5 +1,5 @@
 ---
-description: "CI/CD and GitHub Actions rules. Applied when working with workflow files, Dockerfiles, or build scripts."
+description: "CI/CD and GitHub Actions rules for SimplePicture3D. Applied when working with workflow files or build scripts."
 alwaysApply: false
 globs:
   - ".github/**"
@@ -9,15 +9,14 @@ globs:
   - "scripts/**"
 ---
 
-# CI / CD Rules
+# CI / CD Rules — SimplePicture3D
 
 ## Runner OS Constraints
 
-- Apple build/sign jobs must use `runs-on: macos-latest`.
-- Android builds can run on `ubuntu-latest`.
-- Windows builds must use `windows-latest`.
-- Linux builds use `ubuntu-latest`.
-- Web (Flutter or React) builds use `ubuntu-latest`.
+- Windows builds must use `runs-on: windows-latest`.
+- Linux builds and frontend jobs use `runs-on: ubuntu-latest` with explicit
+  GTK3/WebKit library installation steps.
+- macOS builds (Phase 3) must use `runs-on: macos-latest`.
 - Never assume the runner matches any local dev machine.
 
 ## No Local Paths
@@ -31,36 +30,103 @@ Use `$GITHUB_WORKSPACE`, `$RUNNER_TEMP`, or relative paths from repo root.
 
 ## Matrix Strategy
 
-For jobs that must run on multiple platforms, use the matrix strategy:
+For cross-platform jobs (Phase 3+), use matrix strategy:
 
 ```yaml
 strategy:
   matrix:
     os: [ubuntu-latest, windows-latest, macos-latest]
-  runs-on: ${{ matrix.os }}
+runs-on: ${{ matrix.os }}
 ```
 
-## Flutter CI Pattern
+## SP3D CI Pattern — Rust Backend
 
 ```yaml
-- uses: subosito/flutter-action@v2
+- name: Setup Rust
+  uses: dtolnay/rust-toolchain@stable
   with:
-    flutter-version: 'stable'  # pin to specific version in production
-    channel: 'stable'
-- run: flutter pub get
-- run: flutter test
-- run: flutter build <target> --release
+    components: clippy
+
+- name: Build
+  run: cargo build --manifest-path src-tauri/Cargo.toml
+
+- name: Test
+  run: cargo test --manifest-path src-tauri/Cargo.toml
+
+- name: Clippy
+  run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+
+- name: Security audit
+  run: cargo audit
+```
+
+## SP3D CI Pattern — Frontend (Node/Svelte)
+
+```yaml
+- name: Setup Node
+  uses: actions/setup-node@v4
+  with:
+    node-version: "20"
+    cache: "npm"
+
+- name: Install
+  run: npm ci
+
+- name: Build
+  run: npm run build
+
+- name: Test
+  run: npm test
+
+- name: Audit
+  run: npm audit --audit-level=high
+```
+
+## SP3D CI Pattern — Python AI Backend
+
+```yaml
+- name: Setup Python
+  uses: actions/setup-python@v5
+  with:
+    python-version: "3.11"
+
+- name: Install Python deps
+  run: |
+    python -m pip install --upgrade pip
+    pip install -r python/requirements.txt
+
+- name: Test (stub mode — no model download)
+  run: python -m pytest python/ -v
+  env:
+    SP3D_USE_STUB: "1"
+    PYTHONPATH: python/python
+```
+
+## Linux System Dependencies in CI
+
+When running Tauri builds on `ubuntu-latest`, always install system deps first:
+
+```yaml
+- name: Install Linux system dependencies
+  run: |
+    sudo apt-get update
+    sudo apt-get install -y \
+      libgtk-3-dev \
+      libwebkit2gtk-4.1-dev \
+      libappindicator3-dev \
+      librsvg2-dev \
+      pkg-config \
+      libssl-dev
 ```
 
 ## Secrets
 
 - Never hardcode API keys, tokens, or signing credentials in workflow files.
 - Use GitHub Actions Secrets (`${{ secrets.KEY_NAME }}`).
-- Apple signing credentials (certificates, provisioning profiles) must use
-  a secrets-based approach (e.g. `APPLE_CERTIFICATE_BASE64`).
+- macOS signing credentials (Phase 3) must use a secrets-based approach.
 
 ## Caching
 
-- Cache `~/.pub-cache` for Flutter jobs to reduce build time.
-- Cache `node_modules` for React jobs.
-- Use `actions/cache` with a key that includes the lock file hash.
+- Cache `~/.cargo/registry` and `~/.cargo/git` for Rust jobs.
+- Cache `node_modules` via `actions/setup-node` `cache: "npm"`.
+- Cache Python venv if pip install is slow; key on `requirements.txt` hash.
