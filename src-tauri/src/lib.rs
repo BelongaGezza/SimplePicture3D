@@ -7,7 +7,9 @@
 //! get_depth_map, set_depth_adjustment_params, get_mesh_data, export_stl, export_obj, etc.).
 //! See `docs/developer-guide.md` and `cargo doc` for command contracts and types.
 
+pub mod blank_envelope;
 pub mod depth_adjust;
+pub mod export;
 mod file_io;
 mod image_loading;
 pub mod mask;
@@ -16,6 +18,7 @@ pub mod preset;
 mod python_bridge;
 pub mod settings;
 pub mod undo;
+pub mod volumetric;
 
 use std::sync::Mutex;
 use std::time::Duration;

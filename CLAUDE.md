@@ -4,9 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-SimplePicture3D is a desktop application that converts 2D images into 2.5D STL/OBJ mesh files for internal UV laser engraving of K9 crystal, glass, and acrylic. Uses AI-powered depth estimation with manual controls.
+SimplePicture3D is a desktop application that transforms 2D images into **volumetric 3D point clouds** for internal UV laser engraving of K9 crystal, glass, and acrylic. Uses AI-powered depth estimation with volumetric sampling to generate dense point distributions inside a user-specified crystal blank.
 
-**Current Status:** Planning/documentation phase. No source code exists yet.
+**Current Status:** Architectural pivot from 2.5D relief mesh to 3D volumetric point cloud. Core infrastructure complete (image loading, depth estimation, depth adjustments, UI framework). Volumetric sampling and new export formats (PLY/XYZ/CSV) in development.
+
+**Canonical architecture reference:** `RESEARCH/architecture.md` **ADR-011**
+**Transition roadmap:** `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md`
 
 ## Repository Structure (Current)
 
@@ -15,16 +18,20 @@ SimplePicture3D/
 ├── .agents/                    # Agent personas for multi-agent development
 ├── .cursor/rules/              # Cursor IDE rules (reference .agents/*.md)
 ├── RESEARCH/                   # Technology guidance and knowledge base
+│   ├── architecture.md         # System architecture, ADRs (ADR-011 is canonical)
+│   ├── PIVOT_PLAN_2.5D_TO_3D.md # Transition roadmap from 2.5D to 3D
+│   ├── 3d-reconstruction.md    # Full 3D reconstruction models (TripoSR, optional)
 │   ├── AI_DEVELOPMENT_GUIDE.md # Multi-agent coordination patterns
-│   ├── architecture.md         # System architecture
-│   ├── 3d-reconstruction.md    # Full 3D reconstruction models (Phase 2 optional)
 │   ├── GOTCHAS.md              # Debugging findings (all agents contribute)
 │   ├── rust-crates.md          # Rust dependency guidance
 │   ├── python-ml.md            # Python/PyTorch/depth models
 │   ├── tauri.md                # Tauri framework
-│   ├── frontend.md             # Svelte/React/TypeScript
+│   ├── frontend.md             # Svelte/TypeScript
 │   └── threejs.md              # Three.js 3D rendering
 ├── SPRINTS/                    # Sprint tasking templates and artefacts
+├── src-tauri/                  # Rust backend
+├── src/                        # Svelte frontend
+├── python/                     # Python AI backend
 ├── prd.md                      # Product requirements (canonical spec)
 ├── todo.md                     # Sprint planning and task breakdown
 ├── CONTRIBUTING.md             # Contribution guidelines
@@ -35,22 +42,22 @@ SimplePicture3D/
 
 | Document | Purpose |
 |----------|---------|
-| `prd.md` | Product requirements, tech stack (§5.1), architecture (§5.2), file structure (§5.4) |
+| `RESEARCH/architecture.md` | **ADR-011** is canonical for 3D volumetric architecture |
+| `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md` | Transition roadmap, component analysis, implementation phases |
+| `prd.md` | Product requirements (updated for 3D pivot) |
 | `todo.md` | Sprint planning, phase milestones, task IDs |
-| `RESEARCH/AI_DEVELOPMENT_GUIDE.md` | Multi-agent coordination, handover protocol |
-| `RESEARCH/architecture.md` | System design, data flow |
-| `RESEARCH/3d-reconstruction.md` | Full 3D reconstruction models (Phase 2; TripoSR, etc.) |
+| `RESEARCH/3d-reconstruction.md` | TripoSR full 3D reconstruction (optional future) |
 | `RESEARCH/GOTCHAS.md` | Known debugging pitfalls |
 
-## Technology Stack (Planned)
+## Technology Stack
 
 | Layer | Technologies | Research File |
 |-------|--------------|---------------|
 | Shell | Tauri | `RESEARCH/tauri.md` |
-| Backend | Rust (image, tokio, serde, anyhow; custom STL/OBJ writers — no stl_io) | `RESEARCH/rust-crates.md` |
+| Backend | Rust (image, tokio, serde, anyhow; custom PLY/XYZ/CSV writers) | `RESEARCH/rust-crates.md` |
 | AI | Python, PyTorch, Depth-Anything-V2/MiDaS | `RESEARCH/python-ml.md` |
 | Frontend | Svelte 4, TypeScript, TailwindCSS (ADR-001) | `RESEARCH/frontend.md` |
-| 3D | Three.js | `RESEARCH/threejs.md` |
+| 3D Preview | Three.js (point cloud + blank wireframe) | `RESEARCH/threejs.md` |
 
 ## Build Commands (When Source Code Exists)
 
@@ -132,39 +139,45 @@ This project uses agent personas for development coordination:
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                     Tauri Frontend                      │
-│  Svelte 4 │ Three.js 3D Preview │ TailwindCSS           │
+│  Svelte 4 │ Three.js Preview │ Blank Wireframe          │
+│  BlankSetup │ Depth Controls │ Export Panel             │
 └───────────────────────┬─────────────────────────────────┘
                         │ Tauri Commands (IPC)
 ┌───────────────────────▼─────────────────────────────────┐
 │                   Rust Backend                          │
-│  Image loading │ Depth processing │ Mesh generation     │
-│  STL/OBJ export │ Settings │ Python subprocess bridge   │
+│  Image loading │ Depth processing │ Volumetric sampling │
+│  BlankEnvelope │ fit_to_blank │ PLY/XYZ/CSV export      │
+│  Settings │ Undo/redo │ Python subprocess bridge        │
 └───────────────────────┬─────────────────────────────────┘
                         │ subprocess (temp file → stdout)
 ┌───────────────────────▼─────────────────────────────────┐
 │                  Python AI Backend                      │
 │  Depth-Anything-V2 / MiDaS │ PyTorch                    │
-│  Input: Image → Output: Depth map (JSON/binary)         │
+│  Input: Image → Output: Depth map                       │
 └─────────────────────────────────────────────────────────┘
 ```
 
-## Data Flow: Image to STL
+## Data Flow: Image to Point Cloud
 
-1. Load image (Frontend → Rust): File picker → `load_image` command
-2. Validate (Rust): Format, size, downsample if >8K
-3. Depth estimation (Rust → Python): Image bytes → subprocess → depth map
-4. Depth processing (Rust): Adjustments (gamma, range, invert)
-5. Mesh generation (Rust): Depth map → point cloud / triangulated mesh
-6. Preview (Frontend): Vertex data → Three.js BufferGeometry
-7. Export (Rust): STL/OBJ to user-selected path
+1. **Load image** (Frontend → Rust): File picker → `load_image` command
+2. **Validate** (Rust): Format, size, downsample if >8K
+3. **Define blank** (Frontend → Rust): User specifies crystal dimensions (L×W×H mm) + margin
+4. **Depth estimation** (Rust → Python): Image bytes → subprocess → depth map
+5. **Depth processing** (Rust): Adjustments (gamma, curves, mask, invert)
+6. **Volumetric sampling** (Rust): Depth map + blank → column sweep → 3D point cloud
+7. **Fit to blank** (Rust): Scale and translate to fit envelope with margin
+8. **Preview** (Frontend): Point data → Three.js + blank wireframe
+9. **Export** (Rust): PLY/XYZ/CSV to user-selected path
 
-## Tauri Commands (Planned)
+## Tauri Commands
 
 - `load_image` - Load and validate image file
 - `generate_depth_map` - Run AI depth estimation
-- `get_mesh_data` - Get mesh vertices for preview
-- `export_stl` - Export binary STL
-- `export_obj` - Export ASCII OBJ
+- `set_blank_envelope` - Set crystal blank dimensions
+- `get_point_cloud_data` - Get volumetric points for preview
+- `export_ply` - Export PLY format
+- `export_xyz` - Export XYZ format
+- `export_csv` - Export CSV format
 - `download_model` - Download AI model from Hugging Face
 
 ## Important Constraints

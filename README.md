@@ -4,424 +4,252 @@
 [![CI](https://github.com/BelongaGezza/SimplePicture3D/actions/workflows/ci.yml/badge.svg)](https://github.com/BelongaGezza/SimplePicture3D/actions)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue)](https://github.com/BelongaGezza/SimplePicture3D)
 
-> **Convert 2D images into 2.5D STL meshes for UV laser engraving in crystal and glass**
+> **Transform 2D images into volumetric 3D point clouds for internal UV laser engraving of crystal blocks**
 
-SimplePicture3D is an open-source desktop application that transforms ordinary 2D photographs and artwork into stunning 3D engravings. Using AI-powered depth estimation combined with intuitive manual controls, hobbyists can create professional-quality point cloud meshes optimized for internal laser engraving of K9 crystal, glass, and acrylic.
+SimplePicture3D is an open-source desktop application that converts ordinary 2D photographs and artwork into dense 3D point clouds optimized for internal laser engraving of K9 crystal, glass, and acrylic. Using AI-powered depth estimation combined with volumetric sampling, hobbyists can create stunning internal engravings from any image—no 3D modeling expertise required.
 
 ![SimplePicture3D Demo](docs/assets/demo-placeholder.png)
 *Demo image coming soon*
 
 ---
 
-## ✨ Features
+## How It Works
 
-### Current Status: **In Development — Phase 1 MVP (~65% complete)** 🚧
+1. **Load any 2D image** (photo, artwork, graphic)
+2. **AI estimates depth** from the image (Depth-Anything-V2 / MiDaS)
+3. **Define your crystal blank** (e.g., 80×50×50 mm with margins)
+4. **Generate volumetric point cloud** filling the interior
+5. **Export to PLY/XYZ/CSV** for your laser engraving software
 
-SimplePicture3D is in active development. Delivered so far:
-
-- 🖼️ **Multi-Format Image Support** - PNG, JPG, TIFF, and more
-- 🤖 **AI-Powered Depth Estimation** - Depth-Anything-V2 and MiDaS models
-- 🎨 **Manual Depth Control** - Fine-tune with curves, masks, and adjustments
-- 👁️ **Real-Time 3D Preview** - Interactive visualization with Three.js
-- 📤 **STL & OBJ Export** - Industry-standard 3D file formats
-- 🔒 **100% Offline Processing** - Your images never leave your device
-- 🎯 **Laser-Optimized Output** - 2-10mm depth range, point cloud or mesh
-- 🖥️ **Cross-Platform** - Windows, macOS, and Linux support
-
-### Roadmap
-
-**Phase 1: MVP** (Target: Q2 2026)
-- Core image → depth map → STL conversion pipeline
-- Basic UI with essential controls
-- Windows desktop application
-
-**Phase 2: Enhanced UX** (Target: Q3 2026)
-- Advanced depth manipulation tools
-- Preset system for common use cases
-- Undo/redo functionality
-
-**Phase 3: Cross-Platform** (Target: Q4 2026)
-- macOS and Linux builds
-- Platform-specific optimizations
-
-**Phase 4: Production** (Target: Q1 2027)
-- Performance optimization
-- Professional installers with auto-update
-- Comprehensive documentation and tutorials
-
-See [TODO.md](TODO.md) for detailed development plan.
+The result: thousands of 3D coordinates distributed through your crystal blank, ready for internal UV laser engraving.
 
 ---
 
-## 🚀 Quick Start
+## Features
 
-### Installation
+### Core Capabilities
 
-> **Note:** Pre-release builds are available by building from source (see below). Installers will be published at Phase 1 exit. Watch this repository for release announcements!
+- **AI-Powered Depth Estimation** — Depth-Anything-V2 extracts depth from any 2D image
+- **Volumetric Point Cloud Generation** — Dense 3D coordinates filling your crystal blank interior
+- **Crystal Blank Presets** — Common sizes (80×50×50mm, 60×60×60mm) or custom dimensions
+- **Fit-to-Blank Scaling** — Automatic uniform scaling with configurable safety margins
+- **Multiple Export Formats** — PLY, XYZ, CSV for broad engraver compatibility
+- **Real-Time 3D Preview** — See your point cloud inside a blank wireframe before export
+- **100% Offline Processing** — Your images never leave your device
+- **Cross-Platform** — Windows, macOS, Linux
 
-Once released, you'll be able to download installers for:
-- **Windows**: `.msi` or `.exe` installer
-- **macOS**: `.dmg` disk image (Intel and Apple Silicon)
-- **Linux**: AppImage or `.deb` package
+### Depth Adjustment Tools
 
-### Usage
+- Brightness, contrast, gamma controls
+- Curve editor with presets (S-curve, Linear, Exponential)
+- Regional masking for selective adjustments
+- Undo/redo with 20-action history
 
-1. **Load an Image** - Drag and drop or browse for a PNG/JPG file
-2. **Generate Depth Map** - AI automatically estimates depth from your 2D image
-3. **Adjust Depth** - Use sliders to refine the depth range (2-10mm)
-4. **Preview in 3D** - Rotate and inspect your mesh before exporting
-5. **Export** - Save as STL or OBJ for your laser engraving software
+### Current Status: **In Development**
 
-See the [User Guide](docs/user-guide.md) for detailed usage and troubleshooting.
+SimplePicture3D is undergoing an architectural pivot from surface mesh generation to volumetric point cloud output. Core infrastructure is complete; volumetric sampling and new export formats are in active development.
+
+See [RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md](RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md) for the transition roadmap.
 
 ---
 
-## 🛠️ Technology Stack
+## Roadmap
 
-SimplePicture3D is built with modern, performant technologies:
+**Phase 1: Volumetric Foundation**
+- [x] Image loading and validation
+- [x] AI depth estimation (Depth-Anything-V2 / MiDaS)
+- [x] Depth adjustment tools (curves, masks, undo/redo)
+- [x] 3D preview infrastructure (Three.js)
+- [ ] BlankEnvelope and fit-to-blank scaling
+- [ ] Volumetric point cloud generator (column sweep)
+- [ ] PLY/XYZ/CSV exporters
+
+**Phase 2: Engraver Integration**
+- [ ] Validate exports with real engraver software
+- [ ] Axis convention documentation
+- [ ] Point density optimization
+- [ ] Blank wireframe preview
+
+**Phase 3: Cross-Platform**
+- [ ] macOS builds (Intel + Apple Silicon)
+- [ ] Linux builds (AppImage, .deb)
+
+**Phase 4: Production**
+- [ ] Professional installers
+- [ ] Comprehensive documentation
+- [ ] Optional: TripoSR full 3D reconstruction
+
+See [todo.md](todo.md) for detailed sprint planning.
+
+---
+
+## Technology Stack
 
 ### Frontend
-- **[Tauri](https://tauri.app)** - Lightweight desktop app framework
-- **[Svelte](https://svelte.dev)** - Reactive UI framework
-- **[Three.js](https://threejs.org)** - 3D rendering and visualization
-- **[TailwindCSS](https://tailwindcss.com)** - Utility-first styling
+- **[Tauri](https://tauri.app)** — Lightweight desktop app framework
+- **[Svelte 4](https://svelte.dev)** — Reactive UI framework
+- **[Three.js](https://threejs.org)** — 3D point cloud rendering and preview
+- **[TailwindCSS](https://tailwindcss.com)** — Utility-first styling
 
 ### Backend
-- **[Rust](https://www.rust-lang.org)** - High-performance core logic (mesh generation, file I/O)
-- **[Python](https://www.python.org)** - AI/ML inference pipeline
-- **[PyTorch](https://pytorch.org)** - Deep learning framework for depth estimation
+- **[Rust](https://www.rust-lang.org)** — High-performance core (point cloud generation, export)
+- **[Python](https://www.python.org)** — AI/ML inference pipeline
+- **[PyTorch](https://pytorch.org)** — Deep learning for depth estimation
 
 ### AI Models
-- **[Depth-Anything-V2](https://github.com/DepthAnything/Depth-Anything-V2)** - State-of-the-art monocular depth estimation (default). Weights: **CC-BY-NC-4.0** (non-commercial use only).
-- **[MiDaS](https://github.com/isl-org/MiDaS)** - Alternative depth estimation model. **MIT-compatible**; suitable for commercial use. See [RESEARCH/architecture.md](RESEARCH/architecture.md) **ADR-005** for licensing details.
+- **[Depth-Anything-V2](https://github.com/DepthAnything/Depth-Anything-V2)** — State-of-the-art depth estimation (default). Weights: **CC-BY-NC-4.0** (non-commercial).
+- **[MiDaS](https://github.com/isl-org/MiDaS)** — Alternative model. **MIT-compatible** for commercial use.
 
 ### Architecture
 
 ```
-┌─────────────────────────────────────────┐
-│         Tauri Frontend (Svelte)         │
-│    UI Components │ Three.js Preview     │
-└──────────────┬──────────────────────────┘
-               │ IPC Commands
-┌──────────────▼──────────────────────────┐
-│          Rust Backend                   │
-│  Image Processing │ Mesh Generation     │
-│  File I/O │ Settings │ Export (STL/OBJ) │
-└──────────────┬──────────────────────────┘
-               │ Subprocess
-┌──────────────▼──────────────────────────┐
-│        Python AI Backend                │
-│   PyTorch │ Depth-Anything-V2 │ MiDaS   │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│                   Tauri Frontend                        │
+│  Svelte 4 │ Three.js Preview │ Blank Wireframe          │
+└───────────────────────┬─────────────────────────────────┘
+                        │ Tauri Commands (IPC)
+┌───────────────────────▼─────────────────────────────────┐
+│                   Rust Backend                          │
+│  Image loading │ Depth processing │ Volumetric sampling │
+│  PLY/XYZ/CSV export │ Settings │ Python subprocess      │
+└───────────────────────┬─────────────────────────────────┘
+                        │ subprocess
+┌───────────────────────▼─────────────────────────────────┐
+│                  Python AI Backend                      │
+│  Depth-Anything-V2 / MiDaS │ PyTorch                    │
+│  Input: Image → Output: Depth map                       │
+└─────────────────────────────────────────────────────────┘
 ```
 
-**Repository structure:** See [RESEARCH/architecture.md](RESEARCH/architecture.md) for the full monorepo layout (src-tauri/, src/, python/, SPRINTS/, RESEARCH/, etc.) per PRD §5.4.
-
 ---
 
-## 📚 Documentation
+## Quick Start
 
-- **[Changelog](CHANGELOG.md)** - Version history and release notes (Keep a Changelog format)
-- **[Product Requirements Document (PRD)](prd.md)** - Comprehensive product specification
-- **[Development TODO](todo.md)** - Phased sprint plan with team assignments
-- **[Architecture Guide](docs/architecture.md)** - Technical architecture and data flow
-- **[Setting Up Your Mac](docs/setting_up_your_Mac.md)** - Developer tools and setup for macOS (Apple Silicon)
-- **[User Guide](docs/user-guide.md)** - How to use SimplePicture3D
-- **[Developer Guide](docs/developer-guide.md)** - Build and contribution instructions
+### Prerequisites
 
----
+| Tool | Version | Install |
+|------|---------|---------|
+| Rust | 1.70+ | [rustup.rs](https://rustup.rs/) |
+| Node.js | 18+ | [nodejs.org](https://nodejs.org/) |
+| Python | 3.10+ | [python.org](https://python.org/) |
+| Git | 2.x | [git-scm.com](https://git-scm.com/) |
 
-## 🤝 Contributing
+### Setup
 
-We welcome contributions from the community! SimplePicture3D is built with collaboration in mind.
-
-### Development Setup
-
-**Required tools and versions:**
-
-| Tool | Minimum version | How to install | Notes |
-|------|-----------------|-----------------|-------|
-| Rust (rustc, cargo) | 1.70+ | [rustup](https://rustup.rs/) | Use `rustup default stable` |
-| Node.js | 18+ | [nodejs.org](https://nodejs.org/) | LTS recommended; includes npm |
-| npm | 9+ | Bundled with Node.js | `npm --version` |
-| Python | 3.10+ | [python.org](https://www.python.org/) | Required for AI depth estimation; see [Python environment](#python-environment-ai-backend) below |
-| Git | 2.x | [git-scm.com](https://git-scm.com/) | For clone and contribution |
-
-**Clone the repository:**
 ```bash
+# Clone repository
 git clone https://github.com/BelongaGezza/SimplePicture3D.git
 cd SimplePicture3D
-```
 
-**Setup instructions:**
-```bash
+# Install frontend dependencies
 npm install
-# On Windows: generate app icon before first build (see RESEARCH/GOTCHAS.md)
-# npm run tauri icon path/to/1024x1024.png
-npm run tauri dev
-```
 
-**Python environment (AI backend):**  
-Depth estimation runs in a Python subprocess. You need **Python 3.10+** and a virtual environment. From the project root:
-
-```bash
-# Create virtual environment (recommended)
+# Set up Python environment
 python -m venv venv
-# Windows:
-venv\Scripts\activate
-# macOS/Linux:
-source venv/bin/activate
-
-# Install dependencies
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r python/requirements.txt
-```
 
-- **Stub mode (no AI model):** For tests and CI, set `SP3D_USE_STUB=1` so no model is downloaded. Run pytest from the project root:
-  - **macOS/Linux:** `SP3D_USE_STUB=1 PYTHONPATH=python/python python -m pytest python/ -v`
-  - **Windows PowerShell:** `$env:SP3D_USE_STUB="1"; $env:PYTHONPATH="python\python"; python -m pytest python/ -v`
-- **Real depth inference:** Install PyTorch per [pytorch.org](https://pytorch.org/get-started/locally/) (CPU/CUDA/Metal), then install the rest of `python/requirements.txt`. The first run will download the Depth-Anything-V2 model from Hugging Face (model download wizard planned for Sprint 1.10). See [python/README.md](python/README.md) for model paths and `--no-model` usage.
-- **Model license:** Depth-Anything-V2 weights are **CC-BY-NC-4.0** (non-commercial use). MiDaS is **MIT-compatible** for commercial use. See [License](#-license) and **ADR-005** in [RESEARCH/architecture.md](RESEARCH/architecture.md).
-- **Why system Python:** For rationale (system Python for MVP, no bundling yet), see [RESEARCH/architecture.md](RESEARCH/architecture.md) **ADR-003**.
-
-**Troubleshooting:** If the app reports "Python not found", ensure `python` (or `python3`) is on your PATH and is 3.10+. On Windows, the Tauri app may not see the same PATH as your terminal—install Python for "all users" or add it to the system PATH.
-
-**Verifying your setup:** Run these from the project root to confirm all three environments work:
-
-```bash
-# Rust
-rustc --version
-cargo --version
-cd src-tauri && cargo build && cd ..
-
-# Node / frontend
-node --version
-npm --version
-npm run build
-
-# Full app (Tauri + frontend)
+# Run development server
 npm run tauri dev
 ```
 
 ### Testing
 
-Run the test suites before submitting changes:
-
 ```bash
-# Rust (from project root)
+# Rust tests
 cargo test --manifest-path src-tauri/Cargo.toml
 
-# Frontend (when tests are configured)
+# Frontend tests
 npm test
 
-# Python (depth_estimator; no AI model required in stub mode)
-# From project root (see CLAUDE.md for Windows):
+# Python tests (stub mode, no AI model required)
 SP3D_USE_STUB=1 PYTHONPATH=python/python python -m pytest python/ -v
 ```
 
-Python tests use **stub mode** (`SP3D_USE_STUB=1`) so no model download is needed. See [CLAUDE.md](CLAUDE.md) for the full testing command list and stub mode details.
-
-When the Python environment is set up (see **[python/README.md](python/README.md)** and `python/requirements.txt` when present), you can also run:
-
-```bash
-cd python
-python -m venv venv
-# Windows: venv\Scripts\activate   |   macOS/Linux: source venv/bin/activate
-pip install -r requirements.txt
-# Run depth estimator: python -m python.depth_estimator --input path/to/image.png
-```
-
-**Logging (Rust backend):** Set `RUST_LOG` to control log level (e.g. `RUST_LOG=debug`, `RUST_LOG=simplepicture3d=info`). See [env_logger](https://docs.rs/env_logger). Default is `warn` if unset.
-
-**Development (hot-reload):** `npm run tauri dev` starts the Vite dev server and opens the Tauri window. Frontend changes (Svelte, CSS, TS) hot-reload in the app; Rust changes require a full restart. See [RESEARCH/AI_DEVELOPMENT_GUIDE.md](RESEARCH/AI_DEVELOPMENT_GUIDE.md) for commands.
-
-> **Windows:** If `cargo build` in `src-tauri` fails with RC2176 "old DIB" on `icon.ico`, run `npm run tauri icon path/to/1024x1024.png` to generate compatible icons, then rebuild. See [RESEARCH/GOTCHAS.md](RESEARCH/GOTCHAS.md).
->
-> Detailed build instructions will be added to `docs/developer-guide.md` as development progresses.
-
-### How to Contribute
-
-1. **Fork the repository** and create a feature branch
-2. **Make your changes** following our coding standards
-3. **Write tests** for new functionality
-4. **Submit a pull request** with a clear description
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
-
-### Team Roles
-
-We're looking for contributors in these areas:
-- 🏗️ **System Architecture** - Overall design and tech decisions
-- ⚙️ **Backend Engineering (Rust)** - Mesh generation, performance optimization
-- 🔬 **AI/ML Research** - Depth estimation, model optimization
-- 🎨 **Frontend/UI** - User experience, 3D visualization
-- 🧪 **Quality Assurance** - Testing, CI/CD, automation
-- 🔐 **Security** - Code audits, dependency management
+See [CLAUDE.md](CLAUDE.md) for complete build and test commands.
 
 ---
 
-## 📋 Project Status
+## Use Cases
 
-### Current Phase: **Phase 1 MVP (In Progress)**
+SimplePicture3D is designed for:
 
-✅ Product Requirements Document (PRD) complete  
-✅ Development roadmap (todo.md) finalized  
-✅ GitHub repository and CI (build, test, clippy, audit)  
-✅ Sprints 1.1–1.10 delivered (project setup, image load, Python bridge, depth generation, depth adjustments, mesh generation, 3D preview, STL/OBJ export, settings, model wizard)  
-🟡 Sprint 1.6A: QA hardening, coverage enforcement (in progress)  
-⬜ Sprint 1.11: E2E testing and bug fixes  
-⬜ Sprint 1.12: Documentation and beta preparation  
-
-### Development Timeline
-
-| Phase | Status | Target |
-|-------|--------|--------|
-| Phase 1: MVP | 🟢 In progress (~65%) | Q2 2026 |
-| Phase 2: Enhanced UX | ⬜ Not started | Q3 2026 |
-| Phase 3: Cross-Platform | ⬜ Not started | Q4 2026 |
-| Phase 4: Production | ⬜ Not started | Q1 2027 |
-
-Track progress in [todo.md](todo.md) and [SPRINTS/](SPRINTS/).
+- **Crystal Gift Makers** — Turn family photos into personalized 3D crystal keepsakes
+- **Laser Engraving Businesses** — Streamline image-to-point-cloud workflow
+- **Makers & Hobbyists** — Experiment with internal UV laser engraving
+- **Artists** — Create original volumetric art for crystal medium
 
 ---
 
-## 🎯 Use Cases
+## Privacy & Security
 
-SimplePicture3D is perfect for:
+- **100% Offline Processing** — All processing happens locally
+- **No Cloud Dependencies** — AI models downloaded once, run locally
+- **No Telemetry** — We don't collect usage data
+- **Open Source** — Audit the code yourself
+- **MIT Licensed** — Free to use, modify, distribute
 
-- **Crystal Gift Makers** - Turn family photos into personalized 3D crystal keepsakes
-- **Laser Engraving Businesses** - Streamline your workflow from image to engraving
-- **Makers & Hobbyists** - Experiment with UV laser engraving on glass and acrylic
-- **Artists** - Create original 3D depth art for a unique medium
-- **Educators** - Teach 3D concepts and laser technology
-
----
-
-## 🔒 Privacy & Security
-
-SimplePicture3D is designed with privacy as a core principle:
-
-- ✅ **100% Offline Processing** - All image processing happens on your local machine
-- ✅ **No Cloud Dependencies** - AI models downloaded once, run locally
-- ✅ **No Telemetry** - We don't collect usage data (crash reports are opt-in)
-- ✅ **Open Source** - Audit the code yourself, no hidden behavior
-- ✅ **MIT Licensed** - Free to use, modify, and distribute
-
-Your images are yours. They never leave your device.
+Your images never leave your device.
 
 ---
 
-## 📜 License
+## Contributing
 
-SimplePicture3D is licensed under the **MIT License** - see [LICENSE](LICENSE) for details.
+We welcome contributions! Areas of interest:
 
-### Third-Party Licenses
+- **Rust Backend** — Volumetric algorithms, export formats
+- **Frontend/UI** — Svelte components, Three.js preview
+- **AI/ML** — Depth model optimization
+- **QA** — Testing, validation with real engravers
+- **Documentation** — User guides, tutorials
 
-This project incorporates open-source software with compatible licenses:
-- Tauri (MIT)
-- Rust ecosystem crates (MIT/Apache-2.0)
-- PyTorch (BSD-3-Clause)
-- Three.js (MIT)
+### Development Workflow
 
-**Note:** AI model weights have separate licenses. **Depth-Anything-V2** (default): CC-BY-NC-4.0 (non-commercial only). **MiDaS**: MIT-compatible (commercial use allowed). See [RESEARCH/architecture.md](RESEARCH/architecture.md) **ADR-005**.
+1. Fork the repository
+2. Create a feature branch
+3. Make changes following our coding standards
+4. Write tests for new functionality
+5. Submit a pull request
 
-See [ATTRIBUTION.md](ATTRIBUTION.md) for full third-party notices (coming soon).
-
----
-
-## 💖 Support the Project
-
-SimplePicture3D is open source and free to use. If you find it valuable, consider supporting development:
-
-- ⭐ **Star this repository** to show your support
-- 🐛 **Report bugs** via [GitHub Issues](https://github.com/BelongaGezza/SimplePicture3D/issues)
-- 💡 **Suggest features** in [GitHub Discussions](https://github.com/BelongaGezza/SimplePicture3D/discussions)
-- 🤝 **Contribute code** (see [Contributing](#contributing))
-- ☕ **Buy us a coffee** via [Ko-fi](https://ko-fi.com/) (link coming soon)
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ---
 
-## 🙏 Acknowledgments
+## Documentation
 
-SimplePicture3D stands on the shoulders of giants:
+- **[CLAUDE.md](CLAUDE.md)** — Development guidance and commands
+- **[prd.md](prd.md)** — Product requirements document
+- **[todo.md](todo.md)** — Sprint planning and task breakdown
+- **[RESEARCH/architecture.md](RESEARCH/architecture.md)** — Architecture decisions (ADRs)
+- **[RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md](RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md)** — Transition roadmap
+
+---
+
+## License
+
+SimplePicture3D is licensed under the **MIT License** — see [LICENSE](LICENSE).
+
+**AI Model Licenses:**
+- Depth-Anything-V2: CC-BY-NC-4.0 (non-commercial)
+- MiDaS: MIT-compatible (commercial OK)
+
+See [RESEARCH/architecture.md](RESEARCH/architecture.md) ADR-005 for details.
+
+---
+
+## Acknowledgments
 
 - **Depth-Anything-V2** team for state-of-the-art depth estimation
 - **MiDaS** researchers for pioneering monocular depth prediction
-- **Tauri** contributors for enabling lightweight cross-platform apps
+- **Tauri** contributors for the desktop framework
 - The **Rust**, **PyTorch**, and **Three.js** communities
-
-Special thanks to early contributors and beta testers (you'll be listed here!).
-
----
-
-## 📞 Contact & Community
-
-- **GitHub Issues**: [Report bugs](https://github.com/BelongaGezza/SimplePicture3D/issues)
-- **GitHub Discussions**: [Ask questions, share ideas](https://github.com/BelongaGezza/SimplePicture3D/discussions)
-- **Email**: [Contact maintainer](mailto:your-email@example.com) (update with real email)
-- **Discord**: Community server (coming soon)
-
----
-
-## 🗺️ Roadmap Highlights
-
-### v0.1.0 - MVP (Q2 2026)
-- [x] Basic image loading and display
-- [x] AI depth estimation (Depth-Anything-V2 / MiDaS)
-- [x] Manual depth adjustments (sliders)
-- [x] Point cloud and triangulated mesh generation
-- [x] STL and OBJ export
-- [x] 3D preview (Three.js), settings persistence, first-run model wizard
-- [ ] Windows installer (Phase 1 exit)
-- [ ] E2E tests and beta-ready documentation
-
-### v0.2.0 - Enhanced UX (Q3 2026)
-- [ ] Advanced depth controls (curves, masks)
-- [ ] Preset system
-- [ ] Undo/redo
-- [ ] Enhanced 3D preview
-
-### v0.3.0 - Cross-Platform (Q4 2026)
-- [ ] macOS support (Intel + Apple Silicon)
-- [ ] Linux support (AppImage, .deb)
-- [ ] Platform-specific optimizations
-
-### v1.0.0 - Production (Q1 2027)
-- [ ] Performance optimizations
-- [ ] Comprehensive documentation
-- [ ] Professional installers (code-signed)
-- [ ] Auto-update mechanism
-- [ ] Accessibility (WCAG AA)
-
-### Far-future (post–v1.0)
-- [ ] **Svelte 5 migration** — Upgrade frontend to Svelte 5 (runes, new component API) when Svelte 4 approaches EOL or when the migration cost is justified. See prd.md §11.3 and todo.md “Beyond Phase 4”.
-See [TODO.md](todo.md) for the complete sprint-by-sprint plan.
-
----
-
-## 📊 Project Metrics
-
-> Metrics will be updated as development progresses.
-
-- **Code Coverage**: Target >80% (TBD)
-- **Build Status**: Pending setup
-- **Contributors**: 1 (growing!)
-- **Stars**: ⭐ your support counts!
-- **Open Issues**: 0
-
----
-
-## ⚖️ Legal
-
-SimplePicture3D is provided "as-is" without warranty. While we strive for accuracy and reliability, use at your own risk. See [LICENSE](LICENSE) for full terms.
-
-**AI Model Usage**: Depth estimation models are used in compliance with their respective licenses. Users are responsible for ensuring their use case aligns with model license terms (particularly non-commercial restrictions on some models).
 
 ---
 
 <div align="center">
 
-**Made with ❤️ by the SimplePicture3D community**
+**Made with precision by the SimplePicture3D community**
 
-[⬆ Back to Top](#simplepicture3d)
+[Report Bug](https://github.com/BelongaGezza/SimplePicture3D/issues) · [Request Feature](https://github.com/BelongaGezza/SimplePicture3D/discussions) · [Contribute](CONTRIBUTING.md)
 
 </div>

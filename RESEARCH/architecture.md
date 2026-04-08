@@ -2,14 +2,34 @@
 
 **Purpose:** System architecture and data flow for SimplePicture3D.
 
-**Source:** Derived from `prd.md` §5.2, §5.3, §5.4.  
-**Last checked:** 2026-04-05
+**Source:** Derived from `prd.md` §5.2, §5.3, §5.4.
+**Last checked:** 2026-04-08
+
+---
+
+> ## ARCHITECTURAL PIVOT (2026-04-08)
+>
+> SimplePicture3D is transitioning from **2.5D relief mesh generation** to **3D volumetric point cloud** output for internal UV laser engraving of crystal blocks.
+>
+> **Canonical reference:** **ADR-011** (Crystal Volumetric Point Cloud)
+> **Transition roadmap:** `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md`
+>
+> **ADR Status Summary:**
+> | ADR | Status | Notes |
+> |-----|--------|-------|
+> | ADR-001 to ADR-005 | **Active** | Infrastructure decisions (Svelte, subprocess, Python, models) |
+> | ADR-006 | **DEPRECATED** | 2.5D relief mesh generation — superseded by ADR-011 |
+> | ADR-007 | **Active** | Binary IPC transfer |
+> | ADR-008 | **DEPRECATED** | 2.5D triangulation for STL — superseded by ADR-011 |
+> | ADR-009 | **Superseded** | Target dimensions — replaced by BlankEnvelope in ADR-011 |
+> | ADR-010 | **Active** | State management (undo/redo) |
+> | ADR-011 | **CANONICAL** | Crystal volumetric point cloud — primary architecture |
 
 ---
 
 ## Architecture Decision Records (ADRs)
 
-*ADRs initiated 2026-02-06 per External Consultant Recommendations Report. ADR-008 winding order corrected 2026-02-28. ADR-009 added Sprint 2.1. ADR-010 added Sprint 2.2. ADR-011 added 2026-04-05 (crystal volumetric branch). Current status: see Consultant_Review_1Mar2026.md.*
+*ADRs initiated 2026-02-06 per External Consultant Recommendations Report. ADR-011 is now the canonical architecture reference (2026-04-08). See PIVOT notice above for ADR status.*
 
 ### ADR-001: Svelte over React
 
@@ -192,8 +212,12 @@
 
 ### ADR-006: Mesh Generation Algorithm (Sprint 1.6)
 
-**Status:** Accepted  
-**Date:** 2026-02-07  
+**Status:** ~~Accepted~~ **DEPRECATED (2026-04-08)**
+**Date:** 2026-02-07
+**Superseded by:** ADR-011 (Crystal Volumetric Point Cloud)
+
+> **DEPRECATION NOTICE:** This ADR describes 2.5D relief mesh generation (one Z per XY). As of 2026-04-08, SimplePicture3D is pivoting to 3D volumetric point cloud output per ADR-011. The 2.5D relief approach is no longer the primary development path. Existing code in `mesh_generator.rs` may be retained for legacy/optional relief mode but is not the target architecture. See `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md`.
+
 **Context:** ARCH-201. Need to decide point cloud vs triangulated mesh and sampling strategy for depth map → 3D geometry.
 
 **Decision:**
@@ -217,8 +241,12 @@
 
 ### ADR-008: Grid-Based Triangulation for STL Export (Sprint 1.8)
 
-**Status:** Accepted
+**Status:** ~~Accepted~~ **DEPRECATED (2026-04-08)**
 **Date:** 2026-02-08
+**Superseded by:** ADR-011 (Crystal Volumetric Point Cloud)
+
+> **DEPRECATION NOTICE:** This ADR describes triangulation for 2.5D relief STL export. As of 2026-04-08, SimplePicture3D is pivoting to 3D volumetric point cloud output (PLY/XYZ/CSV) per ADR-011. Triangulation for STL is no longer the primary export path; it may be retained as an "Advanced" option for users with mesh-based workflows. See `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md`.
+
 **Context:** ARCH-301. Sprint 1.8 requires STL export, which mandates triangulated faces with normals. The existing `mesh_generator.rs` produces a uniform-grid point cloud (ADR-006). A triangulation strategy must be chosen and documented before BACK-700 implementation begins. This ADR supersedes the deferred ARCH-205–207 spike from Sprint 1.6A.
 
 **Options considered:**

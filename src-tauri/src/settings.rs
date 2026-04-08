@@ -9,6 +9,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+use crate::blank_envelope::BlankEnvelope;
 use crate::depth_adjust::CurvePoint;
 
 /// Application settings persisted between sessions (BACK-706, BACK-804, BACK-805).
@@ -54,6 +55,15 @@ pub struct AppSettings {
     /// survives restart; applied to depth adjustment on load.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub curve_control_points: Option<Vec<CurvePoint>>,
+
+    /// Crystal blank envelope for volumetric point cloud fitting (ADR-011).
+    /// Defines the 3D bounds and margin for the target crystal blank.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub blank_envelope: Option<BlankEnvelope>,
+
+    /// Preferred point cloud export format: "ply", "xyz", or "csv" (ADR-011).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub point_cloud_format: Option<String>,
 }
 
 /// App data directory: `~/.simplepicture3d/` (Sprint 2.3 presets, models, logs).
