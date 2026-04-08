@@ -1,0 +1,93 @@
+---
+description: "Core cross-platform development constraints for SimplePicture3D. Always applied to every AI interaction in this project."
+alwaysApply: true
+globs:
+---
+
+# SimplePicture3D — Core Cross-Platform Rules
+
+This project targets **Windows** (Phase 1+2 primary), **macOS** (Phase 3), and
+**Linux** (Phase 3). It is a desktop-only application — there are no iOS, Android,
+or Web targets. Every suggestion must be compatible with all three desktop platforms
+unless explicitly scoped with a [PLATFORM: X] guard.
+
+## Stack
+
+| Layer | Technology |
+|---|---|
+| Shell | Tauri 2.x |
+| Frontend | Svelte 4, TypeScript, TailwindCSS, Three.js |
+| Backend | Rust 1.70+ (cargo workspace) |
+| AI | Python 3.10+, PyTorch, Depth-Anything-V2 / MiDaS |
+
+## Environment
+
+- Detect the current OS before making platform-specific suggestions.
+- Never hardcode absolute paths. Use relative paths or environment variables only.
+- Windows is the active primary dev machine. macOS and Linux builds are Phase 3.
+- For Phase 3 macOS/Linux changes that cannot be tested on Windows, document them
+  in `PENDING_APPLE_CHANGES.md` and address them in the next macOS/Linux session.
+
+## Platform Guard Convention
+
+Mark all platform-specific code with structured comment guards:
+
+**Rust:**
+```rust
+// [PLATFORM: Windows] ─── begin ──────────────────────────────────────
+//   ... Windows-specific code ...
+// [PLATFORM: Windows] ─── end ────────────────────────────────────────
+
+// [PLATFORM: macOS] ─── begin ─────────────────────────────────────────
+//   ... macOS-specific code ...
+// [PLATFORM: macOS] ─── end ───────────────────────────────────────────
+
+// [PLATFORM: Linux] ─── begin ─────────────────────────────────────────
+//   ... Linux-specific code ...
+// [PLATFORM: Linux] ─── end ───────────────────────────────────────────
+```
+
+**Svelte / TypeScript:**
+```typescript
+// [PLATFORM: Windows] ─── begin ──────────────────────────────────────
+// [PLATFORM: Windows] ─── end ────────────────────────────────────────
+```
+
+Valid tags: `Windows`, `macOS`, `Linux`
+
+**Never remove a guard block without explicit confirmation that the feature is
+deprecated on that platform.**
+
+## Architecture Constraints
+
+- Tauri IPC commands are the boundary between frontend and Rust backend. Keep
+  business logic in Rust; keep UI logic in Svelte.
+- The Python AI backend is a subprocess — do not add direct network calls or
+  cloud dependencies to it without approval.
+- All processing must remain 100% offline. No data leaves the user's device.
+- Dependency licenses: MIT/Apache-2.0 preferred. No GPL/AGPL. Depth-Anything-V2
+  weights are CC-BY-NC-4.0 (non-commercial) — note this on any commercial-facing
+  feature work.
+
+## Code Modification Safety
+
+- When a proposed change affects a `[PLATFORM: X]` guarded block, stop and confirm
+  with the user before proceeding.
+- When refactoring, move guard blocks with the code they annotate — never discard them.
+- When adding a feature, annotate which platforms require testing that cannot be done
+  on the current machine.
+
+## CI Awareness
+
+- CI runners differ from local dev OS. Never assume otherwise.
+- Workflow files must not contain local absolute paths.
+- macOS build jobs must use `macos-latest` runners (Phase 3).
+- Linux build jobs use `ubuntu-latest` with explicit GTK3/WebKit install steps.
+
+## Git Hygiene
+
+- Never commit OS-generated files (`.DS_Store`, `Thumbs.db`, `nul`, `*.user`).
+- Document one-time setup steps required on other machines in `SETUP_NOTES.md`.
+
+---
+*For full context see CLAUDE.md at repository root.*

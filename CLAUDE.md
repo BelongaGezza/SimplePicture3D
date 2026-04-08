@@ -194,3 +194,83 @@ This project uses agent personas for development coordination:
 3. Read the relevant agent persona in `.agents/`
 4. Consult `prd.md` for acceptance criteria
 5. Check `todo.md` for task context and dependencies
+
+---
+
+## Cross-Platform Development Rules
+
+> These sections apply on all dev machines. Constraints marked macOS-only apply when
+> the current session is on the macOS M-series MacBook Pro only.
+
+### Platform Target Matrix
+
+| Platform | Status | Notes |
+|---|---|---|
+| Windows | **Active — Primary** | Phase 1 + 2 development target |
+| macOS | **Active — Gated (Phase 3)** | Build only on macOS M-series; Tauri universal binary |
+| Linux | **Active — Gated (Phase 3)** | AppImage / .deb; requires GTK3 + WebKit dev libs |
+
+This is a **desktop-only** application. There are no iOS, Android, or Web targets.
+
+### Platform Guard Convention — Comment Guards
+
+Mark all platform-specific code with structured comment guards so future sessions
+can identify scope without reading full context.
+
+**Rust:**
+```rust
+// [PLATFORM: Windows] ─── begin ──────────────────────────────────────
+// [PLATFORM: Windows] ─── end ────────────────────────────────────────
+
+// [PLATFORM: macOS] ─── begin ─────────────────────────────────────────
+// [PLATFORM: macOS] ─── end ───────────────────────────────────────────
+
+// [PLATFORM: Linux] ─── begin ─────────────────────────────────────────
+// [PLATFORM: Linux] ─── end ───────────────────────────────────────────
+```
+
+**Svelte / TypeScript:**
+```typescript
+// [PLATFORM: Windows] ─── begin ──────────────────────────────────────
+// [PLATFORM: Windows] ─── end ────────────────────────────────────────
+```
+
+**Critical rules:**
+- Never remove a guard block without explicit confirmation that the feature is
+  deprecated on that platform.
+- When refactoring, move guard blocks with the code they annotate.
+- When a change affects a guarded block, state which platform is affected and
+  ask for confirmation before proceeding.
+
+### Path Policy
+
+**Never hardcode absolute paths** in any committed file. Use relative paths or
+environment variables. Absolute paths containing `/Users/`, `C:\Users\`, or
+`/home/<name>/` are forbidden in committed source, scripts, and workflow files.
+
+### macOS / Linux Session Constraint (Phase 3)
+
+The macOS M-series MacBook Pro is required for macOS and Linux Tauri builds when
+code-signing is involved. If the current session is on Windows:
+- Do NOT commit macOS/Linux-specific Tauri config changes that require signing.
+- Document required changes in `PENDING_APPLE_CHANGES.md` for the next macOS session.
+
+### Subagent Behaviour
+
+All subagents inherit these constraints. Before acting, subagents must:
+- Read this `CLAUDE.md` file in full.
+- Read the relevant persona from `.agents/`.
+- Flag any platform-affecting changes before applying them.
+
+### Session Startup Checklist
+
+- [ ] Read `README.md` and this file
+- [ ] Detect current OS (`windows` / `macos` / `linux`)
+- [ ] Note which build targets are available this session
+- [ ] Check `PENDING_APPLE_CHANGES.md` for outstanding Phase 3 items
+- [ ] Check `SETUP_NOTES.md` for any one-time setup steps on this machine
+- [ ] Review `RESEARCH/GOTCHAS.md` for known pitfalls
+
+---
+
+*Cross-platform section schema version: 1.0 — 2026-04-06*
