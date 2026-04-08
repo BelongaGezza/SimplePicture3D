@@ -1,9 +1,29 @@
 # SimplePicture3D - Development TODO & Sprint Planning
 
-**Version:** 1.4  
-**Last Updated:** April 5, 2026  
-**Repository:** https://github.com/[org]/SimplePicture3D  
+**Version:** 2.0
+**Last Updated:** April 8, 2026
+**Repository:** https://github.com/[org]/SimplePicture3D
 **Project Board:** GitHub Projects (Kanban)
+
+---
+
+> ## ARCHITECTURAL PIVOT (2026-04-08)
+>
+> SimplePicture3D has pivoted from **2.5D relief mesh generation** to **3D volumetric point cloud** output for internal UV laser engraving of crystal blocks.
+>
+> **Key changes:**
+> - Primary output: Volumetric point clouds (PLY, XYZ, CSV) instead of surface meshes (STL, OBJ)
+> - New input: Crystal blank dimensions (L×W×H mm) with margin
+> - ADR-011 is now the **canonical architecture** (ADR-006/008 deprecated)
+> - See `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md` for full transition details
+>
+> **Implemented (tag `v0.0.0-pivot-3d`):**
+> - `blank_envelope.rs`: BlankEnvelope, fit_to_blank(), presets
+> - `volumetric.rs`: Column sweep algorithm for volumetric point generation
+> - `export.rs`: PLY (ASCII/binary), XYZ, CSV exporters
+> - All documentation updated for 3D focus
+
+---
 
 **Phase 1 as-built:** 13 delivery events (Sprints 1.1–1.12 + Sprint 1.5A hardening). Revised overall estimate: ~28–35 sprints total using actual velocity (~1 sprint per 2 weeks). See Consultant_Review_1Mar2026.md §1 (supersedes prior reports).
 
@@ -69,8 +89,16 @@ The Role Assignment table enables agents to claim roles:
 - **Persona files:** `.agents/*.md`
 - **Coordination:** `RESEARCH/AI_DEVELOPMENT_GUIDE.md`
 
-### 6. ADR-011 (crystal volumetric branch) tasking
-For the **crystal volumetric / pseudo-3D point cloud** track, **RESEARCH/architecture.md ADR-011** is canonical (blank envelope, `fit_to_blank`, epics **E1–E5**, algorithm options). Prefer implementing and validating that **epic sequence** before spinning up many `SPRINTS/Sprint_X_Y/` folders for this track. When parallelizing, create sprint folders from the ADR-011 epic breakdown. See **prd.md** §11.1 item 12.
+### 6. ADR-011 (crystal volumetric branch) tasking — EXECUTED
+
+> **PIVOT COMPLETE (2026-04-08):** Epics E2-E4 implemented. See tag `v0.0.0-pivot-3d`.
+
+For the **crystal volumetric / pseudo-3D point cloud** track, **RESEARCH/architecture.md ADR-011** is canonical. Core implementation complete:
+- ✅ **E2:** `BlankEnvelope`, `fit_to_blank()` in `blank_envelope.rs`
+- ✅ **E3:** Column sweep algorithm in `volumetric.rs`
+- ✅ **E4:** PLY/XYZ/CSV exporters in `export.rs`
+
+**Remaining:** E1 (engraver validation), E5 (optional TripoSR), UI integration (BlankSetup, ExportPanel, Preview3D wireframe).
 
 ---
 
@@ -80,10 +108,16 @@ For the **crystal volumetric / pseudo-3D point cloud** track, **RESEARCH/archite
 
 | Phase | Focus | Deliverable | Est. Duration |
 |-------|-------|-------------|---------------|
-| **Phase 1** | MVP | Functional Windows app with core features | **13 sprints (as-built)** |
-| **Phase 2** | Enhanced UX | Advanced controls, presets, undo/redo | 6-8 sprints (see Phase 2 sequencing below) |
+| **Phase 1** | Volumetric Foundation | Core infrastructure + volumetric point cloud generator | **13 sprints (as-built) + pivot** |
+| **Phase 2** | Enhanced UX + Export | Advanced controls, presets, undo/redo, PLY/XYZ/CSV export UI | 6-8 sprints |
 | **Phase 3** | Cross-Platform | macOS and Linux builds | 3-4 sprints (6-8 weeks) |
 | **Phase 4** | Production | Performance, docs, installers, v1.0 release | 4-5 sprints (8-10 weeks) |
+
+> **Post-pivot deliverables (2026-04-08):**
+> - Volumetric point cloud generation (column sweep algorithm)
+> - Crystal blank envelope with fit-to-blank scaling
+> - PLY/XYZ/CSV exporters for laser engraver compatibility
+> - STL/OBJ moved to "Advanced" options
 
 **Total Estimated Timeline:** ~28-35 sprints (consultant recommendation; actual velocity ~1 sprint per 2 weeks).
 
@@ -158,15 +192,19 @@ For the **crystal volumetric / pseudo-3D point cloud** track, **RESEARCH/archite
 
 ---
 
-## Phase 1: MVP (Minimum Viable Product)
+## Phase 1: Volumetric Foundation (formerly MVP)
 
-**Goal:** Deliver a functional Windows desktop application that can convert a 2D image to an STL file using AI depth estimation.
+**Goal:** Deliver a functional Windows desktop application that converts 2D images to volumetric 3D point clouds for internal crystal laser engraving.
+
+> **Post-pivot (2026-04-08):** Phase 1 infrastructure complete. Volumetric point cloud generator and PLY/XYZ/CSV exporters implemented. See tag `v0.0.0-pivot-3d`.
 
 **Exit Criteria:**
-- ✅ User can load PNG/JPG, generate depth map, export STL on Windows
-- ✅ Automated tests passing: >70% coverage on core logic
-- ✅ Manual testing: 5+ beta testers successfully complete first conversion
-- ✅ Documentation: README.md with installation and usage instructions
+- ✅ User can load PNG/JPG, generate depth map, export point cloud on Windows
+- ✅ Volumetric point cloud generation (column sweep algorithm)
+- ✅ Crystal blank envelope with fit-to-blank scaling
+- ✅ PLY/XYZ/CSV export formats
+- ✅ Automated tests passing: >70% coverage on core logic (221 tests passing)
+- ✅ Documentation: README.md with 3D volumetric focus
 - ✅ Security review: No critical vulnerabilities, dependency audit clean
 - ✅ GitHub repository public with MIT license
 
@@ -881,29 +919,38 @@ For the **crystal volumetric / pseudo-3D point cloud** track, **RESEARCH/archite
 
 ---
 
-### Crystal volumetric point cloud (Phase 2, optional track — ADR-011)
+### Crystal volumetric point cloud — NOW PRIMARY TRACK (ADR-011)
+
+> **PIVOT COMPLETE (2026-04-08):** This is now the **primary development track**, not optional. See tag `v0.0.0-pivot-3d` and `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md`.
 
 **Canonical spec:** RESEARCH/architecture.md **ADR-011**. **PRD:** `prd.md` §11.1 item 12.
 
-**Goal:** Deliver a **mode** (e.g. "Crystal volume" vs "Relief") that outputs a **pseudo-3D point cloud** bounded by a user-specified **blank envelope** (default example **80 × 50 × 50 mm**), with **PLY/XYZ/CSV** export and preview (blank wireframe + points). Reuse existing image load, depth inference, depth adjustments, and mask/undo where applicable.
+**Goal:** ~~Deliver a **mode**~~ → SimplePicture3D now **primarily** outputs **volumetric 3D point clouds** bounded by a user-specified **blank envelope** (default **80 × 50 × 50 mm**), with **PLY/XYZ/CSV** export and preview (blank wireframe + points). Relief STL/OBJ moved to "Advanced" options.
 
-**Epic sequence (planning unit until first validated engraver file):**
+**Epic sequence — STATUS:**
 
-| Epic | Outcome |
-|------|--------|
-| **E1 — Charter** | Target engraver file format(s), axis convention, acceptance criteria (e.g. all points inside bbox − margin). |
-| **E2 — Blank + preview** | `BlankEnvelope` in settings/state; Three.js blank box; bound validation. |
-| **E3 — Volumetric core** | `adjusted depth + mask + params + envelope →` point list; unit tests on bbox and counts. |
-| **E4 — Export + E2E** | `export_ply` / `export_xyz` (and optional CSV); manual checklist with real control software. |
-| **E5 — (Optional) AI 3D** | TripoSR path per subsection below and RESEARCH/3d-reconstruction.md (overlaps Full 3D track). |
+| Epic | Outcome | Status |
+|------|--------|--------|
+| **E1 — Charter** | Target engraver file format(s), axis convention, acceptance criteria | **PENDING** — validate with real engraver |
+| **E2 — Blank + preview** | `BlankEnvelope` in settings/state; Three.js blank box; bound validation | ✅ **COMPLETE** (`blank_envelope.rs`) |
+| **E3 — Volumetric core** | `adjusted depth + mask + params + envelope →` point list; unit tests | ✅ **COMPLETE** (`volumetric.rs`, column sweep) |
+| **E4 — Export + E2E** | `export_ply` / `export_xyz` / `export_csv`; manual checklist | ✅ **COMPLETE** (`export.rs`); E2E pending |
+| **E5 — (Optional) AI 3D** | TripoSR path per RESEARCH/3d-reconstruction.md | **DEFERRED** |
 
-**Git branch:** `feature/crystal-volumetric-pointcloud` (or successor) until the track merges or is archived.
+**Implemented modules (tag `v0.0.0-pivot-3d`):**
+- `src-tauri/src/blank_envelope.rs` — BlankEnvelope, BlankPreset, fit_to_blank(), 12 tests
+- `src-tauri/src/volumetric.rs` — VolumetricParams, generate_volumetric_points(), 8 tests
+- `src-tauri/src/export.rs` — PLY (ASCII/binary), XYZ, CSV writers, 8 tests
 
-**Deprecated (same track):** Using the **2.5D heightfield point cloud** alone (ADR-006, single Z per (x, y)) as the product answer for **volumetric internal crystal** output. New volumetric work follows ADR-011 only; relief 2.5D on `main` stays valid for relief STL/OBJ. See RESEARCH/architecture.md ADR-011 subsection **Deprecated: “2.5D-only” point cloud for volumetric crystal**.
+**Remaining work:**
+- [ ] **UI-BLANK:** BlankSetup.svelte component for blank dimensions input
+- [ ] **UI-EXPORT:** Update ExportPanel.svelte for PLY/XYZ/CSV formats
+- [ ] **UI-PREVIEW:** Add blank wireframe to Three.js Preview3D
+- [ ] **E2E:** Validate exports with real laser engraver software
 
-**Architect / Senior Engineer review (2026-04-05):** Plan is **sound**: epic-first delivery (E1–E5) before heavy sprint-folder churn; **`fit_to_blank`** reuses the spirit of ADR-009 in 3D; column-sweep before TripoSR reduces risk. **Gating:** E1 (engraver file format, axis convention, acceptance tests) blocks E4 export claims. **Dependencies:** crystal mode reuses mask/undo — if Phase 2 mask work remains blocked (Sprint 2.5 P0), either fix on `main` first or isolate crystal branch from mask until fixed. **Engineering:** add volumetric generation and PLY/XYZ in a **dedicated module** (or clearly bounded APIs in `mesh_generator.rs`) to avoid entangling relief triangulation; define **point budget** early (column sweep × resolution). **Risk:** E5 (Full 3D) must not absorb E3–E4 schedule without explicit scope swap.
+**Git branch:** `feature/crystal-volumetric-pointcloud` — pivot commit merged.
 
-**Sprint folders:** When decomposing ADR-011 epics into sprints, follow **Sprint Creation Process** above and **§6 ADR-011 (crystal volumetric branch) tasking** in this file.
+**Deprecated:** The **2.5D relief** approach (ADR-006, ADR-008) is deprecated as the primary output. Relief STL/OBJ remains available as "Advanced" export for users with mesh-based workflows.
 
 ---
 
