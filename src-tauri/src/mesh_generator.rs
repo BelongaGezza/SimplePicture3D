@@ -693,13 +693,13 @@ mod tests {
 
     #[test]
     fn validate_rejects_zero_width() {
-        let err = validate_depth_input(0, 10, &vec![0.0; 0]).unwrap_err();
+        let err = validate_depth_input(0, 10, &[0.0; 0]).unwrap_err();
         assert!(err.to_string().contains("positive"));
     }
 
     #[test]
     fn validate_rejects_length_mismatch() {
-        let err = validate_depth_input(3, 3, &vec![0.0; 8]).unwrap_err();
+        let err = validate_depth_input(3, 3, &[0.0; 8]).unwrap_err();
         assert!(err.to_string().contains("length") || err.to_string().contains("match"));
     }
 
@@ -1487,8 +1487,12 @@ mod tests {
     // JR2-701: Comprehensive STL writer unit tests
     // =========================================================================
 
-    /// Helper: parse binary STL buffer into (header, tri_count, Vec<(normal, [v0,v1,v2], attr)>).
-    fn parse_stl_binary(buf: &[u8]) -> (Vec<u8>, u32, Vec<([f32; 3], [[f32; 3]; 3], u16)>) {
+    type Vec3 = [f32; 3];
+    type TriangleVertices = [Vec3; 3];
+    type ParsedTriangle = (Vec3, TriangleVertices, u16);
+
+    /// Helper: parse binary STL buffer into (header, tri_count, triangles).
+    fn parse_stl_binary(buf: &[u8]) -> (Vec<u8>, u32, Vec<ParsedTriangle>) {
         assert!(
             buf.len() >= 84,
             "STL buffer too short for header + tri count"
