@@ -64,31 +64,6 @@ pub fn stages_from_stderr(lines: &[String]) -> Vec<String> {
         .collect()
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn stages_from_stderr_extracts_stage_names() {
-        let lines = vec![
-            "PROGRESS 0".to_string(),
-            "STAGE loading_model".to_string(),
-            "PROGRESS 50".to_string(),
-            "STAGE inference".to_string(),
-            "  STAGE  post  ".to_string(),
-        ];
-        let stages = stages_from_stderr(&lines);
-        assert_eq!(stages, ["loading_model", "inference", "post"]);
-    }
-
-    #[test]
-    fn stages_from_stderr_ignores_empty_stage() {
-        let lines = vec!["STAGE ".to_string(), "STAGE  ".to_string()];
-        let stages = stages_from_stderr(&lines);
-        assert!(stages.is_empty());
-    }
-}
-
 /// Ensures path is canonical and under system temp dir (SEC-201).
 fn validate_input_path(path: &std::path::Path) -> Result<std::path::PathBuf> {
     let canonical = path
@@ -286,5 +261,30 @@ fn run_depth_estimation_inner(
             );
         }
         std::thread::sleep(poll_interval);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stages_from_stderr_extracts_stage_names() {
+        let lines = vec![
+            "PROGRESS 0".to_string(),
+            "STAGE loading_model".to_string(),
+            "PROGRESS 50".to_string(),
+            "STAGE inference".to_string(),
+            "  STAGE  post  ".to_string(),
+        ];
+        let stages = stages_from_stderr(&lines);
+        assert_eq!(stages, ["loading_model", "inference", "post"]);
+    }
+
+    #[test]
+    fn stages_from_stderr_ignores_empty_stage() {
+        let lines = vec!["STAGE ".to_string(), "STAGE  ".to_string()];
+        let stages = stages_from_stderr(&lines);
+        assert!(stages.is_empty());
     }
 }

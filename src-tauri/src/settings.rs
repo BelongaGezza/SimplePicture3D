@@ -136,9 +136,11 @@ mod tests {
 
     #[test]
     fn settings_roundtrip_json() {
-        let mut s = AppSettings::default();
-        s.last_export_dir = Some("C:\\Users\\test\\exports".to_string());
-        s.export_format = Some("obj".to_string());
+        let s = AppSettings {
+            last_export_dir: Some("C:\\Users\\test\\exports".to_string()),
+            export_format: Some("obj".to_string()),
+            ..Default::default()
+        };
         let json = serde_json::to_string(&s).unwrap();
         let loaded: AppSettings = serde_json::from_str(&json).unwrap();
         assert_eq!(
@@ -173,8 +175,10 @@ mod tests {
     #[test]
     fn settings_save_and_load_roundtrip() {
         // Save to the real settings path, then load back
-        let mut original = AppSettings::default();
-        original.last_export_dir = Some("/tmp/sp3d_test_export".to_string());
+        let original = AppSettings {
+            last_export_dir: Some("/tmp/sp3d_test_export".to_string()),
+            ..Default::default()
+        };
         // Only test if we can determine the path
         if AppSettings::settings_path().is_some() {
             let save_result = original.save();
@@ -212,18 +216,20 @@ mod tests {
 
     #[test]
     fn settings_extended_roundtrip_json() {
-        let mut s = AppSettings::default();
-        s.export_format = Some("obj".to_string());
-        s.depth_brightness = Some(1.2);
-        s.depth_contrast = Some(0.8);
-        s.depth_gamma = Some(2.2);
-        s.depth_invert = Some(true);
-        s.depth_min_mm = Some(3.0);
-        s.depth_max_mm = Some(8.0);
-        s.window_width = Some(1200);
-        s.window_height = Some(800);
-        s.target_width_mm = Some(50.0);
-        s.target_height_mm = Some(70.0);
+        let s = AppSettings {
+            export_format: Some("obj".to_string()),
+            depth_brightness: Some(1.2),
+            depth_contrast: Some(0.8),
+            depth_gamma: Some(2.2),
+            depth_invert: Some(true),
+            depth_min_mm: Some(3.0),
+            depth_max_mm: Some(8.0),
+            window_width: Some(1200),
+            window_height: Some(800),
+            target_width_mm: Some(50.0),
+            target_height_mm: Some(70.0),
+            ..Default::default()
+        };
 
         let json = serde_json::to_string_pretty(&s).unwrap();
         let loaded: AppSettings = serde_json::from_str(&json).unwrap();
@@ -263,12 +269,14 @@ mod tests {
     #[test]
     fn settings_curve_control_points_roundtrip() {
         use crate::depth_adjust::CurvePoint;
-        let mut s = AppSettings::default();
-        s.curve_control_points = Some(vec![
-            CurvePoint { x: 0.0, y: 0.0 },
-            CurvePoint { x: 0.5, y: 0.25 },
-            CurvePoint { x: 1.0, y: 1.0 },
-        ]);
+        let s = AppSettings {
+            curve_control_points: Some(vec![
+                CurvePoint { x: 0.0, y: 0.0 },
+                CurvePoint { x: 0.5, y: 0.25 },
+                CurvePoint { x: 1.0, y: 1.0 },
+            ]),
+            ..AppSettings::default()
+        };
         let json = serde_json::to_string(&s).unwrap();
         let loaded: AppSettings = serde_json::from_str(&json).unwrap();
         let pts = loaded.curve_control_points.as_ref().unwrap();

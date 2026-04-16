@@ -165,9 +165,11 @@ mod tests {
     #[test]
     fn command_execute_undo_restores_state() {
         let initial = DepthAdjustmentParams::default();
-        let mut modified = DepthAdjustmentParams::default();
-        modified.brightness = 0.25;
-        modified.gamma = 1.5;
+        let modified = DepthAdjustmentParams {
+            brightness: 0.25,
+            gamma: 1.5,
+            ..DepthAdjustmentParams::default()
+        };
 
         let cmd = SetDepthParamsCommand {
             previous: initial.clone(),
@@ -223,10 +225,14 @@ mod tests {
     fn undo_redo_roundtrip() {
         let mut hist = UndoRedoHistory::new();
         let a = DepthAdjustmentParams::default();
-        let mut b = DepthAdjustmentParams::default();
-        b.brightness = 0.2;
-        let mut c = DepthAdjustmentParams::default();
-        c.brightness = 0.4;
+        let b = DepthAdjustmentParams {
+            brightness: 0.2,
+            ..DepthAdjustmentParams::default()
+        };
+        let c = DepthAdjustmentParams {
+            brightness: 0.4,
+            ..DepthAdjustmentParams::default()
+        };
 
         hist.push(UndoableCommand::Depth(SetDepthParamsCommand {
             previous: a.clone(),
@@ -262,8 +268,10 @@ mod tests {
     fn push_clears_redo() {
         let mut hist = UndoRedoHistory::new();
         let a = DepthAdjustmentParams::default();
-        let mut b = DepthAdjustmentParams::default();
-        b.brightness = 0.1;
+        let b = DepthAdjustmentParams {
+            brightness: 0.1,
+            ..DepthAdjustmentParams::default()
+        };
         hist.push(UndoableCommand::Depth(SetDepthParamsCommand {
             previous: a.clone(),
             new: b.clone(),
@@ -271,8 +279,10 @@ mod tests {
         let cmd = hist.pop_undo().unwrap();
         hist.push_redo(cmd);
         assert!(hist.can_redo());
-        let mut c = DepthAdjustmentParams::default();
-        c.brightness = 0.2;
+        let c = DepthAdjustmentParams {
+            brightness: 0.2,
+            ..DepthAdjustmentParams::default()
+        };
         hist.push(UndoableCommand::Depth(SetDepthParamsCommand {
             previous: b.clone(),
             new: c.clone(),
