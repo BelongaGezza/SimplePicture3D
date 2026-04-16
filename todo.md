@@ -1,9 +1,23 @@
 # SimplePicture3D - Development TODO & Sprint Planning
 
 **Version:** 2.0
-**Last Updated:** April 8, 2026
+**Last Updated:** April 16, 2026
 **Repository:** https://github.com/[org]/SimplePicture3D
 **Project Board:** GitHub Projects (Kanban)
+
+**System Architect review (2026-04-16):** Development status through **Sprint 2.6 planning** is reconciled below with the repository (presets, depth progress streaming, masking QA gate, ADR-011 volumetric track, `SPRINTS/Sprint_2_6/SPRINT_2_6_Task_Assignment.md`). Sprint 2.6 **implementation work has not started**; execution remains **gated** on Sprint 2.5 manual QA sign-off (or documented Architect waiver).
+
+---
+
+## Priority TODO (next actions)
+
+Ordered by **program priority** (Architect recommendation, 2026-04-16):
+
+1. **[P0 — Sprint 2.5 gate]** **Quality Engineer:** Re-run manual cases **QA-1201–QA-1203** on **Windows** (`npm run tauri dev`); confirm mask overlay, brush hit-testing (including **zoom**), and depth isolation after the depth-preview coordinate fix; update `SPRINTS/Sprint_2_5/MANUAL_TEST_REPORT.md` and sign `SPRINTS/Sprint_2_5/VERIFICATION_CHECKLIST.md` when passing.
+
+2. **[P1 — Sprint 2.6 start]** **Program / agents:** Open `SPRINTS/Sprint_2_6/SPRINT_2_6_Task_Assignment.md` and claim roles **only after** Sprint 2.5 checklist is signed (or an Architect **waiver** is documented). Do not begin BACK/UI/JR1/QA-150x implementation before the gate.
+
+3. **[P2 — QA backlog]** Schedule or explicitly **defer** per sprint (with date in this file or the sprint folder): **QA-1101–QA-1103** (Sprint 2.1), **QA-1401** (Sprint 2.2), **QA-1301–QA-1303** (Sprint 2.3), **QA-304-STREAM** (Sprint 2.4).
 
 ---
 
@@ -30,6 +44,7 @@
 ---
 
 ## Table of Contents
+0. [Priority TODO (next actions)](#priority-todo-next-actions)
 1. [Sprint Creation Process](#sprint-creation-process)
 2. [Phase Overview](#phase-overview)
 3. [Team Roles & Responsibilities](#team-roles--responsibilities)
@@ -898,24 +913,24 @@ For the **crystal volumetric / pseudo-3D point cloud** track, **RESEARCH/archite
 
 **Goal:** Polish user experience with advanced controls, presets, and improved workflow.
 
-**Recommended sequencing (Consultant_Review_1Mar2026 §6):** Sprint 2.2 ✅ delivered (Undo/Redo, curve persistence, state ADR, Wireframe/Solid). Sprint 2.3 = Presets (ready to begin — undo foundation in place). Sprint 2.4 = Progress streaming (do not defer; highest UX priority). Sprint 2.5 = Masking (confirm ADR-010 covers mask state before sprint begins). Sprint 2.6 = Enhanced 3D + A11y polish. Sprint 2.7 = Material Presets. Sprint 2.8 = Async export (reuse Sprint 2.4 async-command pattern).
+**Recommended sequencing (Consultant_Review_1Mar2026 §6) — reconciled 2026-04-16:** Sprint 2.2 ✅ delivered. **Sprint 2.3 (Presets)** ✅ **as-built** (`save_preset` / `load_preset`, `list_presets`, `PresetManager.svelte`, built-ins). **Sprint 2.4 (Progress streaming)** ✅ **as-built** (Python stderr → Tauri `depth-progress` events; determinate bar in `App.svelte`). **Sprint 2.5 (Masking)** — Rust/UI implementation ✅ per `SPRINTS/Sprint_2_5/VERIFICATION_CHECKLIST.md`; **manual QA-1201 failed 2026-03-14** (P0: mask appeared to have no effect). **2026-04-16:** `DepthMapPreview.svelte` fix maps pointer coordinates using the **zoom factor** (CSS `scale(zoom)` skews `getBoundingClientRect()` — likely root cause of broken mask overlay / hit testing). **Re-run QA-1201–QA-1203** before closing Sprint 2.5. **Sprint 2.6 (Enhanced 3D Preview)** — **planning complete** (`SPRINTS/Sprint_2_6/SPRINT_2_6_Task_Assignment.md`); **implementation not started**; **do not start** until Sprint 2.5 is signed off (or Architect waiver). Sprint 2.7+ per roadmap.
 
-**⚠️ STUCK AT SPRINT 2.5 — Do not start Sprint 2.6 until resolved.** Manual test Case 1 (QA-1201) failed 2026-03-14: **P0 — mask has no visible effect** (brush mask, overlay, and depth isolation do not work). Sprint 2.5 is deferred until this is fixed.
+**⚠️ Gate — Sprint 2.5 manual QA:** Do **not** treat Sprint 2.5 as closed or start Sprint 2.6 execution until QA-1201–QA-1203 pass (or waiver). Prior P0: see `SPRINTS/Sprint_2_5/MANUAL_TEST_REPORT.md`.
 
 **Next steps (Sprint 2.5):**
-1. **Fix P0:** Debug and fix mask pipeline so brush strokes are visible, mask overlay shows, and depth adjustments apply only to masked regions. See `SPRINTS/Sprint_2_5/MANUAL_TEST_REPORT.md` and `VERIFICATION_CHECKLIST.md`.
-2. **Re-run manual tests:** After fix, run `npm run tauri dev` and execute all three manual cases in `SPRINTS/Sprint_2_5/TEST_PLAN_2_5.md` §3.2 (Cases 1–3); record Actual result / Pass-Fail in `SPRINTS/Sprint_2_5/MANUAL_TEST_REPORT.md`.
-3. **Close Sprint 2.5:** When QA-1201–QA-1203 pass, complete `SPRINTS/Sprint_2_5/VERIFICATION_CHECKLIST.md` and sign off. Only then may Sprint 2.6 begin.
+1. **Re-verify P0:** Run `npm run tauri dev`; confirm mask overlay and brush hit-testing with **zoom**; confirm depth isolation. Update `MANUAL_TEST_REPORT.md`.
+2. **Complete Cases 2–3** when Case 1 passes: `SPRINTS/Sprint_2_5/TEST_PLAN_2_5.md` §3.2.
+3. **Close Sprint 2.5:** Sign `SPRINTS/Sprint_2_5/VERIFICATION_CHECKLIST.md`; then Sprint 2.6 may begin.
 
-**Phase 2 security (SEC-202):** SHA256 model download verification remains unconfirmed at Sprint 2.2 close. **Security Specialist must verify implementation before Sprint 2.4** (Consultant_Review_1Mar2026 §3.1, action item #1). Either confirm SHA256 check exists and document the trusted checksum source, or raise as a new security task. See RESEARCH/architecture.md ADR-003.
+**Phase 2 security (SEC-202):** ✅ **Implemented in codebase** — `python/python/model_downloader.py` verifies **SHA256** against `expected_model_hashes.json` (trusted source in repo). **Security Specialist** should still record formal sign-off in sprint/security notes when convenient. See ADR-003.
 
-**Exit Criteria:**
+**Exit Criteria (Phase 2 — full phase, not Sprint 2.6 only):**
 - ✅ Advanced mode toggle functional with all controls
 - ✅ Preset system implemented (save/load/import/export)
 - ✅ Undo/redo system working for all mutable actions
-- ✅ Enhanced 3D preview (lighting, measurements, cross-section)
-- ✅ 90% user satisfaction rating from beta testers
-- ✅ Performance maintained or improved
+- ⏳ **Enhanced 3D preview** (lighting, measurements, cross-section, screenshot) — **Sprint 2.6** (`SPRINT_2_6_Task_Assignment.md`); not delivered as of 2026-04-16
+- ⏳ 90% user satisfaction rating from beta testers — **deferred** until beta program
+- ⏳ Performance maintained or improved — **ongoing**
 
 ---
 
@@ -1068,10 +1083,12 @@ For the **crystal volumetric / pseudo-3D point cloud** track, **RESEARCH/archite
 
 ### Sprint 2.3: Presets & Templates System (2 weeks)
 
+**Status (2026-04-16):** **Delivered in repository** — see `src-tauri/src/preset.rs`, `lib.rs` preset commands, `src/components/PresetManager.svelte`. Checkbox cleanup below aligns `todo.md` with as-built.
+
 **Pre-Sprint 2.3 actions required (Consultant_Review_1Mar2026 §8):**
-- [ ] **SEC-202:** Security Specialist verifies SHA256 model download checksum is implemented before Sprint 2.4
-- [ ] **QA-PROCESS:** Architect decides: manual QA is blocking (sprint exit gate) or non-blocking (48h post-sprint window with named tester). Apply decision from Sprint 2.3 onward.
-- [ ] **QA-1401-EXEC:** Quality Engineer executes QA-1401 manual test cases (6 cases + regression) for Sprint 2.2 sign-off
+- [x] **SEC-202:** SHA256 verification implemented (`python/python/model_downloader.py` + `expected_model_hashes.json`); formal Security sign-off optional
+- [x] **QA-PROCESS:** **Decision (2026-04-16):** Manual cases in `VERIFICATION_CHECKLIST.md` / `MANUAL_TEST_REPORT.md` remain the **formal sprint sign-off** for UX-critical features; where a human tester is unavailable, record **Deferred** with date. Automated `cargo test` / `npm test` / `clippy` remain **merge gates** every sprint.
+- [ ] **QA-1401-EXEC:** Quality Engineer executes QA-1401 manual test cases (6 cases + regression) for Sprint 2.2 sign-off *(still backlog if not executed)*
 - [ ] **CURVE-UNDO-VERIFY:** Senior Engineer confirms curve control point mutations create `SetDepthParamsCommand` history entries (not only persisted via AppSettings write)
 - [ ] **ADR-008-COMMIT:** Confirm RESEARCH/architecture.md ADR-008 winding order fix is committed (not just in working tree)
 - [ ] **DOC-CLEANUP:** Documentation Specialist verifies prd.md §F1.6 stl_io and diagram labels — two items from 28 Feb report listed as done in v1.5 but §5.1 tech stack was missed (now fixed in v1.6)
@@ -1081,24 +1098,24 @@ For the **crystal volumetric / pseudo-3D point cloud** track, **RESEARCH/archite
 #### Tasks
 
 **Senior Engineer:**
-- [ ] **BACK-1301:** Define preset JSON schema (depth settings, mesh params)
-- [ ] **BACK-1302:** Implement save_preset / load_preset commands
-- [ ] **BACK-1303:** Built-in presets: Portrait, Landscape, High Detail, Low Relief
-- [ ] **BACK-1304:** Import/export presets (file dialog)
+- [x] **BACK-1301:** Define preset JSON schema (depth settings, mesh params)
+- [x] **BACK-1302:** Implement save_preset / load_preset commands
+- [x] **BACK-1303:** Built-in presets: Portrait, Landscape, High Detail, Low Relief
+- [x] **BACK-1304:** Import/export presets (file dialog)
 
 **UI Specialist:**
-- [ ] **UI-1301:** Create PresetManager component (list, rename, delete)
-- [ ] **UI-1302:** Save/Load preset buttons in depth controls
-- [ ] **UI-1303:** Preset dropdown in toolbar
-- [ ] **UI-1304:** Import/export preset dialogs
+- [x] **UI-1301:** Create PresetManager component (list, rename, delete)
+- [x] **UI-1302:** Save/Load preset buttons in depth controls
+- [x] **UI-1303:** Preset dropdown in toolbar
+- [x] **UI-1304:** Import/export preset dialogs
 
 **Junior Engineer #2:**
-- [ ] **JR2-1301:** Write unit tests for preset serialization
-- [ ] **JR2-1302:** Test import/export with invalid JSON
-- [ ] **JR2-1303:** Versioned schema migration (future-proofing)
+- [x] **JR2-1301:** Write unit tests for preset serialization
+- [x] **JR2-1302:** Test import/export with invalid JSON
+- [x] **JR2-1303:** Versioned schema migration (future-proofing)
 
 **Quality Engineer:**
-- [ ] **QA-1301:** Manual test: save preset, load in new image
+- [ ] **QA-1301:** Manual test: save preset, load in new image *(procedure exists; execution backlog)*
 - [ ] **QA-1302:** Test built-in presets on various images
 - [ ] **QA-1303:** Test preset import from external file
 
@@ -1112,19 +1129,21 @@ For the **crystal volumetric / pseudo-3D point cloud** track, **RESEARCH/archite
 
 ### Sprint 2.4: Progress Streaming for Depth Estimation (2 weeks)
 
+**Status (2026-04-16):** **Delivered in repository** — `Emitter` + `depth-progress` in `lib.rs` / bridge; `App.svelte` subscribes and shows determinate progress (`UI-304`). Reuse for Sprint 2.8 export async pattern still applies.
+
 **Sprint Goal:** Close the 5-minute UX gap: stream depth estimation progress from Python stderr to frontend. Still the #1 UX priority entering Phase 2's second half — do not defer further (Consultant_Review_1Mar2026 §3.2, action item #7). Sprint 2.4 async-command pattern should be designed for reuse in Sprint 2.8 (export blocking).
 
 #### Tasks
 
 **Senior Engineer:**
-- [ ] **BACK-205-STREAM:** Convert Python stderr reader to background thread; emit Tauri events (`tauri::Emitter`) on each `PROGRESS` line
-- [ ] **BACK-205-IPC:** Frontend listens for progress events; update `depthEstimating` and show percentage (no longer hardcoded 100)
+- [x] **BACK-205-STREAM:** Convert Python stderr reader to background thread; emit Tauri events (`tauri::Emitter`) on each `PROGRESS` line
+- [x] **BACK-205-IPC:** Frontend listens for progress events; update `depthEstimating` and show percentage (no longer hardcoded 100)
 
 **UI Specialist:**
-- [ ] **UI-304:** Progress bar shows real percentage during depth estimation (not just spinner)
+- [x] **UI-304:** Progress bar shows real percentage during depth estimation (not just spinner)
 
 **Quality Engineer:**
-- [ ] **QA-304-STREAM:** Manual test: 4K image depth run shows increasing % on CPU
+- [ ] **QA-304-STREAM:** Manual test: 4K image depth run shows increasing % on CPU *(backlog)*
 
 #### Exit Criteria
 - ✅ User sees progress percentage during depth estimation (not silent 5-min wait for 4K)
@@ -1136,20 +1155,20 @@ For the **crystal volumetric / pseudo-3D point cloud** track, **RESEARCH/archite
 
 **Sprint Goal:** Enable selective depth adjustments via masking tools (depends on Sprint 2.2 undo/redo).
 
-**⚠️ Status: BLOCKED (as of 2026-03-14).** Implementation and automated gate are complete, but manual test Case 1 **FAILED**: mask has no visible effect (brush, overlay, depth isolation). **We are stuck at Sprint 2.5** until P0 is fixed. Next steps: (1) Fix P0 mask pipeline, (2) Re-run manual Cases 1–3 and record results, (3) Close sprint via VERIFICATION_CHECKLIST.md. Do not start Sprint 2.6 until Sprint 2.5 is closed. See `SPRINTS/Sprint_2_5/MANUAL_TEST_REPORT.md`, `SPRINTS/Sprint_2_5/VERIFICATION_CHECKLIST.md`, and Phase 2 "Next steps (Sprint 2.5)" above.
+**⚠️ Status (2026-04-16):** **PENDING MANUAL RE-VERIFICATION.** Implementation + automated gate ✅ per `SPRINTS/Sprint_2_5/VERIFICATION_CHECKLIST.md`. **QA-1201 failed 2026-03-14** (mask had no visible effect). **Likely fix merged:** `DepthMapPreview.svelte` — pointer-to-pixel mapping uses **zoom** (not scaled `getBoundingClientRect()` dimensions). **Quality Engineer:** re-run Cases 1–3; update `MANUAL_TEST_REPORT.md`; then close checklist. **Sprint 2.6 execution** remains gated until this sign-off (or Architect waiver).
 
 #### Tasks
 
 **Senior Engineer:**
-- [ ] **BACK-1201:** Implement mask data structure (2D boolean array)
-- [ ] **BACK-1202:** Apply adjustments to masked regions only
-- [ ] **BACK-1203:** Blend masked and unmasked regions (feathering)
+- [x] **BACK-1201:** Implement mask data structure (2D boolean array)
+- [x] **BACK-1202:** Apply adjustments to masked regions only
+- [x] **BACK-1203:** Blend masked and unmasked regions (feathering)
 
 **UI Specialist:**
-- [ ] **UI-1201:** Create MaskingTools component (brush, eraser, select)
-- [ ] **UI-1202:** Canvas-based mask painting
-- [ ] **UI-1203:** Mask opacity overlay on depth preview
-- [ ] **UI-1204:** Brush size/hardness controls
+- [x] **UI-1201:** Create MaskingTools component (brush, eraser, select)
+- [x] **UI-1202:** Canvas-based mask painting
+- [x] **UI-1203:** Mask opacity overlay on depth preview
+- [x] **UI-1204:** Brush size/hardness controls
 
 **Junior Engineer #1:**
 - [x] **JR1-1201:** Implement brush stroke smoothing (interpolation)
@@ -1157,7 +1176,7 @@ For the **crystal volumetric / pseudo-3D point cloud** track, **RESEARCH/archite
 - [x] **JR1-1203:** Mask save/load functionality
 
 **Quality Engineer:**
-- [ ] **QA-1201:** Manual test: paint mask, adjust depth, verify isolation
+- [ ] **QA-1201:** Manual test: paint mask, adjust depth, verify isolation *(re-run after 2026-04-16 preview fix)*
 - [ ] **QA-1202:** Test mask feathering (soft edges)
 - [ ] **QA-1203:** Test undo/redo with masking
 
@@ -1170,6 +1189,8 @@ For the **crystal volumetric / pseudo-3D point cloud** track, **RESEARCH/archite
 ---
 
 ### Sprint 2.6: Enhanced 3D Preview (2 weeks)
+
+**Architect status (2026-04-16):** **Not started** — full tasking in `SPRINTS/Sprint_2_6/SPRINT_2_6_Task_Assignment.md` (BACK-150x, UI-150x, JR1-150x, QA-150x). **Pre-sprint gate:** Sprint 2.5 `VERIFICATION_CHECKLIST.md` signed (or waiver). **Phase 2 exit criteria** below still list “Enhanced 3D preview” — this sprint is the **planned** delivery vehicle; it is **not** complete yet.
 
 **Sprint Goal:** Improve 3D visualization with lighting, measurements, cross-sections.
 
@@ -1206,6 +1227,8 @@ For the **crystal volumetric / pseudo-3D point cloud** track, **RESEARCH/archite
 ---
 
 ### Sprint 2.6: UI Polish & Beta Feedback Iteration (2 weeks)
+
+**Architectural note (2026-04-16):** This subsection **duplicates the sprint number “2.6”** with **Enhanced 3D Preview** above. **Canonical Sprint 2.6 scope** for Phase 2 sequencing is **`SPRINT_2_6_Task_Assignment.md`** (F2.5 / preview). Treat this **UI Polish & Beta** block as a **separate backlog slice** (rename to a future sprint ID, e.g. 2.9, in a future doc scrub) — do not merge acceptance criteria with Enhanced 3D Preview.
 
 **Sprint Goal:** Refine UI based on beta tester feedback, fix UX issues.
 
@@ -1952,9 +1975,9 @@ Coverage:  tarpaulin XML + pytest-cov XML (advisory — continue-on-error: true)
 
 ---
 
-## Technical Debt Register (updated 2026-03-01)
+## Technical Debt Register (updated 2026-04-16)
 
-See **Consultant_Review_1Mar2026.md §5** for full narrative. Status as at Sprint 2.2 close:
+See **Consultant_Review_1Mar2026.md §5** for full narrative. Status as at **Sprint 2.6 planning** (architect review):
 
 | ID | Area | Issue | Status | Scheduled / Action |
 |----|------|--------|--------|--------------------|
@@ -1965,9 +1988,9 @@ See **Consultant_Review_1Mar2026.md §5** for full narrative. Status as at Sprin
 | TD-05 | Cross-platform | macOS/Linux manual testing | Partially addressed — MACOS_SMOKE.md plan committed | Phase 3 / Sprint 3.1 |
 | TD-06 | Security | Export path TOCTOU write-test pattern | Open | Phase 3 |
 | TD-07 | Python distribution | System Python end-user friction (ONNX migration) | Open | Phase 4 scope decision |
-| TD-08 | Rust | lib.rs coverage gap grows with each sprint's new Tauri handlers; business logic not extracted | **Escalating** | Sprint 2.3 or 2.4 (Senior Engineer) |
-| TD-09 | Frontend | A11y warnings in CurvesTool.svelte (interactive SVG drag handles) | New | Sprint 2.6 UX polish pass |
-| TD-10 | QA process | Manual QA structurally deferred at every sprint close — procedure documented but never executed | **Structural concern** | Architecture decision required before Sprint 2.3 (see Consultant_Review_1Mar2026 §2.6 §4.5) |
+| TD-08 | Rust | lib.rs coverage gap grows with each sprint's new Tauri handlers; business logic not extracted | **Escalating** | Next refactor window (Senior Engineer); Sprints 2.3–2.4 delivered features increased surface |
+| TD-09 | Frontend | A11y warnings in CurvesTool.svelte (interactive SVG drag handles) | Open | Sprint 2.6 scope (`SPRINT_2_6_Task_Assignment.md`) + UI polish backlog |
+| TD-10 | QA process | Manual QA often lags automated gates | **Mitigated (policy)** | **QA-PROCESS decision (2026-04-16):** formal `VERIFICATION_CHECKLIST` sign-off where listed; explicit **Deferred** when no tester — backlog items (QA-1101, QA-1401, QA-130x, QA-304-STREAM) tracked in this file |
 
 ---
 
