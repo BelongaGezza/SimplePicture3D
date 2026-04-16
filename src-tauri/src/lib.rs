@@ -1442,8 +1442,8 @@ mod tests {
         mask.set(1, 0, true); // only center masked
         let out = apply_adjustments_with_mask(&depth, 3, 1, &params, Some(&mask));
         // With feather, center is blended (between original 0.5 and adjusted 1.0)
-        assert!(out[1] >= 0.5 && out[1] <= 1.0, "center should be blended");
-        assert!(out.iter().all(|&v| v >= 0.0 && v <= 1.0), "output in [0,1]");
+        assert!((0.5..=1.0).contains(&out[1]), "center should be blended");
+        assert!(out.iter().all(|&v| (0.0..=1.0).contains(&v)), "output in [0,1]");
     }
 
     /// JR2-202: When Python exits non-zero (e.g. invalid image), Rust returns Err without panic.
