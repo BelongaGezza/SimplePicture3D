@@ -85,12 +85,21 @@
     ctx.putImageData(imageData, 0, 0);
   }
 
-  /** Map client coords to depth-map pixel. Returns [px, py] or null if out of bounds. */
+  /**
+   * Map client coords to depth-map pixel. Returns [px, py] or null if out of bounds.
+   * P0-MASK FIX: Use zoom variable directly instead of deriving from rect dimensions.
+   * The CSS transform `scale(zoom)` affects getBoundingClientRect(), but we need
+   * to convert visual coords to logical depth-map pixels using the known zoom factor.
+   */
   function clientToDepth(clientX: number, clientY: number): [number, number] | null {
     if (!zoomPanDiv || width <= 0 || height <= 0) return null;
     const rect = zoomPanDiv.getBoundingClientRect();
-    const x = ((clientX - rect.left) / rect.width) * width;
-    const y = ((clientY - rect.top) / rect.height) * height;
+    // Position relative to the visual (transformed) element
+    const relX = clientX - rect.left;
+    const relY = clientY - rect.top;
+    // Convert from visual coords to depth-map pixels using the known zoom factor
+    const x = relX / zoom;
+    const y = relY / zoom;
     if (x < 0 || x >= width || y < 0 || y >= height) return null;
     return [Math.floor(x), Math.floor(y)];
   }

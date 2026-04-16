@@ -9,6 +9,7 @@
 use anyhow::{Context, Result};
 use std::io::Write;
 use std::path::Path;
+use std::str::FromStr;
 
 use crate::blank_envelope::BlankEnvelope;
 
@@ -32,14 +33,17 @@ impl ExportFormat {
             ExportFormat::Csv => "csv",
         }
     }
+}
 
-    /// Parse format from string.
-    pub fn from_str(s: &str) -> Option<Self> {
+impl FromStr for ExportFormat {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "ply" => Some(ExportFormat::Ply),
-            "xyz" => Some(ExportFormat::Xyz),
-            "csv" => Some(ExportFormat::Csv),
-            _ => None,
+            "ply" => Ok(ExportFormat::Ply),
+            "xyz" => Ok(ExportFormat::Xyz),
+            "csv" => Ok(ExportFormat::Csv),
+            _ => Err(()),
         }
     }
 }
@@ -288,11 +292,7 @@ mod tests {
     use std::io::Cursor;
 
     fn sample_points() -> Vec<[f32; 3]> {
-        vec![
-            [0.0, 0.0, 0.0],
-            [10.0, 5.0, 3.0],
-            [5.5, 2.5, 1.5],
-        ]
+        vec![[0.0, 0.0, 0.0], [10.0, 5.0, 3.0], [5.5, 2.5, 1.5]]
     }
 
     fn sample_metadata() -> ExportMetadata {
@@ -384,11 +384,11 @@ mod tests {
 
     #[test]
     fn export_format_from_str() {
-        assert_eq!(ExportFormat::from_str("ply"), Some(ExportFormat::Ply));
-        assert_eq!(ExportFormat::from_str("PLY"), Some(ExportFormat::Ply));
-        assert_eq!(ExportFormat::from_str("xyz"), Some(ExportFormat::Xyz));
-        assert_eq!(ExportFormat::from_str("csv"), Some(ExportFormat::Csv));
-        assert_eq!(ExportFormat::from_str("stl"), None);
+        assert_eq!("ply".parse(), Ok(ExportFormat::Ply));
+        assert_eq!("PLY".parse(), Ok(ExportFormat::Ply));
+        assert_eq!("xyz".parse(), Ok(ExportFormat::Xyz));
+        assert_eq!("csv".parse(), Ok(ExportFormat::Csv));
+        assert_eq!(ExportFormat::from_str("stl"), Err(()));
     }
 
     #[test]

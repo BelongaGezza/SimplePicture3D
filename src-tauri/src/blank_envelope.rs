@@ -173,7 +173,10 @@ pub fn compute_bbox(points: &[[f32; 3]]) -> Option<([f32; 3], [f32; 3])> {
 /// # Returns
 /// * `Ok(FitResult)` - Transformation applied successfully
 /// * `Err(String)` - Invalid envelope or empty point cloud
-pub fn fit_to_blank(points: &mut [[f32; 3]], envelope: &BlankEnvelope) -> Result<FitResult, String> {
+pub fn fit_to_blank(
+    points: &mut [[f32; 3]],
+    envelope: &BlankEnvelope,
+) -> Result<FitResult, String> {
     // Validate envelope
     envelope.validate()?;
 
@@ -320,11 +323,7 @@ mod tests {
     #[test]
     fn fit_to_blank_simple() {
         // Points spanning 0..100 in X, 0..50 in Y, 0..25 in Z
-        let mut points = vec![
-            [0.0, 0.0, 0.0],
-            [100.0, 50.0, 25.0],
-            [50.0, 25.0, 12.5],
-        ];
+        let mut points = vec![[0.0, 0.0, 0.0], [100.0, 50.0, 25.0], [50.0, 25.0, 12.5]];
 
         let envelope = BlankEnvelope::new(80.0, 50.0, 50.0, 2.0);
         // Interior: 76 x 46 x 46

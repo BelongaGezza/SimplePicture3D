@@ -113,8 +113,8 @@ pub fn generate_volumetric_points(
     envelope.validate()?;
 
     // Calculate grid dimensions
-    let num_cols = (width + params.step_x - 1) / params.step_x;
-    let num_rows = (height + params.step_y - 1) / params.step_y;
+    let num_cols = width.div_ceil(params.step_x);
+    let num_rows = height.div_ceil(params.step_y);
 
     // Working space dimensions (before fitting)
     // We'll generate points in a normalized space, then fit to blank
@@ -159,7 +159,7 @@ pub fn generate_volumetric_points(
             }
 
             // Always include the front surface point
-            if points.last().map_or(true, |p| (p[2] - front_z).abs() > 0.001) {
+            if points.last().is_none_or(|p| (p[2] - front_z).abs() > 0.001) {
                 points.push([x_mm, y_mm, front_z]);
             }
         }
@@ -192,8 +192,8 @@ pub fn estimate_point_count(
     params: &VolumetricParams,
     envelope: &BlankEnvelope,
 ) -> usize {
-    let num_cols = (width + params.step_x - 1) / params.step_x;
-    let num_rows = (height + params.step_y - 1) / params.step_y;
+    let num_cols = width.div_ceil(params.step_x);
+    let num_rows = height.div_ceil(params.step_y);
     let avg_depth = (params.depth_max - params.depth_min) / 2.0;
     let work_depth = envelope.interior_height();
     let points_per_column = (avg_depth * work_depth / params.z_spacing_mm) as usize + 1;

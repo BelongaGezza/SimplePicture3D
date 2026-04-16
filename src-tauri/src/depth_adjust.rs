@@ -425,7 +425,11 @@ mod tests {
         let out_low = apply_adjustments(&depth, &params_low);
         let out_high = apply_adjustments(&depth, &params_high);
         for &v in out_low.iter().chain(out_high.iter()) {
-            assert!((0.0..=1.0).contains(&v), "output must be in [0,1], got {}", v);
+            assert!(
+                (0.0..=1.0).contains(&v),
+                "output must be in [0,1], got {}",
+                v
+            );
             assert!(!v.is_nan());
         }
         assert_eq!(out_low[0], 0.0);
