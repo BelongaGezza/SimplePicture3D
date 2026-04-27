@@ -42,14 +42,14 @@ SimplePicture3D is a Tauri desktop application with a Rust backend, **Svelte 4**
 │  └─────────────────────────────────────────────────────────────┘ │
 │  ┌─────────────────────────────────────────────────────────────┐ │
 │  │  Python Bridge (subprocess)                                  │ │
-│  │  Spawns Python child; image via temp file; depth map stdout  │ │
+│  │  Spawns Python child; normalized PNG temp file; JSON stdout  │ │
 │  └─────────────────────────────────────────────────────────────┘ │
 └───────────────────┬───────────────────────────────────────────────┘
                     │ subprocess (temp file → stdout)
 ┌───────────────────▼───────────────────────────────────────────────┐
 │                     Python AI Backend                             │
-│  • Depth-Anything-V2 / MiDaS (PyTorch)                            │
-│  • Input: Image (temp file path); Output: Depth map (JSON)       │
+│  • Python fallback or Depth-Anything-V2 / MiDaS (local-only AI)  │
+│  • Input: RGB PNG temp file path; Output: Depth map (JSON)       │
 └───────────────────────────────────────────────────────────────────┘
 ```
 
@@ -77,11 +77,11 @@ SimplePicture3D is a Tauri desktop application with a Rust backend, **Svelte 4**
 ### Pipeline Steps
 
 1. **Load image** (Frontend → Rust): File picker → `load_image` Tauri command
-2. **Validate** (Rust): Format, dimensions, downsample if >8K
-3. **Depth estimation** (Rust → Python): Image bytes → subprocess → depth map
-4. **Depth processing** (Rust): Invert → gamma → contrast → brightness → curve (Sprint 2.1); optional histogram for UI
+2. **Validate and normalize** (Rust): Format, dimensions, downsample if >8K, convert to RGB PNG
+3. **Depth estimation** (Rust → Python): Normalized temp PNG → selected backend (`python` fallback or `ai` model) → depth map
+4. **Depth processing** (Rust): Invert → gamma → contrast → brightness → curve (Sprint 2.1); optional masked/feathered blend and histogram for UI
 5. **Mesh generation** (Rust): Depth map → point cloud / triangulated mesh
-6. **Preview** (Frontend): Vertex data → Three.js BufferGeometry
+6. **Preview** (Frontend): Vertex data → Three.js BufferGeometry; reloads automatically after depth/mask/adjustment changes
 7. **Export** (Rust): STL/OBJ to user-selected path
 
 ---
@@ -118,7 +118,7 @@ SimplePicture3D is a Tauri desktop application with a Rust backend, **Svelte 4**
 | Command           | Input                 | Output              |
 |-------------------|-----------------------|---------------------|
 | `load_image`      | File path             | Image metadata (width, height, fileSizeBytes, downsampled) + base64 preview PNG for UI |
-| `generate_depth_map` | Image path (string) | `{ width, height, depth: number[], progress?, stages? }` or error (see § Sprint 1.4 command contract) |
+| `generate_depth_map` | Image path (string), optional `backend: "python" \| "ai"` | `{ width, height, depth: number[], progress?, stages? }` or error (see § Sprint 1.4 command contract) |
 | `get_depth_map`   | —                     | Current depth map (adjusted by stored params) or `null` |
 | `get_depth_histogram` | —                  | 256-bin histogram of current adjusted depth (Sprint 2.1) |
 | `set_depth_adjustment_params` | `DepthAdjustmentParams` | — |
@@ -147,9 +147,10 @@ Adjustments are applied in the backend. **Order of operations:** invert → gamm
 
 ### Python Interface (Rust ↔ Python)
 
-- **Input:** Image via temp file path or stdin
-- **Output:** Depth map via stdout (JSON) or output file (binary)
-- **Spawn:** Shell plugin / sidecar; capabilities configured in Tauri v2
+- **Input:** Rust writes a validated/downsampled RGB PNG to a scoped temp file and passes the temp path to Python.
+- **Output:** Depth map via stdout (JSON); progress and errors use stderr.
+- **Backend selector:** `python` uses the deterministic local fallback (`--no-model`); `ai` requires a locally installed model (`--local-only`) and fails clearly if missing.
+- **Spawn:** Rust uses a subprocess with fixed arguments; capabilities configured in Tauri v2.
 
 ---
 

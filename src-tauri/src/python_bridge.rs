@@ -37,6 +37,37 @@ pub struct RunDepthResult {
     pub stderr_lines: Vec<String>,
 }
 
+/// Depth generation backend selected by the frontend.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DepthBackend {
+    /// Deterministic Python fallback. Uses `--no-model`; no AI model or network is needed.
+    Python,
+    /// AI model inference via Depth-Anything-V2. Requires the model/dependencies to be installed.
+    #[default]
+    Ai,
+}
+
+impl DepthBackend {
+    pub fn parse(value: Option<&str>) -> Result<Self> {
+        match value.unwrap_or("ai").trim().to_ascii_lowercase().as_str() {
+            "ai" | "model" | "depth-anything" | "depth_anything" => Ok(Self::Ai),
+            "python" | "stub" | "local" | "deterministic" => Ok(Self::Python),
+            other => anyhow::bail!(
+                "unknown depth backend '{}'; expected 'ai' or 'python'",
+                other
+            ),
+        }
+    }
+
+    fn cli_args(self) -> &'static [&'static str] {
+        match self {
+            Self::Python => &["--no-model"],
+            Self::Ai => &["--local-only"],
+        }
+    }
+}
+
 /// Parses progress protocol from stderr lines and logs at info (BACK-205). Lines: "PROGRESS 25", "STAGE inference".
 pub fn log_progress_from_stderr(lines: &[String]) {
     for line in lines {
@@ -86,6 +117,31 @@ mod tests {
         let lines = vec!["STAGE ".to_string(), "STAGE  ".to_string()];
         let stages = stages_from_stderr(&lines);
         assert!(stages.is_empty());
+    }
+
+    #[test]
+    fn depth_backend_parse_accepts_supported_values() {
+        assert_eq!(DepthBackend::parse(None).unwrap(), DepthBackend::Ai);
+        assert_eq!(DepthBackend::parse(Some("ai")).unwrap(), DepthBackend::Ai);
+        assert_eq!(
+            DepthBackend::parse(Some("python")).unwrap(),
+            DepthBackend::Python
+        );
+        assert_eq!(
+            DepthBackend::parse(Some("stub")).unwrap(),
+            DepthBackend::Python
+        );
+    }
+
+    #[test]
+    fn depth_backend_parse_rejects_unknown_value() {
+        assert!(DepthBackend::parse(Some("cloud")).is_err());
+    }
+
+    #[test]
+    fn depth_backend_cli_args_are_offline_safe() {
+        assert_eq!(DepthBackend::Python.cli_args(), &["--no-model"]);
+        assert_eq!(DepthBackend::Ai.cli_args(), &["--local-only"]);
     }
 }
 
@@ -148,7 +204,7 @@ pub fn run_depth_estimation_with_timeout(
     image_bytes: &[u8],
     timeout: Duration,
 ) -> Result<RunDepthResult> {
-    run_depth_estimation_inner(image_bytes, timeout, None)
+    run_depth_estimation_inner(image_bytes, timeout, None, DepthBackend::Python)
 }
 
 /// Runs depth estimation with optional real-time progress callback (BACK-205-STREAM).
@@ -159,7 +215,22 @@ pub fn run_depth_estimation_with_progress(
     timeout: Duration,
     progress_cb: Option<ProgressCb>,
 ) -> Result<RunDepthResult> {
-    run_depth_estimation_inner(image_bytes, timeout, progress_cb)
+    run_depth_estimation_with_progress_and_backend(
+        image_bytes,
+        timeout,
+        progress_cb,
+        DepthBackend::Python,
+    )
+}
+
+/// Runs depth estimation with explicit backend selection.
+pub fn run_depth_estimation_with_progress_and_backend(
+    image_bytes: &[u8],
+    timeout: Duration,
+    progress_cb: Option<ProgressCb>,
+    backend: DepthBackend,
+) -> Result<RunDepthResult> {
+    run_depth_estimation_inner(image_bytes, timeout, progress_cb, backend)
 }
 
 /// Inner implementation: optional progress callback; stderr is processed line-by-line in real time when callback is present.
@@ -167,6 +238,7 @@ fn run_depth_estimation_inner(
     image_bytes: &[u8],
     timeout: Duration,
     progress_cb: Option<ProgressCb>,
+    backend: DepthBackend,
 ) -> Result<RunDepthResult> {
     let temp_path = file_io::write_temp_file("img_", ".png", image_bytes)
         .context("write temp image for Python")?;
@@ -196,6 +268,9 @@ fn run_depth_estimation_inner(
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    for arg in backend.cli_args() {
+        cmd.arg(arg);
+    }
     let mut child = cmd
         .spawn()
         .context("failed to spawn Python (is Python 3.10+ on PATH or VIRTUAL_ENV set?)")?;

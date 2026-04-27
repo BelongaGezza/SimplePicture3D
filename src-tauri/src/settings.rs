@@ -23,6 +23,10 @@ pub struct AppSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub export_format: Option<String>,
 
+    /// Depth generation backend: "python" for deterministic local fallback, "ai" for model inference.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub depth_backend: Option<String>,
+
     /// Last-used depth adjustment params for session restore (BACK-805).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub depth_brightness: Option<f32>,
@@ -187,6 +191,7 @@ mod tests {
         let s = AppSettings::default();
         assert!(s.last_export_dir.is_none());
         assert!(s.export_format.is_none());
+        assert!(s.depth_backend.is_none());
         assert!(s.depth_brightness.is_none());
         assert!(s.depth_contrast.is_none());
         assert!(s.depth_gamma.is_none());
@@ -204,6 +209,7 @@ mod tests {
     fn settings_extended_roundtrip_json() {
         let mut s = AppSettings::default();
         s.export_format = Some("obj".to_string());
+        s.depth_backend = Some("python".to_string());
         s.depth_brightness = Some(1.2);
         s.depth_contrast = Some(0.8);
         s.depth_gamma = Some(2.2);
@@ -219,6 +225,7 @@ mod tests {
         let loaded: AppSettings = serde_json::from_str(&json).unwrap();
 
         assert_eq!(loaded.export_format.as_deref(), Some("obj"));
+        assert_eq!(loaded.depth_backend.as_deref(), Some("python"));
         assert_eq!(loaded.depth_brightness, Some(1.2));
         assert_eq!(loaded.depth_contrast, Some(0.8));
         assert_eq!(loaded.depth_gamma, Some(2.2));

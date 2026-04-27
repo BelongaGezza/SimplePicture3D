@@ -43,6 +43,7 @@ export interface ExportObjArgs {
 export interface AppSettings {
   lastExportDir?: string | null;
   exportFormat?: string | null;
+  depthBackend?: DepthBackend | null;
   depthBrightness?: number | null;
   depthContrast?: number | null;
   depthGamma?: number | null;
@@ -117,6 +118,9 @@ export interface DepthMapResult {
   stages?: string[];
 }
 
+/** Depth generation backend: deterministic Python fallback or AI model inference. */
+export type DepthBackend = "python" | "ai";
+
 /** Depth map data only (from get_depth_map or for preview). */
 export interface DepthMapData {
   width: number;
@@ -154,8 +158,11 @@ export interface DepthAdjustmentParams {
  * Real-time progress is emitted via the "depth-progress" Tauri event (listen with @tauri-apps/api/event).
  * Payload: { percent: number, stage?: string } (DepthProgressEvent).
  */
-export async function generateDepthMap(path: string): Promise<DepthMapResult> {
-  return invoke<DepthMapResult>("generate_depth_map", { path });
+export async function generateDepthMap(
+  path: string,
+  backend: DepthBackend = "ai"
+): Promise<DepthMapResult> {
+  return invoke<DepthMapResult>("generate_depth_map", { path, backend });
 }
 
 export async function getDepthMap(): Promise<DepthMapData | null> {

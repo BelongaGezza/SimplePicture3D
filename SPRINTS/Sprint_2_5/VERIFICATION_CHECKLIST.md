@@ -1,7 +1,7 @@
 # Verification Checklist — Sprint 2.5
 
 **Sprint:** 2.5 — Masking & Regional Adjustments
-**Last Updated:** 2026-04-27
+**Last Updated:** 2026-04-28
 
 Sign off each item before closing the sprint. All critical items must pass; non-critical items may be deferred with a filed ticket.
 
@@ -45,7 +45,7 @@ Sign off each item before closing the sprint. All critical items must pass; non-
 - [ ] **QA-1202** — Manual test: mask feathering — **Blocked** (deferred until P0 fix)
 - [ ] **QA-1203** — Manual test: undo/redo with masking — **Blocked** (deferred until P0 fix)
 - [x] `SPRINTS/Sprint_2_5/MANUAL_TEST_REPORT.md` — filled (template + automated gate PASS 2026-03-08; Quick start for human tester added; manual Cases 1–3 ready)
-- [ ] **P0:** Mask has no visible effect (brush, overlay, depth isolation). Implementation fix applied 2026-04-27 (mask IPC capability + overlay/feather controls); manual QA-1201–QA-1203 re-run still required before sprint close. Ticket: *(create or link)*
+- [ ] **P0 re-verification:** Mask has no visible effect (brush, overlay, depth isolation). Implementation fixes applied 2026-04-27/28: mask IPC capability, overlay/feather controls, normalized depth-generation image handoff, explicit `python`/`ai` backend selector, local-only AI mode, and automatic point-cloud refresh. Manual QA-1201–QA-1204 re-run still required before sprint close. Ticket: *(create or link)*
 
 ---
 
@@ -65,6 +65,6 @@ Sign off each item before closing the sprint. All critical items must pass; non-
 | UI Designer | | | ☐ |
 | Quality Engineer | Agent (QE) | 2026-03-08 | ☐ Automated gate PASS; manual cases handed off to human |
 
-**Sprint Close Decision:** ☐ CLOSED / ☑ **DEFERRED** — P0 implementation fix applied 2026-04-27. Re-run manual Cases 1–3, then re-verify.
+**Sprint Close Decision:** ☐ CLOSED / ☑ **DEFERRED** — P0 implementation fixes applied 2026-04-27/28. Re-run manual Cases 1–3 plus backend-selector smoke testing, then re-verify.
 
 **Note:** Case 1 executed 2026-03-14; Cases 2–3 blocked until P0 fixed. See MANUAL_TEST_REPORT.md.

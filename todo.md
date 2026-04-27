@@ -1058,30 +1058,37 @@ The Role Assignment table enables agents to claim roles:
 
 **Sprint Goal:** Enable selective depth adjustments via masking tools (depends on Sprint 2.2 undo/redo).
 
-**⚠️ Status: BLOCKED (as of 2026-03-14).** Implementation and automated gate are complete, but manual test Case 1 **FAILED**: mask has no visible effect (brush, overlay, depth isolation). **We are stuck at Sprint 2.5** until P0 is fixed. Next steps: (1) Fix P0 mask pipeline, (2) Re-run manual Cases 1–3 and record results, (3) Close sprint via VERIFICATION_CHECKLIST.md. Do not start Sprint 2.6 until Sprint 2.5 is closed. See `SPRINTS/Sprint_2_5/MANUAL_TEST_REPORT.md`, `SPRINTS/Sprint_2_5/VERIFICATION_CHECKLIST.md`, and Phase 2 "Next steps (Sprint 2.5)" above.
+**⚠️ Status: IMPLEMENTATION FIX READY / MANUAL QA PENDING (as of 2026-04-28).** The Sprint 2.5 P0 implementation fixes are in place: mask IPC permissions are enabled, overlay/feather controls are visible, depth generation now uses a normalized RGB PNG handoff, the user can switch between the Python fallback and local-only AI depth backend, and the 3D point cloud auto-refreshes after depth/mask/adjustment changes. **Sprint 2.5 is not closed** until manual Cases 1–4 are re-run and recorded. Next steps: (1) Re-run manual Cases 1–4 in the app, (2) update `SPRINTS/Sprint_2_5/MANUAL_TEST_REPORT.md`, (3) close sprint via `SPRINTS/Sprint_2_5/VERIFICATION_CHECKLIST.md`. Do not start Sprint 2.6 until Sprint 2.5 is closed.
 
 #### Tasks
 
 **Senior Engineer:**
-- [ ] **BACK-1201:** Implement mask data structure (2D boolean array)
-- [ ] **BACK-1202:** Apply adjustments to masked regions only
-- [ ] **BACK-1203:** Blend masked and unmasked regions (feathering)
+- [x] **BACK-1201:** Implement mask data structure (2D boolean array)
+- [x] **BACK-1202:** Apply adjustments to masked regions only
+- [x] **BACK-1203:** Blend masked and unmasked regions (feathering)
+- [x] **BACK-1204:** Restore mask IPC access through Tauri v2 capability permissions
+- [x] **BACK-1205:** Harden depth generation handoff by decoding/downsampling/normalizing to RGB PNG before Python
+- [x] **BACK-1206:** Add explicit `python`/`ai` depth backend selector with local-only AI mode
 
 **UI Specialist:**
-- [ ] **UI-1201:** Create MaskingTools component (brush, eraser, select)
-- [ ] **UI-1202:** Canvas-based mask painting
-- [ ] **UI-1203:** Mask opacity overlay on depth preview
-- [ ] **UI-1204:** Brush size/hardness controls
+- [x] **UI-1201:** Create MaskingTools component (brush, eraser, select)
+- [x] **UI-1202:** Canvas-based mask painting
+- [x] **UI-1203:** Mask opacity overlay on depth preview
+- [x] **UI-1204:** Brush size/hardness controls
+- [x] **UI-1205:** Expose mask overlay and feather radius controls for manual QA
+- [x] **UI-1206:** Add Depth source selector and pass backend to `generate_depth_map`
+- [x] **UI-1207:** Auto-refresh 3D point cloud after depth/mask/adjustment changes
 
 **Junior Engineer #1:**
-- [ ] **JR1-1201:** Implement brush stroke smoothing (interpolation)
-- [ ] **JR1-1202:** Add selection tools (rectangle, lasso)
-- [ ] **JR1-1203:** Mask save/load functionality
+- [x] **JR1-1201:** Implement brush stroke smoothing (interpolation)
+- [x] **JR1-1202:** Add selection tools (rectangle, lasso)
+- [x] **JR1-1203:** Mask save/load functionality
 
 **Quality Engineer:**
-- [ ] **QA-1201:** Manual test: paint mask, adjust depth, verify isolation
+- [ ] **QA-1201:** Manual test: paint mask, adjust depth, verify isolation (re-run after 2026-04-28 implementation fixes)
 - [ ] **QA-1202:** Test mask feathering (soft edges)
 - [ ] **QA-1203:** Test undo/redo with masking
+- [ ] **QA-1204:** Manual test: generate depth using Python fallback and AI model selector behavior when model is missing/installed
 
 #### Exit Criteria
 - ✅ Brush tool paints mask on depth preview

@@ -37,6 +37,7 @@
     DepthAdjustmentParams,
     PresetListItem,
     DepthProgressEvent,
+    DepthBackend,
     MaskData,
   } from "$lib/tauri";
 
@@ -50,13 +51,26 @@
   let showWizard = false;
   import { onMount, onDestroy } from "svelte";
   onMount(async () => {
+    let modelInstalled = false;
     try {
       const modelStatus = await checkModel();
+      modelInstalled = modelStatus.installed;
       if (!modelStatus.installed) {
         showWizard = true;
+        depthBackend = "python";
+      } else {
+        depthBackend = "ai";
       }
     } catch {
       // Model check failed; don't block the app
+    }
+    try {
+      const settings = await getSettings();
+      if (settings.depthBackend === "python" || (settings.depthBackend === "ai" && modelInstalled)) {
+        depthBackend = settings.depthBackend;
+      }
+    } catch {
+      // Non-critical; keep backend selected from model availability
     }
     // CURVE-001: Sync depth params (including restored curve) from backend so CurvesTool shows persisted curve.
     try {
@@ -78,6 +92,7 @@
   });
   onDestroy(() => {
     window.removeEventListener("keydown", onKeyDown);
+    if (meshReloadTimer != null) clearTimeout(meshReloadTimer);
   });
 
   /** Depth map for preview (BACK-303, UI-301/302). Adjusted by backend when params change (UI-404). */
@@ -88,6 +103,8 @@
   let progressPercent = 0;
   /** Backend error from generate_depth_map (timeout, Python, etc.). */
   let depthError = "";
+  /** Depth backend: Python fallback always local; AI uses installed Depth-Anything model. */
+  let depthBackend: DepthBackend = "python";
 
   /** Current depth adjustment params; synced with backend (UI-401–405, BACK-1102). */
   let adjustmentParams: DepthAdjustmentParams = {
@@ -115,6 +132,8 @@
   /** UI-404: Debounce interval for preview updates (ms). */
   const DEBOUNCE_MS = 80;
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  let meshReloadTimer: ReturnType<typeof setTimeout> | null = null;
+  let meshReloadKey = 0;
 
   /** UI-1401/1402: Undo/Redo state from backend (BACK-1404). Buttons disabled when nothing to undo/redo. */
   let canUndo = false;
@@ -201,6 +220,28 @@
     status = "Load error";
   }
 
+  async function handleDepthBackendChange(e: Event) {
+    const value = (e.target as HTMLSelectElement).value;
+    if (value !== "python" && value !== "ai") return;
+    depthBackend = value;
+    try {
+      const settings = await getSettings();
+      settings.depthBackend = depthBackend;
+      await saveSettings(settings);
+    } catch {
+      // Non-critical; selection still applies for this session.
+    }
+  }
+
+  function scheduleMeshReload() {
+    if (!depthMap) return;
+    if (meshReloadTimer != null) clearTimeout(meshReloadTimer);
+    meshReloadTimer = setTimeout(() => {
+      meshReloadTimer = null;
+      meshReloadKey += 1;
+    }, 150);
+  }
+
   /** UI-303/UI-304: Generate depth map; subscribe to depth-progress for real-time percentage. */
   async function handleGenerateDepth() {
     if (!loadPath || depthEstimating) return;
@@ -212,13 +253,14 @@
       progressPercent = event.payload.percent;
     });
     try {
-      const result = await generateDepthMap(loadPath);
+      const result = await generateDepthMap(loadPath, depthBackend);
       depthMap = { width: result.width, height: result.height, depth: result.depth };
       const params = await getDepthAdjustmentParams();
       adjustmentParams = params;
       const hist = await getDepthHistogram();
       histogramData = hist;
       await refreshMask();
+      scheduleMeshReload();
       status = "Depth ready";
     } catch (e) {
       depthError = String(e);
@@ -245,6 +287,7 @@
       }
       if (result) depthMap = { width: result.width, height: result.height, depth: result.depth };
       histogramData = hist;
+      scheduleMeshReload();
     } catch (e) {
       status = "Adjustment error: " + String(e);
     }
@@ -287,6 +330,7 @@
       }
       if (result) depthMap = { width: result.width, height: result.height, depth: result.depth };
       histogramData = hist;
+      scheduleMeshReload();
       status = "Depth reset";
     } catch (e) {
       status = "Reset error: " + String(e);
@@ -305,6 +349,7 @@
         if (result) depthMap = { width: result.width, height: result.height, depth: result.depth };
         histogramData = hist;
         await refreshMask();
+        scheduleMeshReload();
       }
       status = "Undo";
     } catch {
@@ -325,6 +370,7 @@
         if (result) depthMap = { width: result.width, height: result.height, depth: result.depth };
         histogramData = hist;
         await refreshMask();
+        scheduleMeshReload();
       }
       status = "Redo";
     } catch {
@@ -341,6 +387,7 @@
       canUndo = state.canUndo;
       canRedo = state.canRedo;
       await refreshMask();
+      scheduleMeshReload();
       status = "Mask cleared";
     } catch (e) {
       status = "Clear mask failed: " + String(e);
@@ -363,6 +410,7 @@
       canUndo = state.canUndo;
       canRedo = state.canRedo;
       await refreshMask();
+      scheduleMeshReload();
     } catch {
       // Non-fatal; e.g. rapid strokes
     }
@@ -405,6 +453,7 @@
         const [result, hist] = await Promise.all([getDepthMap(), getDepthHistogram()]);
         if (result) depthMap = { width: result.width, height: result.height, depth: result.depth };
         histogramData = hist;
+        scheduleMeshReload();
       }
       const settings = await getSettings();
       if (settings.targetWidthMm != null && settings.targetHeightMm != null) {
@@ -492,6 +541,7 @@
       canUndo = undoState.canUndo;
       canRedo = undoState.canRedo;
       await refreshMask();
+      scheduleMeshReload();
     } catch {
       // Non-critical
     }
@@ -565,6 +615,7 @@
         <Preview3D
           targetWidthMm={effectiveTargetWidthMm}
           targetHeightMm={effectiveTargetHeightMm}
+          reloadKey={meshReloadKey}
         />
       </div>
     </section>
@@ -588,9 +639,22 @@
         </div>
         <!-- UI-303: Generate Depth Map button; UI-304: progress during inference -->
         <div class="p-2 border-t border-slate-200 flex flex-col gap-2">
+          <label class="flex flex-col gap-1 text-xs text-slate-600">
+            <span>Depth source</span>
+            <select
+              class="rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-400"
+              value={depthBackend}
+              disabled={depthEstimating}
+              on:change={handleDepthBackendChange}
+              aria-label="Depth generation source"
+            >
+              <option value="python">Python fallback (local)</option>
+              <option value="ai">AI model</option>
+            </select>
+          </label>
           <Button
             variant="primary"
-            title="Run AI depth estimation on the loaded image"
+            title={depthBackend === "ai" ? "Generate depth with the installed AI model" : "Generate depth with the local Python fallback"}
             disabled={!loadPath || depthEstimating}
             on:click={handleGenerateDepth}
           >

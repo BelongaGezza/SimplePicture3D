@@ -193,6 +193,31 @@ def test_cli_env_stub():
     assert "depth" in data and len(data["depth"]) == 1
 
 
+@pytest.mark.skipif(not VALID_1X1.is_file(), reason="fixture valid_1x1.png not found")
+def test_cli_ai_local_only_missing_model_fails_without_network():
+    """AI local-only mode returns a clear error when the model is not installed."""
+    env = {**os.environ, "PYTHONPATH": str(REPO_ROOT / "python" / "python")}
+    env.pop("SP3D_USE_STUB", None)
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "depth_estimator",
+            "--input",
+            str(VALID_1X1),
+            "--model",
+            "simplepicture3d-test/missing-model",
+            "--local-only",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        env=env,
+    )
+    assert result.returncode != 0
+    assert "not installed locally" in result.stderr
+
+
 # ----- --show-license (AI-502) -----
 
 

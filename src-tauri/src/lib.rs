@@ -25,6 +25,7 @@ use tauri::State;
 use depth_adjust::{apply_adjustments, compute_histogram, DepthAdjustmentParams};
 use mesh_generator::{depth_to_point_cloud, MeshData, MeshParams};
 use preset::{get_builtin_preset, sanitize_preset_name, Preset};
+use python_bridge::DepthBackend;
 use undo::{SetDepthParamsCommand, SetMaskCommand, UndoRedoHistory, UndoableCommand};
 
 /// BACK-1202, BACK-1203: Apply depth adjustments with optional mask and feathering.
@@ -715,16 +716,18 @@ fn log_depth_stats(depth: &[f32]) {
 fn generate_depth_map_impl(
     path: &str,
     progress_cb: Option<python_bridge::ProgressCb>,
+    backend: DepthBackend,
 ) -> Result<(python_bridge::DepthMapOutput, Vec<String>), String> {
     let bytes = image_loading::read_image_bytes_for_depth(path).map_err(|e| e.to_string())?;
     const TIMEOUT_SECS: u64 = 300;
     let timeout = Duration::from_secs(TIMEOUT_SECS);
-    let result = match progress_cb {
-        Some(cb) => python_bridge::run_depth_estimation_with_progress(&bytes, timeout, Some(cb))
-            .map_err(|e| e.to_string())?,
-        None => python_bridge::run_depth_estimation_with_timeout(&bytes, timeout)
-            .map_err(|e| e.to_string())?,
-    };
+    let result = python_bridge::run_depth_estimation_with_progress_and_backend(
+        &bytes,
+        timeout,
+        progress_cb,
+        backend,
+    )
+    .map_err(|e| e.to_string())?;
     log_depth_stats(&result.depth.depth);
     Ok((result.depth, result.stderr_lines))
 }
@@ -736,10 +739,12 @@ fn generate_depth_map_impl(
 #[tauri::command]
 fn generate_depth_map(
     path: String,
+    backend: Option<String>,
     app_handle: tauri::AppHandle,
     state: State<AppState>,
 ) -> Result<GenerateDepthMapResponse, String> {
     let bytes = image_loading::read_image_bytes_for_depth(&path).map_err(|e| e.to_string())?;
+    let backend = DepthBackend::parse(backend.as_deref()).map_err(|e| e.to_string())?;
     let progress_cb: python_bridge::ProgressCb = Box::new(move |percent, stage| {
         let payload = DepthProgressPayload { percent, stage };
         if let Err(e) = app_handle.emit("depth-progress", &payload) {
@@ -747,10 +752,11 @@ fn generate_depth_map(
         }
     });
     const TIMEOUT_SECS: u64 = 300;
-    let result = python_bridge::run_depth_estimation_with_progress(
+    let result = python_bridge::run_depth_estimation_with_progress_and_backend(
         &bytes,
         Duration::from_secs(TIMEOUT_SECS),
         Some(progress_cb),
+        backend,
     )
     .map_err(|e| e.to_string())?;
     let depth = result.depth;
@@ -1337,9 +1343,9 @@ mod tests {
     /// BACK-301: generate_depth_map rejects empty path (same validation as load_image).
     #[test]
     fn generate_depth_map_rejects_empty_path() {
-        let err = generate_depth_map_impl("", None).unwrap_err();
+        let err = generate_depth_map_impl("", None, DepthBackend::Python).unwrap_err();
         assert!(!err.is_empty());
-        let err = generate_depth_map_impl("   ", None).unwrap_err();
+        let err = generate_depth_map_impl("   ", None, DepthBackend::Python).unwrap_err();
         assert!(!err.is_empty());
     }
 
@@ -1350,7 +1356,7 @@ mod tests {
             .join("sp3d_nonexistent_generate_depth_12345.png")
             .to_string_lossy()
             .to_string();
-        let result = generate_depth_map_impl(&path, None);
+        let result = generate_depth_map_impl(&path, None, DepthBackend::Python);
         assert!(result.is_err(), "nonexistent path should fail");
     }
 
@@ -1603,7 +1609,7 @@ mod tests {
         let temp = std::env::temp_dir().join("sp3d_qa304_dimensions.png");
         img.save(&temp).expect("write test PNG");
         let path = temp.to_string_lossy().to_string();
-        let result = generate_depth_map_impl(&path, None);
+        let result = generate_depth_map_impl(&path, None, DepthBackend::Python);
         let _ = std::fs::remove_file(&temp);
         let (depth_out, _) =
             result.expect("generate_depth_map_impl should succeed when Python env is set up");

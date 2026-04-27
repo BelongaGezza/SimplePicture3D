@@ -681,12 +681,22 @@ SimplePicture3D/
 ## Data Flow: Image → STL
 
 1. **Load image** (Frontend → Rust): File picker → `load_image` command
-2. **Validate** (Rust): Format, size, downsample if >8K
-3. **Depth estimation** (Rust → Python): Image bytes → subprocess → depth map
-4. **Depth processing** (Rust): Adjustments (gamma, range, invert)
+2. **Validate and normalize** (Rust): Format, size, downsample if >8K, convert to RGB PNG
+3. **Depth estimation** (Rust → Python): Normalized temp PNG → selected backend (`python` fallback or `ai` model) → depth map
+4. **Depth processing** (Rust): Adjustments (gamma, range, invert, curve) and optional mask/feather blend
 5. **Mesh generation** (Rust): Depth map → point cloud / triangulated mesh
-6. **Preview** (Frontend): Vertex data → Three.js BufferGeometry
+6. **Preview** (Frontend): Vertex data → Three.js BufferGeometry; preview auto-refreshes when depth/mask/adjustments change
 7. **Export** (Rust): STL/OBJ to user-selected path
+
+### Depth Backend Selection (2026-04-28)
+
+Depth generation now has an explicit backend selector so manual testing and beta use do not depend on AI model availability:
+
+- **`python` backend:** deterministic local Python fallback. Rust invokes `python.depth_estimator --no-model`; no AI model, PyTorch inference, or network access is required. This is the preferred QA/smoke path.
+- **`ai` backend:** Depth-Anything-V2 model inference. Rust invokes the Python estimator with `--local-only`, so the estimator requires a model already installed under `~/.simplepicture3d/models/` and does **not** attempt an implicit Hugging Face download during generation.
+- **Offline-first behavior:** if the AI model is missing, the estimator fails fast with a clear "model is not installed locally" message. The frontend falls back to the `python` source when `check_model` reports no installed model and keeps showing the first-run wizard for model installation.
+- **Image handoff:** `generate_depth_map` uses the same validated/downsampled RGB PNG pipeline as `load_image` before calling Python. This prevents the UI preview from accepting an image that later fails or overloads depth generation due to unsupported/original image properties.
+- **Point cloud update:** after successful depth generation and after depth/mask/adjustment changes, the frontend increments a reload key for `Preview3D`, which refreshes `get_mesh_data` without requiring the user to click `Load mesh`.
 
 ---
 
@@ -743,7 +753,7 @@ See **ADR-009** above for full decision, API options, and UI/preset notes.
 
 ## Key Interfaces
 
-- **Tauri commands:** `load_image`, `generate_depth_map`, `get_depth_map`, **`get_depth_histogram`** (256 bins of current adjusted depth, BACK-1101), `set_depth_adjustment_params`, `get_depth_adjustment_params`, `reset_depth_adjustments`, **`undo`, `redo`, `clear_history`** (Sprint 2.2, BACK-1404 — return success + current params + can_undo/can_redo), **`get_mask`, `set_mask_region`, `clear_mask`, `set_mask`** (Sprint 2.5, BACK-1201 — mask for regional adjustments), `get_mesh_data` (optional `target_width_mm`, `target_height_mm`), `export_stl`, `export_obj`, `get_settings`, `save_settings`, `check_model`, `get_model_info`, `download_model`
+- **Tauri commands:** `load_image`, `generate_depth_map` (`path` plus optional `backend: "python" | "ai"`), `get_depth_map`, **`get_depth_histogram`** (256 bins of current adjusted depth, BACK-1101), `set_depth_adjustment_params`, `get_depth_adjustment_params`, `reset_depth_adjustments`, **`undo`, `redo`, `clear_history`** (Sprint 2.2, BACK-1404 — return success + current params + can_undo/can_redo), **`get_mask`, `set_mask_region`, `clear_mask`, `set_mask`** (Sprint 2.5, BACK-1201 — mask for regional adjustments), `get_mesh_data` (optional `target_width_mm`, `target_height_mm`), `export_stl`, `export_obj`, `get_settings`, `save_settings`, `check_model`, `get_model_info`, `download_model`
 - **STL/OBJ export:** Implemented as **custom** binary STL and ASCII OBJ (with .mtl) writers in `src-tauri/src/mesh_generator.rs`. The project does **not** use the `stl_io` or `obj-exporter` crates; the PRD §5.4 notion of a separate `exporters/` module was consolidated into `mesh_generator.rs` (ADR-008, Sprint 1.8/1.9). See RESEARCH/rust-crates.md for crate guidance vs as-built.
 - **Python interface (Sprint 1.3):** See **docs/architecture.md** § "Rust–Python Bridge (Sprint 1.3)" for the full IPC contract:
   - **Image input:** Temp file path only (`--input <path>`); path validated, under system temp dir (ARCH-102).

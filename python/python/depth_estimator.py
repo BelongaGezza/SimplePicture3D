@@ -109,27 +109,33 @@ def run_inference_depth_anything_v2(
     model_name_or_path: str,
     device: str,
     stderr,
+    local_only: bool = False,
 ) -> tuple[int, int, list[float]]:
     """
     Run Depth-Anything-V2 inference (AI-204). Returns (width, height, depth_list) 0–1 row-major.
     Raises on failure; OOM and decode errors surfaced to stderr by caller.
     """
-    from PIL import Image
-    import torch
-    from transformers import AutoImageProcessor, AutoModelForDepthEstimation
-
-    with Image.open(image_path) as img:
-        image = img.convert("RGB")
-        width, height = image.size
-
     emit_stage("loading_model", stderr)
     # Prefer local path (~/.simplepicture3d/models/<name>) then Hugging Face
     local_base = Path.home() / ".simplepicture3d" / "models"
     local_path = local_base / model_name_or_path.split("/")[-1]
     if local_path.is_dir():
         model_id = str(local_path)
+    elif local_only:
+        raise FileNotFoundError(
+            "AI model is not installed locally. Use the first-run wizard or select Python fallback."
+        )
     else:
         model_id = model_name_or_path
+
+    from PIL import Image
+
+    with Image.open(image_path) as img:
+        image = img.convert("RGB")
+        width, height = image.size
+
+    import torch
+    from transformers import AutoImageProcessor, AutoModelForDepthEstimation
 
     image_processor = AutoImageProcessor.from_pretrained(model_id)
     model = AutoModelForDepthEstimation.from_pretrained(model_id).to(device)
@@ -185,6 +191,11 @@ def main() -> int:
         help="Use stub depth only (no PyTorch); for roundtrip tests without model",
     )
     parser.add_argument(
+        "--local-only",
+        action="store_true",
+        help="AI mode only: require a locally installed model and do not fetch from the network",
+    )
+    parser.add_argument(
         "--show-license",
         action="store_true",
         help="Print model license information to stdout and exit",
@@ -216,7 +227,7 @@ def main() -> int:
             try:
                 device = get_device()
                 width, height, depth = run_inference_depth_anything_v2(
-                    args.input, args.model, device, sys.stderr
+                    args.input, args.model, device, sys.stderr, local_only=args.local_only
                 )
             except ImportError as e:
                 print(

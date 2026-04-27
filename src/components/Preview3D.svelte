@@ -23,6 +23,8 @@
   /** Target dimensions in mm from App (scaling: mesh and preview dimension to fit). When set, getMeshData uses these. */
   export let targetWidthMm: number | undefined = undefined;
   export let targetHeightMm: number | undefined = undefined;
+  /** Incremented by parent when depth/mask/adjustment state changes and mesh should refresh. */
+  export let reloadKey = 0;
 
   let scene: THREE.Scene;
   let camera: THREE.PerspectiveCamera;
@@ -107,6 +109,12 @@
     loadMesh();
   }
   $: if (targetKey && !prevTargetKey) prevTargetKey = targetKey;
+
+  let prevReloadKey = 0;
+  $: if (reloadKey > 0 && reloadKey !== prevReloadKey && scene && !meshLoading) {
+    prevReloadKey = reloadKey;
+    loadMesh();
+  }
 
   /**
    * Build BufferGeometry and THREE.Points from mesh data (UI-504).

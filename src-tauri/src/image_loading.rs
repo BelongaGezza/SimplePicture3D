@@ -167,14 +167,19 @@ fn rgb_to_preview_base64(rgb: &image::RgbImage) -> anyhow::Result<String> {
     ))
 }
 
-/// Reads and validates an image file for depth estimation (BACK-301).
-/// Validates path (SEC-101) and magic bytes (SEC-102); returns raw bytes for Python bridge.
-/// Does not decode or downsample; use when passing image to generate_depth_map.
+/// Reads, validates, decodes, downscales, and normalizes an image for depth estimation (BACK-301).
+///
+/// This mirrors `load_image_impl` so the user-visible loaded image and the image passed to Python
+/// share the same constraints: PNG/JPEG only, max 8192 px per axis, RGB PNG bytes. This avoids
+/// a class of bugs where preview loads but depth generation later fails on very large or odd input.
 pub fn read_image_bytes_for_depth(path: &str) -> anyhow::Result<Vec<u8>> {
     let canonical = validate_path(path)?;
     let bytes = fs::read(&canonical).context("read image file")?;
-    validate_magic_bytes(&bytes)?;
-    Ok(bytes)
+    let format = validate_magic_bytes(&bytes)?;
+    let img = decode_image(&bytes, format)?;
+    let (img, _) = downsample_if_needed(img);
+    let rgb = to_rgb8(img);
+    rgb_to_png_bytes(&rgb)
 }
 
 /// Full load_image implementation: validate path, read, magic-check, decode, downsample, RGB, response.

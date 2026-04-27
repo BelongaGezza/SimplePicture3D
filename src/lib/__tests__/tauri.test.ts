@@ -86,9 +86,21 @@ describe("tauri IPC", () => {
       };
       mockInvoke.mockResolvedValue(result);
       const out = await generateDepthMap("image.png");
-      expect(mockInvoke).toHaveBeenCalledWith("generate_depth_map", { path: "image.png" });
+      expect(mockInvoke).toHaveBeenCalledWith("generate_depth_map", {
+        path: "image.png",
+        backend: "ai",
+      });
       expect(out).toEqual(result);
       expect(out.depth).toHaveLength(2);
+    });
+
+    it("passes selected backend to generate_depth_map", async () => {
+      mockInvoke.mockResolvedValue({ width: 1, height: 1, depth: [0] });
+      await generateDepthMap("image.png", "python");
+      expect(mockInvoke).toHaveBeenCalledWith("generate_depth_map", {
+        path: "image.png",
+        backend: "python",
+      });
     });
 
     it("propagates invoke rejection", async () => {

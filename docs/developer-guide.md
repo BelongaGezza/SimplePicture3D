@@ -73,8 +73,8 @@ source venv/bin/activate
 pip install -r python/requirements.txt
 ```
 
-- **Stub mode (no AI model):** Set `SP3D_USE_STUB=1` so no model is downloaded. Used by CI and tests.
-- **Real depth inference:** Install PyTorch per [pytorch.org](https://pytorch.org/get-started/locally/), then install the rest of `python/requirements.txt`. The first run may download the Depth-Anything-V2 model (see model download wizard in the app).
+- **Python fallback (no AI model):** Set `SP3D_USE_STUB=1` for tests, or choose **Python fallback (local)** in the app's Depth source selector. This path uses `--no-model` and never downloads a model.
+- **Real depth inference:** Install PyTorch per [pytorch.org](https://pytorch.org/get-started/locally/), then install the rest of `python/requirements.txt`. Install the Depth-Anything-V2 model through the app's model wizard before selecting **AI model**. Depth generation uses `--local-only` and fails clearly if the model is missing instead of downloading implicitly.
 
 ### 4. Run the application
 
@@ -117,9 +117,9 @@ SimplePicture3D is a Tauri desktop app with three layers:
 
 - **Frontend (Svelte):** UI components, Three.js 3D preview, TailwindCSS. Communicates with the backend via Tauri IPC (`invoke()`).
 - **Rust backend:** Image loading, depth processing, mesh generation, STL/OBJ export, settings, Python subprocess bridge, **undo/redo command history**. Commands are defined in `src-tauri/src/lib.rs` and supporting modules.
-- **Python AI backend:** Depth estimation (Depth-Anything-V2 / MiDaS) via subprocess. Input: image bytes or temp file path. Output: depth map (JSON or binary).
+- **Python AI backend:** Depth estimation via subprocess. The app can use the deterministic Python fallback (`python`) or a locally installed AI model (`ai`). Input is a validated/downsampled RGB PNG temp file; output is a normalized JSON depth map.
 
-**Data flow:** Load image → Validate → Depth (Python) → Depth processing (Rust) → Mesh generation (Rust) → Preview (Three.js) → Export (STL/OBJ).
+**Data flow:** Load image → Validate/downsample/normalize to RGB PNG → Depth (`python` fallback or local-only `ai`) → Depth processing and masks (Rust) → Mesh generation (Rust) → Preview (Three.js, auto-refresh) → Export (STL/OBJ).
 
 **State management and undo:** Depth params and curve are the single source of truth in the backend. Undo/redo use a command pattern (max 20 actions); see [RESEARCH/architecture.md](../RESEARCH/architecture.md) **ADR-009** (undo/redo) and **ADR-010** (state management, TD-01).
 
@@ -137,7 +137,7 @@ The frontend calls the Rust backend via `invoke('command_name', { ... })`. Typed
 | Command | Input | Output | Description |
 |---------|--------|--------|-------------|
 | `load_image` | `{ path: string }` | `LoadImageOut` (ok, width, height, fileSizeBytes, downsampled, previewBase64) | Load and validate image; returns dimensions and base64 preview. |
-| `generate_depth_map` | `{ path: string }` | `{ width, height, depth: number[], progress, stages }` | Run AI depth estimation; stores depth in app state. **Also emits** `depth-progress` Tauri events with `{ percent, stage? }` during execution for real-time progress bar (Sprint 2.4). |
+| `generate_depth_map` | `{ path: string, backend?: "python" \| "ai" }` | `{ width, height, depth: number[], progress, stages }` | Generate a depth map from the normalized image handoff; `python` uses the local fallback, `ai` requires an installed local model. Stores depth in app state. **Also emits** `depth-progress` Tauri events with `{ percent, stage? }` during execution for real-time progress bar (Sprint 2.4). |
 | `get_depth_map` | — | `{ width, height, depth } \| null` | Current depth map with adjustments applied. |
 | `get_depth_adjustment_params` | — | `DepthAdjustmentParams` | Current brightness, contrast, gamma, invert, depthMinMm, depthMaxMm. |
 | `set_depth_adjustment_params` | `{ params: DepthAdjustmentParams }` | `void` | Set adjustment params; next get_depth_map uses them. |
@@ -201,7 +201,7 @@ Output is under `src-tauri/target/doc/`. Open `src-tauri/target/doc/simplepictur
 - `mesh_generator` — MeshParams, MeshData, depth_to_point_cloud, triangulation, STL/OBJ writers
 - `depth_adjust` — DepthAdjustmentParams, apply_adjustments
 - `image_loading` — load_image_impl, read_image_bytes_for_depth
-- `python_bridge` — run_depth_estimation, DepthMapOutput
+- `python_bridge` — run_depth_estimation, DepthBackend, DepthMapOutput
 - `settings` — AppSettings load/save
 - `preset` — Preset schema, built-in presets, sanitize_preset_name (Sprint 2.3)
 

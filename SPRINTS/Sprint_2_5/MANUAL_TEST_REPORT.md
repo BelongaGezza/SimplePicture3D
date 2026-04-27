@@ -2,7 +2,7 @@
 
 **Sprint:** 2.5 — Masking & Regional Adjustments  
 **Owner:** Quality Engineer  
-**Last Updated:** 2026-04-27
+**Last Updated:** 2026-04-28
 
 ---
 
@@ -23,11 +23,13 @@ Manual test results for QA-1201, QA-1202, QA-1203. Test plan: `SPRINTS/Sprint_2_
 1. From project root: `npm run tauri dev`
 2. Load an image → **Generate depth**
 3. Open **Masking** panel; use **Brush** to paint a region (e.g. centre); toggle **Mask overlay** to see it
-4. Adjust **Depth** sliders (e.g. Brightness/Gamma); confirm only the masked area changes in the 3D preview
-5. **Case 1 (QA-1201):** Verify isolation; optionally export STL/OBJ and spot-check
-6. **Case 2 (QA-1202):** Set **Feather radius** (e.g. 10 px), paint mask, adjust depth; check soft edge in preview
-7. **Case 3 (QA-1203):** Paint mask → change depth → **Undo** (depth then mask); **Redo**; confirm state and overlay match
-8. Fill **Actual result** and **Pass/Fail** in the Detailed results section below; update Results summary table
+4. Select **Depth source**: use **Python fallback (local)** for smoke/manual QA; use **AI model** only when the local model is installed
+5. Adjust **Depth** sliders (e.g. Brightness/Gamma); confirm only the masked area changes in the depth preview and 3D point cloud
+6. **Case 1 (QA-1201):** Verify isolation; optionally export STL/OBJ and spot-check
+7. **Case 2 (QA-1202):** Set **Feather radius** (e.g. 10 px), paint mask, adjust depth; check soft edge in preview
+8. **Case 3 (QA-1203):** Paint mask → change depth → **Undo** (depth then mask); **Redo**; confirm state and overlay match
+9. **Case 4 (QA-1204):** Generate depth with Python fallback; switch to AI model and confirm missing-model behavior is clear if no local model is installed
+10. Fill **Actual result** and **Pass/Fail** in the Detailed results section below; update Results summary table
 
 ---
 
@@ -48,7 +50,7 @@ Manual test results for QA-1201, QA-1202, QA-1203. Test plan: `SPRINTS/Sprint_2_
 
 **Conclusion:** Automated quality gate **PASS** (2026-03-08). Manual testing stopped after Case 1: **P0 — mask has no visible effect** (brush, overlay, and depth isolation all non-functional). Cases 2–3 deferred until P0 fixed.
 
-**Fix status (2026-04-27):** P0 implementation fix applied: added the missing Tauri capability permission for mask IPC commands and restored UI controls for mask overlay and feather radius. Manual Cases 1–3 still need to be re-run in the app before Sprint 2.5 can close.
+**Fix status (2026-04-28):** P0 implementation fixes applied: added the missing Tauri capability permission for mask IPC commands, restored UI controls for mask overlay and feather radius, normalized image handoff for depth generation, added an explicit Python fallback / local-only AI selector, and auto-refresh the 3D point cloud after depth, mask, and adjustment changes. Manual Cases 1–4 still need to be re-run in the app before Sprint 2.5 can close.
 
 ---
 
@@ -59,6 +61,7 @@ Manual test results for QA-1201, QA-1202, QA-1203. Test plan: `SPRINTS/Sprint_2_
 | 1 | QA-1201 | Paint mask, adjust depth, verify isolation | **Fail** | 2026-03-14 | Human tester |
 | 2 | QA-1202 | Mask feathering (soft edges) | Blocked (P0) | — | Deferred until mask effect fixed |
 | 3 | QA-1203 | Undo/redo with masking | Blocked (P0) | — | Deferred until mask effect fixed |
+| 4 | QA-1204 | Depth backend selector: Python fallback and AI local-only behavior | Pending | — | Human tester |
 
 **Ready** = Dependencies complete; procedure in TEST_PLAN_2_5.md §3.2; human tester to execute and fill Actual result / Pass-Fail.
 
