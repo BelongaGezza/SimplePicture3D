@@ -32,6 +32,10 @@
   export let onBrushSizeChange: (v: number) => void = () => {};
   export let brushHardness = 1;
   export let onBrushHardnessChange: (v: number) => void = () => {};
+  export let featherRadiusPx = 0;
+  export let onFeatherRadiusChange: (v: number) => void = () => {};
+  export let showMaskOverlay = true;
+  export let onShowMaskOverlayChange: (v: boolean) => void = () => {};
   /** When provided, Clear mask uses this (parent refreshes mask + undo state). */
   export let onClearMask: (() => void | Promise<void>) | null = null;
 
@@ -118,6 +122,15 @@
   function handleHardnessInput(e: Event) {
     const v = parseFloat((e.target as HTMLInputElement).value);
     if (!Number.isNaN(v)) onBrushHardnessChange(v);
+  }
+
+  function handleFeatherInput(e: Event) {
+    const v = parseFloat((e.target as HTMLInputElement).value);
+    if (!Number.isNaN(v)) onFeatherRadiusChange(Math.max(0, Math.min(50, v)));
+  }
+
+  function handleOverlayChange(e: Event) {
+    onShowMaskOverlayChange((e.target as HTMLInputElement).checked);
   }
 
   /** JR1-1202: Apply current selection (rectangle or lasso) to mask. */
@@ -211,6 +224,31 @@
         class="w-full"
       />
     </label>
+    <label class="flex flex-col gap-0.5">
+      <span>Feather px</span>
+      <input
+        type="range"
+        min="0"
+        max="50"
+        step="1"
+        value={featherRadiusPx}
+        on:input={handleFeatherInput}
+        class="w-full"
+        disabled={!hasDepth}
+      />
+    </label>
+  </div>
+  <label class="flex items-center gap-2 text-xs text-slate-700">
+    <input
+      type="checkbox"
+      checked={showMaskOverlay}
+      on:change={handleOverlayChange}
+      disabled={!hasDepth}
+      class="h-4 w-4 rounded border-slate-300 text-slate-600 focus:ring-slate-400"
+    />
+    <span>Show mask overlay</span>
+  </label>
+  <div class="grid grid-cols-2 gap-2 text-xs">
     <label class="flex flex-col gap-0.5">
       <span>Hardness</span>
       <input

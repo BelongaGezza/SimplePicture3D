@@ -97,6 +97,7 @@
     invert: false,
     depthMinMm: 2,
     depthMaxMm: 10,
+    featherRadiusPx: 0,
     curveControlPoints: undefined,
   };
 
@@ -365,6 +366,12 @@
     } catch {
       // Non-fatal; e.g. rapid strokes
     }
+  }
+
+  /** UI-1204/BACK-1203: Update mask feather radius and refresh masked preview. */
+  function handleFeatherRadiusChange(value: number) {
+    const featherRadiusPx = Math.max(0, Math.min(50, Math.round(value)));
+    handleParamsChange({ ...adjustmentParams, featherRadiusPx });
   }
 
   /** Sprint 2.3: Refresh preset list (UI-1301, UI-1303). */
@@ -641,6 +648,10 @@
           onBrushSizeChange={(v) => (brushSize = v)}
           brushHardness={brushHardness}
           onBrushHardnessChange={(v) => (brushHardness = v)}
+          featherRadiusPx={adjustmentParams.featherRadiusPx ?? 0}
+          onFeatherRadiusChange={handleFeatherRadiusChange}
+          showMaskOverlay={showMaskOverlay}
+          onShowMaskOverlayChange={(v) => (showMaskOverlay = v)}
           onClearMask={handleClearMask}
           onMaskChange={handleMaskChange}
         />

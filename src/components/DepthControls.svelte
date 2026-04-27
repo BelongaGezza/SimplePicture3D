@@ -22,6 +22,7 @@
     invert: false,
     depthMinMm: 2,
     depthMaxMm: 10,
+    featherRadiusPx: 0,
     curveControlPoints: undefined,
   };
 

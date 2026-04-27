@@ -2,7 +2,7 @@
 
 **Sprint:** 2.5 — Masking & Regional Adjustments  
 **Owner:** Quality Engineer  
-**Last Updated:** 2026-03-14
+**Last Updated:** 2026-04-27
 
 ---
 
@@ -47,6 +47,8 @@ Manual test results for QA-1201, QA-1202, QA-1203. Test plan: `SPRINTS/Sprint_2_
 | `npm test` | **PASS** — 74 tests, 9 files |
 
 **Conclusion:** Automated quality gate **PASS** (2026-03-08). Manual testing stopped after Case 1: **P0 — mask has no visible effect** (brush, overlay, and depth isolation all non-functional). Cases 2–3 deferred until P0 fixed.
+
+**Fix status (2026-04-27):** P0 implementation fix applied: added the missing Tauri capability permission for mask IPC commands and restored UI controls for mask overlay and feather radius. Manual Cases 1–3 still need to be re-run in the app before Sprint 2.5 can close.
 
 ---
 

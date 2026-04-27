@@ -411,6 +411,12 @@
           "markdownDescription": "Enables the load_image command."
         },
         {
+          "description": "Enables mask overlay, painting, clearing, and mask file commands (Sprint 2.5).",
+          "type": "string",
+          "const": "allow-mask",
+          "markdownDescription": "Enables mask overlay, painting, clearing, and mask file commands (Sprint 2.5)."
+        },
+        {
           "description": "Enables preset save, load, and list commands (Sprint 2.3).",
           "type": "string",
           "const": "allow-presets",

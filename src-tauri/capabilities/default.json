@@ -12,6 +12,7 @@
     "allow-export-stl",
     "allow-get-export-defaults",
     "allow-generate-depth-map",
-    "allow-presets"
+    "allow-presets",
+    "allow-mask"
   ]
 }

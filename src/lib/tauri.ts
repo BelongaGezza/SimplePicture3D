@@ -138,6 +138,8 @@ export interface DepthAdjustmentParams {
   invert: boolean;
   depthMinMm: number;
   depthMaxMm: number;
+  /** Mask feather radius in pixels. 0 = hard edge. */
+  featherRadiusPx?: number;
   /** Optional curve control points (BACK-1102). When null/undefined or length < 2, no curve. */
   curveControlPoints?: CurvePoint[] | null;
 }
