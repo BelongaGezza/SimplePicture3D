@@ -1,28 +1,41 @@
 # SimplePicture3D - Product Requirements Document
 
-**Version:** 1.6
-**Date:** March 1, 2026
-**Status:** Phase 1 MVP complete (Sprint 1.12 exit gate: GO); Phase 2 in progress (Sprint 2.2 delivered)
-**License:** MIT  
+**Version:** 2.0
+**Date:** April 8, 2026
+**Status:** **ARCHITECTURAL PIVOT** — Transitioning from 2.5D relief mesh to 3D volumetric point cloud for internal crystal laser engraving. Core infrastructure complete; volumetric sampling in development. See `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md` for transition roadmap.
+**License:** MIT
+
+---
+
+> **PIVOT NOTICE (2026-04-08):** SimplePicture3D is pivoting from 2.5D relief mesh generation to **3D volumetric point cloud** output for internal UV laser engraving of crystal blocks. The 2.5D relief approach (ADR-006, ADR-008) is **deprecated**. All new development follows ADR-011 (crystal volumetric). Retained infrastructure: image loading, depth estimation, depth adjustments, undo/redo, presets, UI framework. Replaced: mesh generation algorithm, export formats.
 
 ---
 
 ## 1. Executive Summary
 
 ### 1.1 Product Overview
-SimplePicture3D is an open-source desktop application that converts 2D images into 2.5D STL/OBJ mesh files optimized for internal UV laser engraving of K9 crystal and similar materials. The application combines AI-powered depth estimation with manual control tools, enabling hobbyists to create stunning 3D engravings from photographs, artwork, and graphics.
+SimplePicture3D is an open-source desktop application that transforms 2D images into **volumetric 3D point clouds** optimized for internal UV laser engraving of K9 crystal, glass, and acrylic. Using AI-powered depth estimation combined with volumetric sampling algorithms, hobbyists can create stunning internal engravings from photographs and artwork—no 3D modeling expertise required.
+
+**Core workflow:**
+1. Load any 2D image (photo, artwork, graphic)
+2. AI estimates depth from the image
+3. User defines crystal blank dimensions (e.g., 80×50×50 mm)
+4. System generates volumetric point cloud filling the blank interior
+5. Export to PLY/XYZ/CSV for laser engraving software
+
+**Canonical architecture reference:** `RESEARCH/architecture.md` **ADR-011**
 
 ### 1.2 Key Objectives
-- **Accessibility**: Enable hobbyists without 3D modeling expertise to create laser-engravable meshes
-- **Quality**: Produce professional-grade point cloud meshes (2-10mm depth range)
+- **Accessibility**: Enable hobbyists without 3D modeling expertise to create volumetric point clouds for laser engraving
+- **Quality**: Produce dense, well-distributed 3D point clouds fitted to crystal blank dimensions
 - **Privacy**: 100% offline processing with optional AI model downloads
 - **Cross-Platform**: Native support for Windows, macOS, and Linux
 - **Open Source**: MIT licensed with community contribution pathway
 
 ### 1.3 Success Metrics
-- **Technical**: Generate valid STL/OBJ files compatible with standard laser engraving software
+- **Technical**: Generate valid PLY/XYZ/CSV files compatible with laser engraving software; all points within blank envelope
 - **Usability**: User can complete first conversion within 5 minutes of installation
-- **Performance**: Process 4K image to mesh in <2 minutes on mid-range hardware
+- **Performance**: Process 4K image to point cloud in <2 minutes on mid-range hardware
 - **Adoption**: 1,000+ GitHub stars within 6 months of v1.0 release
 - **Community**: Active contributor base with 10+ external contributors
 
@@ -31,7 +44,7 @@ SimplePicture3D is an open-source desktop application that converts 2D images in
 ## 2. Product Vision & Goals
 
 ### 2.1 Vision Statement
-*"Democratize 3D crystal engraving by making professional-quality depth mapping accessible to every hobbyist with a 2D image and a vision."*
+*"Democratize volumetric crystal engraving by transforming any 2D image into a laser-ready 3D point cloud—no 3D modeling expertise required."*
 
 ### 2.2 Core Principles
 1. **Simplicity First**: Complex AI technology hidden behind intuitive interface
@@ -88,7 +101,7 @@ See `todo.md` Phase Overview and `Consultant_Review_1Mar2026.md` for current sta
   - Convert family photos to crystal gifts
   - Experiment with artistic depth effects
   - Achieve professional results without professional tools
-- **Success Scenario**: Loads wedding photo, adjusts depth curve, exports STL, engraves beautiful crystal in one afternoon
+- **Success Scenario**: Loads wedding photo, defines 80×50×50mm blank, adjusts depth curve, exports point cloud, engraves beautiful crystal in one afternoon
 
 ### 3.2 Secondary Persona: "Mike the Maker"
 - **Background**: DIY enthusiast building custom laser engraver
@@ -200,32 +213,31 @@ See `todo.md` Phase Overview and `Consultant_Review_1Mar2026.md` for current sta
 
 ---
 
-#### F1.5 Mesh Generation
-**Priority:** P0 (Critical)  
-**Description:** Convert depth map to 3D point cloud/mesh  
+#### F1.5 Volumetric Point Cloud Generation
+**Priority:** P0 (Critical)
+**Description:** Convert depth map to volumetric 3D point cloud
+
+> **PIVOT (2026-04-08):** This feature replaces the former 2.5D relief mesh generation (ADR-006). The new implementation uses ADR-011 volumetric sampling (column sweep) to generate dense 3D point clouds filling a user-specified crystal blank envelope.
+
 **Acceptance Criteria:**
-- Generate point cloud with density control
-- Vertex positions in millimeters (real-world scale)
-- Z-axis depth mapped to 2-10mm range
-- Mesh topology suitable for laser engraving (no overhangs)
+- Generate volumetric point cloud filling crystal blank interior
+- User specifies blank dimensions (L×W×H mm) and margin
+- Points distributed from back plane to depth surface (column sweep algorithm)
+- Configurable XY sampling density and Z spacing
+- Fit-to-blank scaling with aspect ratio preservation
+- All points within blank envelope (validation)
 - Process completes in <2 minutes for 4K image
-- **Target dimensions (ADR-009):** User can specify target physical size (width × height in mm) so the mesh fits the laser-etched blank; mesh XY extent fits inside that rectangle with aspect ratio preserved. When not specified, current default (e.g. 1 pixel = 1 mm) applies. See RESEARCH/architecture.md ADR-009.
 
 **Technical Notes:**
-- Rust implementation for performance
-- Sampling strategies: uniform grid, adaptive density
-- Optional Delaunay triangulation for mesh connectivity
-- Memory-efficient streaming for large images
+- Rust implementation for performance (`point_cloud_generator.rs`)
+- `BlankEnvelope` struct: extent_mm (L,W,H), margin_mm
+- `fit_to_blank()`: uniform scale + translate to fit envelope
+- Column sweep: for each (x,y), emit points along Z axis from back to depth
 
-**Implementation Status (Sprint 1.6, 2026-02-07):**
-- Point cloud generation implemented in `mesh_generator.rs` (406 lines) — ADR-006
-- Uniform grid sampling with configurable step size (`MeshParams.step_x/step_y`)
-- Vertex normals computed via finite-difference depth gradient
-- Input validation with `checked_mul` for overflow safety, `MAX_DIMENSION=8192`
-- **Delaunay triangulation deferred** to Sprint 1.8 per ADR-006. Point cloud sufficient for Three.js preview (Sprint 1.7). STL/OBJ export (Sprint 1.8) requires triangulated faces — see F1.6 note.
-- 18 unit tests, security review (SEC-301/302) complete
-- Benchmark: 1K ~9.3ms, 4K ~73ms (well under targets)
-- **Target dimensions (ADR-009):** Planned for Sprint 1.11. Backend will accept optional `target_width_mm` / `target_height_mm`; derive `pixel_to_mm = min(target_width_mm/width_px, target_height_mm/height_px)` so mesh fits blank. UI (output size inputs/presets) optional for MVP.
+**Implementation Status:**
+- **DEPRECATED (ADR-006):** Former 2.5D relief point cloud in `mesh_generator.rs`
+- **NEW (ADR-011):** Volumetric point cloud generator — in development
+- Infrastructure retained: depth adjustments, masks, undo/redo, preview
 
 **Performance Targets:**
 - 1920×1080 image: <15 seconds
@@ -234,30 +246,35 @@ See `todo.md` Phase Overview and `Consultant_Review_1Mar2026.md` for current sta
 
 ---
 
-#### F1.6 STL/OBJ Export
-**Priority:** P0 (Critical)  
-**Description:** Save generated mesh to standard 3D file formats  
+#### F1.6 Point Cloud Export (PLY/XYZ/CSV)
+**Priority:** P0 (Critical)
+**Description:** Save generated point cloud to laser engraver-compatible formats
+
+> **PIVOT (2026-04-08):** Primary export formats changed from STL/OBJ (mesh) to PLY/XYZ/CSV (point cloud) for laser engraver compatibility. STL/OBJ moved to "Advanced" options for users with mesh-based workflows.
+
 **Acceptance Criteria:**
-- Export binary STL format
-- Export ASCII OBJ format with material file
+- Export PLY format (binary and ASCII options)
+- Export XYZ format (ASCII, one point per line: x y z)
+- Export CSV format (with header row: x,y,z)
 - Default save location: `~/Documents/SimplePicture3D/exports/`
 - Remember last export location
 - Filename auto-generated from source image + timestamp
 - User can override filename before export
 - Progress indicator for large files
-- Exported mesh physical dimensions respect target size (width × height in mm) when set (ADR-009); otherwise use current scale (e.g. 1 px = 1 mm).
+- All exported points within blank envelope
 
 **Technical Notes:**
-- Custom binary STL and ASCII OBJ writers in `mesh_generator.rs` (ADR-008). No external export crate.
-- Validate mesh integrity before export
-- Option to include metadata (generator, date, source image)
+- Custom PLY/XYZ/CSV writers in Rust (no external crate)
+- Validate all points within blank bounds before export
+- Include metadata in PLY header (generator, source image, blank dimensions)
 
-**Triangulation Dependency (identified 2026-02-07, Consultant Report §3.5):**
-- STL format requires triangulated faces — a point cloud cannot be directly written to STL.
-- OBJ format can represent points, but laser engraving software typically expects mesh faces.
-- Sprint 1.8 must implement triangulation (grid-based or Delaunay) before export.
-- Decision on where triangulation lives (`mesh_generator.rs` vs export module) documented in Sprint 1.6A (ARCH-206).
-- Spike on `delaunator` crate vs grid-based triangulation in Sprint 1.6A (ARCH-207).
+**Advanced Options (Secondary):**
+- STL export (requires triangulation; for mesh-based engravers)
+- OBJ export (for 3D software import)
+
+**DEPRECATED (2026-04-08):**
+- ADR-008 triangulation for STL — no longer primary path
+- STL/OBJ as primary export formats — replaced by PLY/XYZ/CSV
 
 ---
 
@@ -1241,12 +1258,14 @@ The following are valuable but not required for v1.0:
 8. **Video Input** - Convert video frames to animated depth sequences
 9. **3D Scanning Integration** - Import depth maps from structured light scanners
 10. **Commercial Material Library** - Paid presets from professional engravers
-11. **Full 3D Reconstruction Mode** - Optional pipeline: single image → AI mesh (TripoSR) → **surface-sampled point cloud** → scale to crystal blank dimensions → export **point cloud** (XYZ/PLY/CSV) or mesh (STL/OBJ). Laser engravers consume point clouds; Full 3D output is a dimensioned point cloud in mm, like 2.5D, but from Poisson-disk sampling the mesh. Use cases: 3D crystal engraving, 3D printing, multi-angle viewing. Recommended model: **TripoSR** (MIT, 6 GB VRAM, ~0.5 s). Implementation: Python `reconstruction_3d.py` (TripoSR + trimesh sampling → point cloud); Rust blank dimensioning, point cloud import, XYZ/PLY/CSV exporters; UI mode toggle, blank size and point spacing. See RESEARCH/3d-reconstruction.md (last checked 2026-02-22). Planned for Phase 2 (~4–5 sprints).
+11. **Full 3D Reconstruction Mode** - Optional pipeline: single image → AI mesh (TripoSR) → **surface-sampled point cloud** → scale to crystal blank dimensions → export **point cloud** (XYZ/PLY/CSV) or mesh (STL/OBJ). Laser engravers consume point clouds; Full 3D output is a dimensioned point cloud in mm, like 2.5D, but from Poisson-disk sampling the mesh. Use cases: 3D crystal engraving, 3D printing, multi-angle viewing. Recommended model: **TripoSR** (MIT, 6 GB VRAM, ~0.5 s). Implementation: Python `reconstruction_3d.py` (TripoSR + trimesh sampling → point cloud); Rust blank dimensioning, point cloud import, XYZ/PLY/CSV exporters; UI mode toggle, blank size and point spacing. See RESEARCH/3d-reconstruction.md (last checked 2026-02-22). Planned for Phase 2 (~4–5 sprints). **Relationship to item 12:** Both use **blank dimensioning** and point-cloud export; item 12 is the **depth-first volumetric** path; this item is the **AI mesh** path. Coordinate via RESEARCH/architecture.md ADR-011 and **Future: Full 3D** subsection.
+
+12. **Crystal volumetric / pseudo-3D point cloud (ADR-011)** - Optional product track and git branch (`feature/crystal-volumetric-pointcloud` or successor) for internal engraving workflows that need **many points distributed through the volume** of a blank, not only a single 2.5D heightfield sheet. User specifies a **3D blank envelope** up front (example default **80 × 50 × 50 mm**), margin, and axis convention; the app generates a **pseudo-3D** point cloud (credible x, y, z samples from a single image), applies **`fit_to_blank`** (uniform scale + translate), and exports formats such as **PLY/XYZ/CSV** (STL/OBJ optional). MVP algorithm options are documented in ADR-011 (e.g. column-sweep volumetric sampling from the adjusted depth map); **Full 3D Reconstruction** (item 11) remains an optional higher-quality path. Planning uses **epics E1–E5** in ADR-011 until the first validated engraver file exists. Canonical spec: RESEARCH/architecture.md **ADR-011**. **Deprecated approach:** using the existing **2.5D relief point cloud** pipeline alone as the volumetric crystal solution — see ADR-011 subsection *Deprecated: “2.5D-only” point cloud for volumetric crystal* (relief 2.5D remains in scope for relief STL/OBJ).
 
 ### 11.2 Non-Goals
 These will NOT be pursued:
 
-- ❌ Full 3D modeling suite (interactive modeling/editing like Blender; use Blender instead). *Note: "Full 3D reconstruction" from a single image via AI (deferred feature §11.1) is a separate, planned option.*
+- ❌ Full 3D modeling suite (interactive modeling/editing like Blender; use Blender instead). *Note: "Full 3D reconstruction" from a single image via AI (deferred feature §11.1 item 11) and the **crystal volumetric** track (§11.1 item 12, ADR-011) are separate, planned options—not interactive CAD.*
 - ❌ Laser hardware control (safety/liability concerns)
 - ❌ Image editing beyond depth adjustment (use GIMP/Photoshop)
 - ❌ Marketplace for selling models (focus on creation tool)
@@ -1299,6 +1318,8 @@ The following are **not** scheduled for Phases 1–4 but are candidates for a fu
 ### 13.1 Glossary
 
 - **2.5D:** Representation where each (x,y) coordinate has single depth (z) value (unlike full 3D)
+- **Blank envelope:** User-specified physical extent of the crystal blank (length × width × height in mm) plus margin and axis mapping; used by ADR-011 to bound exported point clouds
+- **Pseudo-3D point cloud:** Point set with independent (x,y,z) per sample derived from a single image (e.g. volumetric sweep from depth or AI mesh sampling); not claimed to be a unique true solid
 - **Depth Map:** Grayscale image where brightness represents distance from camera
 - **Heightmap:** Similar to depth map, used for terrain or relief modeling
 - **K9 Crystal:** Optical-grade glass commonly used for laser engraving (K9 ≈ BK7)
@@ -1338,6 +1359,7 @@ The following are **not** scheduled for Phases 1–4 but are candidates for a fu
 | 1.4 | 2026-02-22 | System Architect | §11.1 Full 3D: Revised to align with RESEARCH/3d-reconstruction.md (2026-02-22). Pipeline is point-cloud-centric: TripoSR → surface sampling (Poisson) → dimensioned point cloud; crystal blank dimensioning; XYZ/PLY/CSV export for engravers; ~4–5 sprints. todo.md and RESEARCH/architecture.md "Future: Full 3D" updated to match. |
 | 1.5 | 2026-02-28 | System Architect | Consultant_Critical_Review_28Feb2026 response: Status header → Phase 1 complete, Phase 2 in progress. §2.4 timeline → as-built 13 sprints. F1.6 Technical Notes → custom STL/OBJ writers (ADR-008), no stl_io crate. §5.2 diagram → Svelte 4, subprocess (temp file → stdout). |
 | 1.6 | 2026-03-01 | System Architect | Consultant_Review_1Mar2026 response (Sprint 2.2): Status → Sprint 2.2 delivered. Current progress updated. §5.1 Frontend → Svelte 4 + TypeScript (ADR-001), Svelte stores (ADR-010). §5.1 Data Processing File Export → custom writers (ADR-008), no stl_io. F1.7 Technical Notes → Svelte 4. Phase 2 security note updated (SEC-202 still open). |
+| 1.7 | 2026-04-05 | System Architect | §1.1: Crystal volumetric track (ADR-011) summary. §11.1: New deferred feature item 12 (ADR-011); item 11 cross-reference. §11.2: Non-goals clarified vs ADR-011. §13.1: Glossary entries for blank envelope and pseudo-3D point cloud. RESEARCH/architecture.md ADR-011 is canonical; todo.md Phase 2 section updated with epic track. |
 
 ---
 

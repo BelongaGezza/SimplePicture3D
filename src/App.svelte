@@ -38,6 +38,7 @@
     PresetListItem,
     DepthProgressEvent,
     MaskData,
+    UndoRedoState,
   } from "$lib/tauri";
 
   let status = "Ready";
@@ -346,24 +347,41 @@
     }
   }
 
-  /** UI-1202: Paint/erase one stamp at depth-map pixel (x, y). Backend applies and pushes undo. */
-  async function handleMaskPaint(x: number, y: number, value: boolean) {
-    if (!depthMap || (maskTool !== "brush" && maskTool !== "eraser")) return;
+  /**
+   * UI-1202 + JR1-1201: Paint/erase brush stamps along interpolated stroke centers.
+   * One refreshMask after the batch to avoid races and excess IPC during pointermove.
+   */
+  async function handleMaskPaint(
+    centers: { x: number; y: number }[],
+    value: boolean
+  ) {
+    if (
+      !depthMap ||
+      centers.length === 0 ||
+      (maskTool !== "brush" && maskTool !== "eraser")
+    ) {
+      return;
+    }
     const w = depthMap.width;
     const h = depthMap.height;
     const half = Math.max(0, Math.floor(brushSize / 2));
-    const x0 = Math.max(0, Math.min(w, x - half));
-    const y0 = Math.max(0, Math.min(h, y - half));
-    const rw = Math.min(brushSize, w - x0);
-    const rh = Math.min(brushSize, h - y0);
-    if (rw <= 0 || rh <= 0) return;
     try {
-      const state = await setMaskRegion(x0, y0, rw, rh, value);
-      canUndo = state.canUndo;
-      canRedo = state.canRedo;
+      let state: UndoRedoState | null = null;
+      for (const { x, y } of centers) {
+        const x0 = Math.max(0, Math.min(w, x - half));
+        const y0 = Math.max(0, Math.min(h, y - half));
+        const rw = Math.min(brushSize, w - x0);
+        const rh = Math.min(brushSize, h - y0);
+        if (rw <= 0 || rh <= 0) continue;
+        state = await setMaskRegion(x0, y0, rw, rh, value);
+      }
+      if (state) {
+        canUndo = state.canUndo;
+        canRedo = state.canRedo;
+      }
       await refreshMask();
-    } catch {
-      // Non-fatal; e.g. rapid strokes
+    } catch (e) {
+      status = "Mask paint failed: " + String(e);
     }
   }
 
@@ -576,6 +594,7 @@
             maskData={maskData}
             showMaskOverlay={showMaskOverlay}
             activeMaskTool={maskTool === "brush" || maskTool === "eraser" ? maskTool : null}
+            maskBrushSize={brushSize}
             onMaskPaint={handleMaskPaint}
           />
         </div>

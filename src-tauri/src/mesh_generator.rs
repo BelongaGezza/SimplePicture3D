@@ -693,13 +693,13 @@ mod tests {
 
     #[test]
     fn validate_rejects_zero_width() {
-        let err = validate_depth_input(0, 10, &vec![0.0; 0]).unwrap_err();
+        let err = validate_depth_input(0, 10, &[0.0; 0]).unwrap_err();
         assert!(err.to_string().contains("positive"));
     }
 
     #[test]
     fn validate_rejects_length_mismatch() {
-        let err = validate_depth_input(3, 3, &vec![0.0; 8]).unwrap_err();
+        let err = validate_depth_input(3, 3, &[0.0; 8]).unwrap_err();
         assert!(err.to_string().contains("length") || err.to_string().contains("match"));
     }
 
@@ -1071,9 +1071,9 @@ mod tests {
     fn edge_empty_dimensions_rejected() {
         let err = validate_depth_input(0, 0, &[]).unwrap_err();
         assert!(err.to_string().contains("positive"));
-        let err = validate_depth_input(0, 5, &vec![0.0; 0]).unwrap_err();
+        let err = validate_depth_input(0, 5, &[] as &[f32]).unwrap_err();
         assert!(err.to_string().contains("positive"));
-        let err = validate_depth_input(5, 0, &vec![0.0; 0]).unwrap_err();
+        let err = validate_depth_input(5, 0, &[] as &[f32]).unwrap_err();
         assert!(err.to_string().contains("positive"));
     }
 
@@ -1487,8 +1487,12 @@ mod tests {
     // JR2-701: Comprehensive STL writer unit tests
     // =========================================================================
 
-    /// Helper: parse binary STL buffer into (header, tri_count, Vec<(normal, [v0,v1,v2], attr)>).
-    fn parse_stl_binary(buf: &[u8]) -> (Vec<u8>, u32, Vec<([f32; 3], [[f32; 3]; 3], u16)>) {
+    type Vec3 = [f32; 3];
+    type TriangleVertices = [Vec3; 3];
+    type ParsedTriangle = (Vec3, TriangleVertices, u16);
+
+    /// Helper: parse binary STL buffer into (header, tri_count, triangles).
+    fn parse_stl_binary(buf: &[u8]) -> (Vec<u8>, u32, Vec<ParsedTriangle>) {
         assert!(
             buf.len() >= 84,
             "STL buffer too short for header + tri count"
@@ -1560,27 +1564,28 @@ mod tests {
             let i1 = idx[t * 3 + 1] as usize;
             let i2 = idx[t * 3 + 2] as usize;
             let (_, verts, attr) = &triangles[t];
-            for c in 0..3 {
+            for (c, (((v0c, v1c), v2c), ((m0c, m1c), m2c))) in verts[0]
+                .iter()
+                .zip(verts[1].iter())
+                .zip(verts[2].iter())
+                .zip(
+                    mesh.positions[i0]
+                        .iter()
+                        .zip(mesh.positions[i1].iter())
+                        .zip(mesh.positions[i2].iter()),
+                )
+                .enumerate()
+            {
                 assert!(
-                    (verts[0][c] - mesh.positions[i0][c]).abs() < 1e-5,
+                    (*v0c - *m0c).abs() < 1e-5,
                     "tri {} v0[{}] mismatch: {} vs {}",
                     t,
                     c,
-                    verts[0][c],
-                    mesh.positions[i0][c]
+                    v0c,
+                    m0c
                 );
-                assert!(
-                    (verts[1][c] - mesh.positions[i1][c]).abs() < 1e-5,
-                    "tri {} v1[{}] mismatch",
-                    t,
-                    c
-                );
-                assert!(
-                    (verts[2][c] - mesh.positions[i2][c]).abs() < 1e-5,
-                    "tri {} v2[{}] mismatch",
-                    t,
-                    c
-                );
+                assert!((*v1c - *m1c).abs() < 1e-5, "tri {} v1[{}] mismatch", t, c);
+                assert!((*v2c - *m2c).abs() < 1e-5, "tri {} v2[{}] mismatch", t, c);
             }
             assert_eq!(*attr, 0, "attribute byte count should be 0");
         }
@@ -1626,9 +1631,10 @@ mod tests {
         let text_len = header_text.len(); // 26 bytes
         assert_eq!(&buf[..text_len], &header_text[..]);
         // Remaining header bytes should be zero
-        for i in text_len..80 {
-            assert_eq!(buf[i], 0u8, "header byte {} should be 0, got {}", i, buf[i]);
-        }
+        assert!(
+            buf[text_len..80].iter().all(|&b| b == 0),
+            "header padding should be zero"
+        );
     }
 
     #[test]
@@ -1802,25 +1808,21 @@ mod tests {
             let i1 = idx[t * 3 + 1] as usize;
             let i2 = idx[t * 3 + 2] as usize;
             let (_, verts, _) = &triangles[t];
-            for c in 0..3 {
-                assert!(
-                    (verts[0][c] - mesh.positions[i0][c]).abs() < 1e-5,
-                    "roundtrip: tri {} v0[{}]",
-                    t,
-                    c
-                );
-                assert!(
-                    (verts[1][c] - mesh.positions[i1][c]).abs() < 1e-5,
-                    "roundtrip: tri {} v1[{}]",
-                    t,
-                    c
-                );
-                assert!(
-                    (verts[2][c] - mesh.positions[i2][c]).abs() < 1e-5,
-                    "roundtrip: tri {} v2[{}]",
-                    t,
-                    c
-                );
+            for (c, (((v0c, v1c), v2c), ((m0c, m1c), m2c))) in verts[0]
+                .iter()
+                .zip(verts[1].iter())
+                .zip(verts[2].iter())
+                .zip(
+                    mesh.positions[i0]
+                        .iter()
+                        .zip(mesh.positions[i1].iter())
+                        .zip(mesh.positions[i2].iter()),
+                )
+                .enumerate()
+            {
+                assert!((*v0c - *m0c).abs() < 1e-5, "roundtrip: tri {} v0[{}]", t, c);
+                assert!((*v1c - *m1c).abs() < 1e-5, "roundtrip: tri {} v1[{}]", t, c);
+                assert!((*v2c - *m2c).abs() < 1e-5, "roundtrip: tri {} v2[{}]", t, c);
             }
         }
     }
@@ -2227,8 +2229,11 @@ mod tests {
     // JR2-801: OBJ writer unit tests (Sprint 1.9)
     // =========================================================================
 
+    type ObjTestVec3List = Vec<[f32; 3]>;
+    type ObjTestFaceList = Vec<[u32; 3]>;
+
     /// Helper: parse OBJ text into (vertices, normals, faces).
-    fn parse_obj_text(text: &str) -> (Vec<[f32; 3]>, Vec<[f32; 3]>, Vec<[u32; 3]>) {
+    fn parse_obj_text(text: &str) -> (ObjTestVec3List, ObjTestVec3List, ObjTestFaceList) {
         let mut verts = Vec::new();
         let mut normals = Vec::new();
         let mut faces = Vec::new();

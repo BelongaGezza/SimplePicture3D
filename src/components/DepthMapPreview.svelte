@@ -6,10 +6,12 @@
    * Zoom/pan: mouse wheel zoom, drag to pan (JR1-302).
    * Fit-to-view: when a new depth map loads or "Fit" is used, scale to fit the fixed panel (right sidebar).
    * UI-1202/1203: mask overlay and brush/eraser painting when activeMaskTool is set.
+   * JR1-1201: stroke interpolation via maskStroke + batched onMaskPaint.
    */
   import { onMount, afterUpdate } from "svelte";
   import { renderDepthToCanvas } from "$lib/depthCanvas";
   import type { MaskData } from "$lib/tauri";
+  import { interpolateBrushStroke } from "$lib/maskStroke";
 
   export let width = 0;
   export let height = 0;
@@ -25,14 +27,21 @@
   export let showMaskOverlay = true;
   /** UI-1202: when "brush" or "eraser", pointer events paint/erase mask; when null, pan as usual. */
   export let activeMaskTool: "brush" | "eraser" | null = null;
-  /** Called with depth-map pixel (x, y) and value (true = paint, false = erase). */
-  export let onMaskPaint: (x: number, y: number, value: boolean) => void = () => {};
+  /** JR1-1201: brush diameter in depth pixels (spacing for stroke interpolation). */
+  export let maskBrushSize = 20;
+  /**
+   * JR1-1201: dense stroke samples (interpolated); parent batches set_mask_region + one overlay refresh.
+   * Each (x,y) is a brush center in depth-map pixel space.
+   */
+  export let onMaskPaint: (points: { x: number; y: number }[], value: boolean) => void = () => {};
 
   let canvas: HTMLCanvasElement;
   let maskCanvas: HTMLCanvasElement;
   let container: HTMLDivElement;
   let zoomPanDiv: HTMLDivElement;
   let isPainting = false;
+  /** Last depth pixel painted this stroke (JR1-1201 interpolation anchor). */
+  let lastPaintPixel: { x: number; y: number } | null = null;
 
   /** Allow zoom out enough to fit large images in the fixed w-64 sidebar (~256px). e.g. 4K width needs ~0.067. */
   const MIN_ZOOM = 0.02;
@@ -76,21 +85,75 @@
     ctx.putImageData(imageData, 0, 0);
   }
 
-  /** Map client coords to depth-map pixel. Returns [px, py] or null if out of bounds. */
+  /**
+   * Map client coords to depth-map pixel. Returns [px, py] or null if out of bounds.
+   * P0-MASK FIX: Use zoom variable directly instead of deriving from rect dimensions.
+   * The CSS transform `scale(zoom)` affects getBoundingClientRect(), but we need
+   * to convert visual coords to logical depth-map pixels using the known zoom factor.
+   */
   function clientToDepth(clientX: number, clientY: number): [number, number] | null {
     if (!zoomPanDiv || width <= 0 || height <= 0) return null;
     const rect = zoomPanDiv.getBoundingClientRect();
-    const x = ((clientX - rect.left) / rect.width) * width;
-    const y = ((clientY - rect.top) / rect.height) * height;
+    // Position relative to the visual (transformed) element
+    const relX = clientX - rect.left;
+    const relY = clientY - rect.top;
+    // Convert from visual coords to depth-map pixels using the known zoom factor
+    const x = relX / zoom;
+    const y = relY / zoom;
     if (x < 0 || x >= width || y < 0 || y >= height) return null;
     return [Math.floor(x), Math.floor(y)];
+  }
+
+  /** Pixel spacing along stroke: smaller than brush so stamps overlap (no gaps). */
+  $: strokePixelSpacing = Math.max(1, Math.min(16, Math.floor(maskBrushSize / 3)));
+
+  function dedupeFlooredCells(
+    points: { x: number; y: number }[]
+  ): { x: number; y: number }[] {
+    const seen = new Set<string>();
+    const out: { x: number; y: number }[] = [];
+    for (const p of points) {
+      const x = Math.floor(p.x);
+      const y = Math.floor(p.y);
+      const k = `${x},${y}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push({ x, y });
+    }
+    return out;
   }
 
   function doPaint(clientX: number, clientY: number) {
     const pt = clientToDepth(clientX, clientY);
     if (!pt) return;
     const value = activeMaskTool === "brush";
-    onMaskPaint(pt[0], pt[1], value);
+    const cur = { x: pt[0], y: pt[1] };
+
+    if (lastPaintPixel == null) {
+      onMaskPaint([cur], value);
+      lastPaintPixel = cur;
+      return;
+    }
+
+    const dense = interpolateBrushStroke(
+      [
+        { x: lastPaintPixel.x, y: lastPaintPixel.y },
+        { x: cur.x, y: cur.y },
+      ],
+      strokePixelSpacing
+    );
+    let cells = dedupeFlooredCells(dense);
+    if (
+      cells.length > 0 &&
+      cells[0].x === lastPaintPixel.x &&
+      cells[0].y === lastPaintPixel.y
+    ) {
+      cells = cells.slice(1);
+    }
+    if (cells.length > 0) {
+      onMaskPaint(cells, value);
+    }
+    lastPaintPixel = cur;
   }
 
   /** Set zoom and pan so the depth map fits inside the container and is centered. */
@@ -129,6 +192,7 @@
     if (activeMaskTool === "brush" || activeMaskTool === "eraser") {
       e.preventDefault();
       isPainting = true;
+      lastPaintPixel = null;
       doPaint(e.clientX, e.clientY);
       return;
     }
@@ -151,11 +215,13 @@
 
   function handleMouseUp() {
     isPainting = false;
+    lastPaintPixel = null;
     isDragging = false;
   }
 
   function handleMouseLeave() {
     isPainting = false;
+    lastPaintPixel = null;
     isDragging = false;
   }
 

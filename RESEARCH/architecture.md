@@ -2,14 +2,34 @@
 
 **Purpose:** System architecture and data flow for SimplePicture3D.
 
-**Source:** Derived from `prd.md` §5.2, §5.3, §5.4.  
-**Last checked:** 2026-03-01
+**Source:** Derived from `prd.md` §5.2, §5.3, §5.4.
+**Last checked:** 2026-04-08
+
+---
+
+> ## ARCHITECTURAL PIVOT (2026-04-08)
+>
+> SimplePicture3D is transitioning from **2.5D relief mesh generation** to **3D volumetric point cloud** output for internal UV laser engraving of crystal blocks.
+>
+> **Canonical reference:** **ADR-011** (Crystal Volumetric Point Cloud)
+> **Transition roadmap:** `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md`
+>
+> **ADR Status Summary:**
+> | ADR | Status | Notes |
+> |-----|--------|-------|
+> | ADR-001 to ADR-005 | **Active** | Infrastructure decisions (Svelte, subprocess, Python, models) |
+> | ADR-006 | **DEPRECATED** | 2.5D relief mesh generation — superseded by ADR-011 |
+> | ADR-007 | **Active** | Binary IPC transfer |
+> | ADR-008 | **DEPRECATED** | 2.5D triangulation for STL — superseded by ADR-011 |
+> | ADR-009 | **Superseded** | Target dimensions — replaced by BlankEnvelope in ADR-011 |
+> | ADR-010 | **Active** | State management (undo/redo) |
+> | ADR-011 | **CANONICAL** | Crystal volumetric point cloud — primary architecture |
 
 ---
 
 ## Architecture Decision Records (ADRs)
 
-*ADRs initiated 2026-02-06 per External Consultant Recommendations Report. ADR-008 winding order corrected 2026-02-28. ADR-009 added Sprint 2.1. ADR-010 added Sprint 2.2. Current status: see Consultant_Review_1Mar2026.md.*
+*ADRs initiated 2026-02-06 per External Consultant Recommendations Report. ADR-011 is now the canonical architecture reference (2026-04-08). See PIVOT notice above for ADR status.*
 
 ### ADR-001: Svelte over React
 
@@ -192,8 +212,12 @@
 
 ### ADR-006: Mesh Generation Algorithm (Sprint 1.6)
 
-**Status:** Accepted  
-**Date:** 2026-02-07  
+**Status:** ~~Accepted~~ **DEPRECATED (2026-04-08)**
+**Date:** 2026-02-07
+**Superseded by:** ADR-011 (Crystal Volumetric Point Cloud)
+
+> **DEPRECATION NOTICE:** This ADR describes 2.5D relief mesh generation (one Z per XY). As of 2026-04-08, SimplePicture3D is pivoting to 3D volumetric point cloud output per ADR-011. The 2.5D relief approach is no longer the primary development path. Existing code in `mesh_generator.rs` may be retained for legacy/optional relief mode but is not the target architecture. See `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md`.
+
 **Context:** ARCH-201. Need to decide point cloud vs triangulated mesh and sampling strategy for depth map → 3D geometry.
 
 **Decision:**
@@ -217,8 +241,12 @@
 
 ### ADR-008: Grid-Based Triangulation for STL Export (Sprint 1.8)
 
-**Status:** Accepted
+**Status:** ~~Accepted~~ **DEPRECATED (2026-04-08)**
 **Date:** 2026-02-08
+**Superseded by:** ADR-011 (Crystal Volumetric Point Cloud)
+
+> **DEPRECATION NOTICE:** This ADR describes triangulation for 2.5D relief STL export. As of 2026-04-08, SimplePicture3D is pivoting to 3D volumetric point cloud output (PLY/XYZ/CSV) per ADR-011. Triangulation for STL is no longer the primary export path; it may be retained as an "Advanced" option for users with mesh-based workflows. See `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md`.
+
 **Context:** ARCH-301. Sprint 1.8 requires STL export, which mandates triangulated faces with normals. The existing `mesh_generator.rs` produces a uniform-grid point cloud (ADR-006). A triangulation strategy must be chosen and documented before BACK-700 implementation begins. This ADR supersedes the deferred ARCH-205–207 spike from Sprint 1.6A.
 
 **Options considered:**
@@ -485,19 +513,69 @@ Returns the index buffer for the grid. Called after `depth_to_point_cloud` to po
 
 ---
 
+### ADR-011: Crystal volumetric point cloud (internal engraving branch)
+
+**Status:** Accepted (architectural direction; implementation pending)  
+**Date:** 2026-04-05  
+**Context:** The shipping pipeline produces a **2.5D heightfield**: one depth value per \((x, y)\), expanded to a surface (point cloud with optional grid triangulation) in `mesh_generator::depth_to_point_cloud`. That matches **relief-style** outputs but is a poor semantic match for many **internal** UV crystal workflows, which expect **many focal positions distributed through the bulk** of a blank: a **true 3D point set** in millimetres, often delivered as **XYZ / PLY / CSV** rather than only STL/OBJ. Product requirement: user specifies a **physical blank up front** (example default **80 × 50 × 50 mm**) and receives a **pseudo-3D** point cloud (credible \((x,y,z)\) from a single image without claiming a unique solid) that **fits inside** that envelope (with margin).
+
+**Decision:**
+
+1. **Product / git branch:** Treat this as a distinct track from relief MVP. Development uses git branch **`feature/crystal-volumetric-pointcloud`** (or successor) until the pipeline is proven; the app gains a **mode** (working names: "Crystal volume" vs existing "Relief") rather than overloading relief-only UX.
+
+2. **Blank envelope (authoritative 3D budget):** Introduce a **`BlankEnvelope`** (or equivalent) in backend settings/state:
+   - **`extent_mm`:** \((L, W, H)\) e.g. **(80, 50, 50)** as user-configurable at project start; presets encouraged.
+   - **`margin_mm`:** uniform or per-axis inset so no point lies outside the safe interior.
+   - **Axis convention:** One documented mapping from app coordinates (image axes + depth) to crystal/beam axes; must match verifier software. This is a contract with the engraver toolchain, not only a rendering choice.
+
+3. **Fit policy (3D):** After generating a candidate point set (see algorithms below), apply **`fit_to_blank`**: compute the axis-aligned bounding box of the content, apply **uniform scale** \(s = \min((L-2m)/s_x, (W-2m)/s_y, (H-2m)/s_z)\) (with \(m\) margin and content spans \(s_x,s_y,s_z\)), then **translate** to center (or pin a face if the machine requires a fixed origin). Reject or flag outliers that still fall outside the envelope. This extends the spirit of ADR-009 (target XY + uniform scale) to **three dimensions**; current code only derives **`pixel_to_mm`** from target width/height in `lib.rs::compute_pixel_to_mm` and uses **`MeshParams.depth_min_mm` / `depth_max_mm`** for Z range—it does **not** bind Z to the blank’s third extent.
+
+4. **Pseudo-3D generation options (pick one for MVP, document others):**
+   - **Column sweep (recommended first):** For each sampled \((x,y)\), emit points along the **beam / interior axis** from a back plane to a front depth derived from the adjusted depth map (and optional mask). Produces a volumetric fill without full 3D AI. Tunables: XY grid step, spacing along the beam axis.
+   - **Multi-plane stack:** Several 2.5D sheets at different depths with blending; simpler conceptually, can look stratified.
+   - **Full 3D reconstruction:** See subsection **Future: Full 3D Reconstruction Mode** below (TripoSR + surface sampling, then same **`fit_to_blank`**). Heavier dependencies; optional path on this branch.
+
+5. **Export and preview:** Add **PLY and/or XYZ (and optionally CSV)** writers in Rust (or document a single primary format after engraver validation). **`MeshData`** remains the natural IPC carrier (`positions`, `normals`; optional future **`intensities`**). Preview: **wireframe box** for the blank plus point cloud; highlight points outside envelope in debug builds or validation reports.
+
+6. **Planning process (stripped back for this branch):** Until the first successful end-to-end file is proven, prefer a **short epic list** over many per-sprint folder artefacts. Use `SPRINTS/SPRINT_TASKING_TEMPLATE.md` only when decomposing an epic for parallel agents.
+
+| Epic | Outcome |
+|------|--------|
+| **E1 — Charter** | Engraver file format(s), axis handedness, acceptance criteria (e.g. all points inside bbox − margin). |
+| **E2 — Blank + preview** | `BlankEnvelope` in state/settings; Three.js blank box; validation of point bounds. |
+| **E3 — Volumetric core** | `adjusted depth + mask + params + envelope → Vec<[f32;3]>`; unit tests on bbox and counts. |
+| **E4 — Export + E2E** | `export_ply` / `export_xyz`; manual checklist with target software. |
+| **E5 — (Optional) AI 3D** | TripoSR (or equivalent) subprocess per `RESEARCH/3d-reconstruction.md`. |
+
+**Reuse from current codebase:** Image load/validate/downsample; Python depth bridge; depth adjustments (gamma, curve, mask, undo); `MeshData` and Three.js preview patterns; path validation and security patterns.
+
+#### Deprecated: “2.5D-only” point cloud for volumetric crystal (2026-04-05)
+
+**Policy:** The **2.5D relief point cloud** path (`mesh_generator::depth_to_point_cloud`, ADR-006 — one \(Z\) per \((x,y)\)) is **not** the development target for **internal volumetric** crystal workflows (dense focal positions through the bulk). Treat any plan that extended **only** that surface point cloud to stand in for volumetric engraving as **deprecated**. **Canonical replacement:** this ADR and git branch **`feature/crystal-volumetric-pointcloud`** (or successor): `BlankEnvelope`, **`fit_to_blank`**, volumetric sampling (e.g. column sweep), PLY/XYZ/CSV.
+
+**Unchanged:** ADR-006 / relief mesh and point cloud remain **supported** for **relief** engraving, STL/OBJ export, and existing preview. Deprecation applies only to **scope** — do not grow the 2.5D cloud alone to satisfy volumetric crystal requirements.
+
+**Gaps:** No `BlankEnvelope` or **`fit_to_blank`** yet; no volumetric sampler (only single-layer `depth_to_point_cloud`); no PLY/XYZ/CSV export; no TripoSR pipeline in repo; UI is relief-first (e.g. default 40×40 mm target)—crystal mode needs blank-first workflow.
+
+**Consequences:** Implementation tasks land primarily in `mesh_generator.rs` / new module, `lib.rs` (commands + settings), frontend mode toggle and blank inputs, plus QA against real engraver input. **Product tracking:** `prd.md` §11.1 item 12 and `todo.md` (Phase 2 "Crystal volumetric point cloud", Sprint Creation Process §6) reference this ADR; this file remains the **consolidated** architectural reference for the branch.
+
+---
+
 ### Future: Full 3D Reconstruction Mode (Phase 2, optional)
 
-**Context:** Single-image **full 3D** reconstruction produces a watertight mesh; internal UV laser engraving consumes **point clouds** (3D coordinates), not meshes. So the Full 3D pipeline must produce a **dimensioned point cloud** (mm), same as 2.5D — generated by **surface sampling** the AI mesh rather than from a depth grid. Use cases: 3D crystal engraving, 3D printing, multi-angle viewing. See RESEARCH/3d-reconstruction.md (last checked 2026-02-22).
+**Relationship to ADR-011:** ADR-011 defines the **crystal volumetric branch**, **blank envelope**, **fit policy**, and **depth-first volumetric** options. This subsection is the **AI mesh path**: single-image reconstruction → surface sampling → same dimensioning and export goals as ADR-011.
 
-**Decision (research 2026-02-22):** Offer as a **secondary mode**. Recommended model: **TripoSR** (MIT, 6 GB VRAM, ~0.5 s). Python runs TripoSR then **Poisson-disk surface sampling** (trimesh); outputs **point cloud** to Rust. Rust **scales and centers** the point cloud to **crystal blank dimensions** (3D bbox → blank volume), then supports **direct point cloud export** (XYZ, PLY, CSV) for engravers plus existing STL/OBJ for tools that sample meshes themselves.
+**Context:** Single-image **full 3D** reconstruction produces a watertight mesh; internal UV laser engraving often consumes **point clouds** (3D coordinates), not meshes. The Full 3D pipeline should produce a **dimensioned point cloud** (mm) by **surface sampling** the AI mesh rather than only from a depth grid. Use cases: 3D crystal engraving, 3D printing, multi-angle viewing. See RESEARCH/3d-reconstruction.md (last checked 2026-02-22).
+
+**Decision (research 2026-02-22):** Offer as a **secondary mode** alongside relief and alongside ADR-011 depth-first volumetric. Recommended model: **TripoSR** (MIT, 6 GB VRAM, ~0.5 s). Python runs TripoSR then **Poisson-disk surface sampling** (trimesh); outputs **point cloud** to Rust. Rust applies **`fit_to_blank`** per ADR-011 (same as **`scale_to_blank` / `BlankParams`** intent below). **Export:** existing STL/OBJ where useful; **new** XYZ, PLY, CSV for direct engraver consumption. Optional `MeshData.intensities` for per-point laser power (later).
 
 **High-level design:**
 - **Python:** `reconstruction_3d.py` — TripoSR inference → OBJ mesh → trimesh `sample_surface_even` (Poisson disk) → output **point cloud** (JSON or binary) to Rust. Subprocess contract like depth_estimator.
-- **Rust:** **Blank dimensioning:** new `BlankParams` (blank_width_mm, blank_height_mm, blank_depth_mm, margin_mm); `scale_to_blank` fits 3D bbox to crystal volume. **Import:** `import_point_cloud` (pre-sampled points, no grid). **Export:** existing STL/OBJ; **new** XYZ, PLY, CSV for direct engraver consumption. Optional `MeshData.intensities` for per-point laser power (Phase 2 later).
-- **Frontend:** Mode toggle "2.5D Relief" vs "Full 3D"; blank dimension inputs, point spacing (mm), crystal blank wireframe in preview; optional estimated point count before export.
-- **Hardware:** 6 GB VRAM for TripoSR; CPU fallback slow. 2.5D remains default, no GPU required.
+- **Rust:** **Blank dimensioning:** `BlankEnvelope` / `BlankParams` (blank_width_mm, blank_height_mm, blank_depth_mm, margin_mm); **`fit_to_blank`** fits 3D bbox to crystal volume. **Import:** optional `import_point_cloud` (pre-sampled points, no grid). **Export:** STL/OBJ; **new** XYZ, PLY, CSV.
+- **Frontend:** Mode toggle including "2.5D Relief" vs "Crystal volume" (ADR-011) vs "Full 3D"; blank dimension inputs, point spacing (mm), crystal blank wireframe in preview; optional estimated point count before export.
+- **Hardware:** 6 GB VRAM for TripoSR; CPU fallback slow. Relief path remains available without GPU.
 
-**Planning:** prd.md §11.1 (deferred feature #11); todo.md Phase 2 "Full 3D Reconstruction Mode" (~4–5 sprints: Python TripoSR + sampling, Rust blank/import/export, UI, testing; optional 5th for intensity).
+**Planning:** prd.md §11.1 (deferred feature #11); for ADR-011 use epic table above; Full 3D adds roughly the former todo.md estimate (~4–5 sprints: Python TripoSR + sampling, Rust integration with **`fit_to_blank`**, UI, testing; optional sprint for intensity).
 
 ---
 
@@ -547,6 +625,8 @@ Tauri desktop app: Rust backend, Svelte 4 frontend, Python subprocess for AI inf
 **STL/OBJ export:** Implemented as **custom** binary STL and ASCII OBJ (+ MTL) writers in `mesh_generator.rs`; the project does **not** use `stl_io` or `obj-exporter` crates (see Key Interfaces below).
 
 **Target dimensions (ADR-009):** Implemented. Optional `target_width_mm` and `target_height_mm` are supported on `get_mesh_data`, `export_stl`, and `export_obj` (and in `AppSettings`). `lib.rs::compute_pixel_to_mm` derives `pixel_to_mm = min(target_width_mm/width_px, target_height_mm/height_px)` when both are set; when absent, default `pixel_to_mm = 1.0` is unchanged. **Default output scale (Sprint 2.1):** On image load, App sets default target 40×40 mm and persists; zoom control (50/100/150/200%) scales effective target; Preview3D and ExportPanel receive target from App.
+
+**Crystal volumetric branch (ADR-011):** Not implemented in code as of this revision; design and epic plan are consolidated in ADR-011 above.
 
 ### Data flow (as-built)
 
@@ -744,6 +824,7 @@ See **ADR-009** above for full decision, API options, and UI/preset notes.
 ## Key Interfaces
 
 - **Tauri commands:** `load_image`, `generate_depth_map`, `get_depth_map`, **`get_depth_histogram`** (256 bins of current adjusted depth, BACK-1101), `set_depth_adjustment_params`, `get_depth_adjustment_params`, `reset_depth_adjustments`, **`undo`, `redo`, `clear_history`** (Sprint 2.2, BACK-1404 — return success + current params + can_undo/can_redo), **`get_mask`, `set_mask_region`, `clear_mask`, `set_mask`** (Sprint 2.5, BACK-1201 — mask for regional adjustments), `get_mesh_data` (optional `target_width_mm`, `target_height_mm`), `export_stl`, `export_obj`, `get_settings`, `save_settings`, `check_model`, `get_model_info`, `download_model`
+- **Planned (ADR-011, crystal volumetric):** `BlankEnvelope` in settings/state; volumetric generation + **`fit_to_blank`**; commands such as `get_point_cloud_data` and/or extended `get_mesh_data`; **`export_ply`**, **`export_xyz`** (optional CSV). Exact names TBD at implementation.
 - **STL/OBJ export:** Implemented as **custom** binary STL and ASCII OBJ (with .mtl) writers in `src-tauri/src/mesh_generator.rs`. The project does **not** use the `stl_io` or `obj-exporter` crates; the PRD §5.4 notion of a separate `exporters/` module was consolidated into `mesh_generator.rs` (ADR-008, Sprint 1.8/1.9). See RESEARCH/rust-crates.md for crate guidance vs as-built.
 - **Python interface (Sprint 1.3):** See **docs/architecture.md** § "Rust–Python Bridge (Sprint 1.3)" for the full IPC contract:
   - **Image input:** Temp file path only (`--input <path>`); path validated, under system temp dir (ARCH-102).

@@ -543,7 +543,7 @@ mod tests {
     #[test]
     fn builtin_presets_valid_depth_params() {
         for id in builtin_preset_ids() {
-            let p = get_builtin_preset(id).expect(&format!("builtin {} should exist", id));
+            let p = get_builtin_preset(id).unwrap_or_else(|| panic!("builtin {id} should exist"));
             let dp = p.to_depth_params();
             assert!(
                 dp.depth_min_mm < dp.depth_max_mm,
