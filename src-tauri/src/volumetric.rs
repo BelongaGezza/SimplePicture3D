@@ -1,30 +1,53 @@
 // Copyright (c) 2026 SimplePicture3D Contributors
 // SPDX-License-Identifier: MIT
 
-//! Volumetric point cloud generation (ADR-011).
+//! 3D surface point cloud generation (ADR-012).
 //!
-//! Generates dense 3D point clouds from depth maps using the column sweep algorithm.
-//! Points are distributed through the interior volume of a crystal blank, not just
-//! on a surface.
+//! Generates a 3D surface point cloud from a depth map for internal UV laser engraving
+//! of crystal glass. One point is emitted per sampled (x,y) position, placed at the
+//! Z depth given by the depth map. Foreground pixels land near the front face of the
+//! crystal; background pixels land near the back face. The collection of specks traces
+//! the 3D shape surface inside the crystal.
+//!
+//! # IMPORTANT — Algorithm rewrite required (TD-14)
+//!
+//! The current `generate_volumetric_points` body implements a **column-sweep fill**
+//! (ADR-011), which emits many stacked Z points per (x,y) column. This produces a
+//! solid fill — incorrect for crystal engraving. Do NOT wire this function to Tauri
+//! commands until it has been rewritten per ADR-012 (Sprint B — BACK-B-01).
+//!
+//! Target algorithm (ADR-012):
+//! ```text
+//! for each sampled (px, py):
+//!     d = depth[py * width + px]
+//!     if d < params.depth_threshold { continue }
+//!     z = margin_mm + (1.0 - d) * interior_height
+//!     emit [x_mm, y_mm, z]   // one point per column
+//! ```
 
 use crate::blank_envelope::{fit_to_blank, BlankEnvelope, FitResult};
 use serde::{Deserialize, Serialize};
 
-/// Parameters for volumetric point cloud generation (ADR-011).
+/// Parameters for 3D surface point cloud generation (ADR-012).
+///
+/// # ADR-012 rewrite (TD-14, Sprint B — BACK-B-01)
+/// When the algorithm is rewritten, replace `z_spacing_mm`, `depth_min`, `depth_max`,
+/// and `back_plane` with `depth_threshold`. Fields marked DEPRECATED below will be
+/// removed in that sprint.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VolumetricParams {
-    /// Sample every N pixels in X direction (1 = full resolution).
+    /// Sample every N pixels in X direction (1 = full resolution). KEEP.
     pub step_x: u32,
-    /// Sample every N pixels in Y direction (1 = full resolution).
+    /// Sample every N pixels in Y direction (1 = full resolution). KEEP.
     pub step_y: u32,
-    /// Spacing between points along Z axis in mm.
+    /// DEPRECATED (ADR-012): remove when algorithm rewritten. Column-sweep Z spacing.
     pub z_spacing_mm: f32,
-    /// Minimum depth value to include (0.0-1.0, normalized).
+    /// DEPRECATED (ADR-012): remove when algorithm rewritten. Replace with depth_threshold.
     pub depth_min: f32,
-    /// Maximum depth value to include (0.0-1.0, normalized).
+    /// DEPRECATED (ADR-012): remove when algorithm rewritten.
     pub depth_max: f32,
-    /// Back plane position as fraction of blank height (0.0 = bottom, 1.0 = top).
+    /// DEPRECATED (ADR-012): remove when algorithm rewritten.
     pub back_plane: f32,
 }
 

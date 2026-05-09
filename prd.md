@@ -1,13 +1,13 @@
 # SimplePicture3D - Product Requirements Document
 
-**Version:** 2.0
-**Date:** April 8, 2026
-**Status:** **ARCHITECTURAL PIVOT** — Transitioning from 2.5D relief mesh to 3D volumetric point cloud for internal crystal laser engraving. Core infrastructure complete; volumetric sampling in development. See `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md` for transition roadmap.
+**Version:** 3.0
+**Date:** 2026-05-10
+**Status:** **RESTART** — Single-purpose 3D surface point cloud tool for internal UV laser engraving of crystal glass. 2.5D relief code removed. Surface-map algorithm (ADR-012) is canonical. See `todo.md` for sprint plan.
 **License:** MIT
 
 ---
 
-> **PIVOT NOTICE (2026-04-08):** SimplePicture3D is pivoting from 2.5D relief mesh generation to **3D volumetric point cloud** output for internal UV laser engraving of crystal blocks. The 2.5D relief approach (ADR-006, ADR-008) is **deprecated**. All new development follows ADR-011 (crystal volumetric). Retained infrastructure: image loading, depth estimation, depth adjustments, undo/redo, presets, UI framework. Replaced: mesh generation algorithm, export formats.
+> **RESTART NOTICE (2026-05-10):** SimplePicture3D is a single-purpose **3D surface point cloud** tool for internal UV laser engraving of crystal glass. The 2.5D relief approach (ADR-006, ADR-008) is **removed** — `mesh_generator.rs` is deleted, relief UI is retired. The column-sweep fill algorithm previously described in ADR-011 is **superseded by the surface-map algorithm (ADR-012)**. Retained: image loading, depth estimation, depth adjustments, undo/redo, presets, `blank_envelope.rs`, `export.rs`, Svelte UI framework. Canonical algorithm reference: `RESEARCH/architecture.md` **ADR-012**.
 
 ---
 
@@ -20,10 +20,10 @@ SimplePicture3D is an open-source desktop application that transforms 2D images 
 1. Load any 2D image (photo, artwork, graphic)
 2. AI estimates depth from the image
 3. User defines crystal blank dimensions (e.g., 80×50×50 mm)
-4. System generates volumetric point cloud filling the blank interior
+4. System places one laser dot per sampled (x,y) position, at the Z depth given by the depth map — tracing the 3D surface shape inside the blank
 5. Export to PLY/XYZ/CSV for laser engraving software
 
-**Canonical architecture reference:** `RESEARCH/architecture.md` **ADR-011**
+**Canonical algorithm reference:** `RESEARCH/architecture.md` **ADR-012** (surface-map point cloud)
 
 ### 1.2 Key Objectives
 - **Accessibility**: Enable hobbyists without 3D modeling expertise to create volumetric point clouds for laser engraving
@@ -217,21 +217,21 @@ See `todo.md` Phase Overview and `Consultant_Review_1Mar2026.md` for current sta
 **Priority:** P0 (Critical)
 **Description:** Convert depth map to volumetric 3D point cloud
 
-> **PIVOT (2026-04-08):** This feature replaces the former 2.5D relief mesh generation (ADR-006). The new implementation uses ADR-011 volumetric sampling (column sweep) to generate dense 3D point clouds filling a user-specified crystal blank envelope.
+> **RESTART (2026-05-10):** Algorithm is **surface-map** (ADR-012). One laser dot per sampled (x,y) position, placed at Z depth given by the depth map. This traces the 3D surface shape — foreground pixels near the front face, background pixels near the back face. The former column-sweep fill approach (ADR-011) is **superseded**: it would produce a solid/cloudy result, not the clean 3D shape outline required for crystal engraving.
 
 **Acceptance Criteria:**
-- Generate volumetric point cloud filling crystal blank interior
+- Generate one 3D point per sampled (x,y) pixel at the depth-mapped Z position
 - User specifies blank dimensions (L×W×H mm) and margin
-- Points distributed from back plane to depth surface (column sweep algorithm)
-- Configurable XY sampling density and Z spacing
-- Fit-to-blank scaling with aspect ratio preservation
-- All points within blank envelope (validation)
+- Points with depth below threshold are excluded (configurable, default 0.05)
+- Configurable XY sampling step (1–8 px)
+- Fit-to-blank scaling preserves aspect ratio; all points within blank envelope
+- Point count estimate shown in UI before generation
 - Process completes in <2 minutes for 4K image
 
 **Technical Notes:**
-- Rust implementation for performance (`point_cloud_generator.rs`)
-- `BlankEnvelope` struct: extent_mm (L,W,H), margin_mm
-- `fit_to_blank()`: uniform scale + translate to fit envelope
+- Rust implementation in `volumetric.rs` — `generate_volumetric_points` (algorithm rewrite required, see TD-14)
+- `BlankEnvelope` struct: `length_mm`, `width_mm`, `height_mm`, `margin_mm` — already implemented
+- `fit_to_blank()`: uniform scale + translate to fit envelope — already implemented
 - Column sweep: for each (x,y), emit points along Z axis from back to depth
 
 **Implementation Status:**

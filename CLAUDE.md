@@ -6,10 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 SimplePicture3D is a desktop application that transforms 2D images into **volumetric 3D point clouds** for internal UV laser engraving of K9 crystal, glass, and acrylic. Uses AI-powered depth estimation with volumetric sampling to generate dense point distributions inside a user-specified crystal blank.
 
-**Current Status:** Architectural pivot from 2.5D relief mesh to 3D volumetric point cloud. Core infrastructure complete (image loading, depth estimation, depth adjustments, UI framework). Volumetric sampling and new export formats (PLY/XYZ/CSV) in development.
+**Current Status:** Restarted 2026-05-10 as a single-purpose **3D surface point cloud** tool for internal UV laser engraving of crystal glass. 2.5D relief code (`mesh_generator.rs`, STL/OBJ) is being removed. The surface-map algorithm (ADR-012) is canonical — one laser dot per (x,y) sample at the depth-mapped Z position. Core infrastructure is working; volumetric backend wiring and frontend UI are the next sprints (B and C). See `todo.md` for the full sprint plan.
 
-**Canonical architecture reference:** `RESEARCH/architecture.md` **ADR-011**
-**Transition roadmap:** `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md`
+**Canonical algorithm reference:** `RESEARCH/architecture.md` **ADR-012** (surface-map point cloud)  
+**Sprint plan:** `todo.md`  
+**Critical:** Do NOT wire `volumetric.rs::generate_volumetric_points` until algorithm is rewritten per ADR-012 (TD-14, Sprint B — BACK-B-01).
 
 ## Repository Structure (Current)
 
@@ -164,7 +165,7 @@ This project uses agent personas for development coordination:
 3. **Define blank** (Frontend → Rust): User specifies crystal dimensions (L×W×H mm) + margin
 4. **Depth estimation** (Rust → Python): Image bytes → subprocess → depth map
 5. **Depth processing** (Rust): Adjustments (gamma, curves, mask, invert)
-6. **Volumetric sampling** (Rust): Depth map + blank → column sweep → 3D point cloud
+6. **Surface-map sampling** (Rust): Depth map + blank → one point per (x,y) at depth-mapped Z → 3D surface point cloud (ADR-012)
 7. **Fit to blank** (Rust): Scale and translate to fit envelope with margin
 8. **Preview** (Frontend): Point data → Three.js + blank wireframe
 9. **Export** (Rust): PLY/XYZ/CSV to user-selected path

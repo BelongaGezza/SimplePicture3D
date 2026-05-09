@@ -44,6 +44,11 @@ These capture recurring cross-cutting rules that apply to all sprints. Unlike th
 
 ## Entries
 
+### 2026-05-10 — Algorithm — Column-sweep fill produces cloudy/indistinct crystal engravings
+**Symptom:** Crystal engraving looks like a solid cloudy block rather than a recognisable 3D shape.  
+**Cause:** The column-sweep algorithm emits many stacked points per (x,y) column (from back plane up to depth surface), filling the interior like a solid. Each laser dot creates a white speck; a column of specks becomes an opaque column, not a traced surface.  
+**Fix:** Use the surface-map algorithm (ADR-012): emit **one point per (x,y) sample** at `z = margin + (1.0 - depth) × interior_depth`. The specks trace the 3D shape surface rather than filling the volume. **Never wire the old `generate_volumetric_points` column-sweep body** — it must be rewritten first (see TD-14, Sprint B — BACK-B-01, `RESEARCH/architecture.md` ADR-012).
+
 ### 2026-02-28 — Rust / CI — Export filename tests pass on Windows, fail on Linux (starts_with "my_image_")
 **Symptom:** CI fails with `assertion failed: name.starts_with("my_image_")` in `generate_export_filename_from_image_path` and `jr2_803_generate_export_filename_obj`; tests pass locally on Windows.  
 **Cause:** Tests use a Windows-style path `C:\photos\my_image.png`. On Linux, `std::path::Path` only treats `/` as a separator, so the whole string is one component; `file_stem()` then yields the stem of that single "filename" (e.g. `C:\photos\my_image`), which after sanitization becomes `C_photos_my_image_` — not `my_image_`.  

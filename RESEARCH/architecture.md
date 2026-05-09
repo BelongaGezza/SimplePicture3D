@@ -530,10 +530,11 @@ Returns the index buffer for the grid. Called after `depth_to_point_cloud` to po
 
 3. **Fit policy (3D):** After generating a candidate point set (see algorithms below), apply **`fit_to_blank`**: compute the axis-aligned bounding box of the content, apply **uniform scale** \(s = \min((L-2m)/s_x, (W-2m)/s_y, (H-2m)/s_z)\) (with \(m\) margin and content spans \(s_x,s_y,s_z\)), then **translate** to center (or pin a face if the machine requires a fixed origin). Reject or flag outliers that still fall outside the envelope. This extends the spirit of ADR-009 (target XY + uniform scale) to **three dimensions**; current code only derives **`pixel_to_mm`** from target width/height in `lib.rs::compute_pixel_to_mm` and uses **`MeshParams.depth_min_mm` / `depth_max_mm`** for Z range—it does **not** bind Z to the blank’s third extent.
 
-4. **Pseudo-3D generation options (pick one for MVP, document others):**
-   - **Column sweep (recommended first):** For each sampled \((x,y)\), emit points along the **beam / interior axis** from a back plane to a front depth derived from the adjusted depth map (and optional mask). Produces a volumetric fill without full 3D AI. Tunables: XY grid step, spacing along the beam axis.
-   - **Multi-plane stack:** Several 2.5D sheets at different depths with blending; simpler conceptually, can look stratified.
-   - **Full 3D reconstruction:** See subsection **Future: Full 3D Reconstruction Mode** below (TripoSR + surface sampling, then same **`fit_to_blank`**). Heavier dependencies; optional path on this branch.
+4. **Pseudo-3D generation options:**
+   - **~~Column sweep~~ (superseded by ADR-012):** ~~For each sampled \((x,y)\), emit points along the **beam / interior axis** from a back plane to a front depth. Produces a volumetric fill.~~ **Do not implement.** Produces a solid filled result — the laser creates a cloudy, indistinct block rather than a recognisable 3D shape. See ADR-012.
+   - **Surface-map (canonical — ADR-012):** For each sampled \((x,y)\), emit **one point** at `z = margin + (1 - depth) × interior_depth`. Foreground pixels land near the front face; background pixels land near the back face. The collection traces the 3D shape surface inside the crystal. See ADR-012 for full rationale and implementation spec.
+   - **Multi-plane stack:** Several 2.5D sheets at different depths with blending; simpler conceptually, can look stratified. Not planned.
+   - **Full 3D reconstruction:** See subsection **Future: Full 3D Reconstruction Mode** below (TripoSR + surface sampling, then same **`fit_to_blank`**). Heavier dependencies; optional post-MVP path.
 
 5. **Export and preview:** Add **PLY and/or XYZ (and optionally CSV)** writers in Rust (or document a single primary format after engraver validation). **`MeshData`** remains the natural IPC carrier (`positions`, `normals`; optional future **`intensities`**). Preview: **wireframe box** for the blank plus point cloud; highlight points outside envelope in debug builds or validation reports.
 
@@ -557,11 +558,81 @@ Returns the index buffer for the grid. Called after `depth_to_point_cloud` to po
 
 **Gaps:** No `BlankEnvelope` or **`fit_to_blank`** yet; no volumetric sampler (only single-layer `depth_to_point_cloud`); no PLY/XYZ/CSV export; no TripoSR pipeline in repo; UI is relief-first (e.g. default 40×40 mm target)—crystal mode needs blank-first workflow.
 
-**Consequences:** Implementation tasks land primarily in `mesh_generator.rs` / new module, `lib.rs` (commands + settings), frontend mode toggle and blank inputs, plus QA against real engraver input. **Product tracking:** `prd.md` §11.1 item 12 and `todo.md` (Phase 2 "Crystal volumetric point cloud", Sprint Creation Process §6) reference this ADR; this file remains the **consolidated** architectural reference for the branch.
+**Consequences:** Implementation tasks land primarily in `mesh_generator.rs` / new module, `lib.rs` (commands + settings), frontend mode toggle and blank inputs, plus QA against real engraver input. **Product tracking:** `prd.md` §11.1 item 12 and `todo.md` reference this ADR; this file remains the **consolidated** architectural reference for the branch. Algorithm superseded by ADR-012.
 
 ---
 
-### Future: Full 3D Reconstruction Mode (Phase 2, optional)
+### ADR-012: Surface-Map Point Cloud Algorithm (canonical generation algorithm)
+
+**Status:** Accepted — supersedes ADR-011 column-sweep algorithm  
+**Date:** 2026-05-10  
+**Decided by:** Product owner (owner of crystal engraving use case)
+
+**Context:** ADR-011 recommended "column sweep" as the MVP generation algorithm: for each (x,y) sample, emit points along Z from a back plane up to the depth surface. This was intended to create a volumetric fill. However, crystal UV laser engraving works by creating micro-fractures (white specks) at each focal point. The specks collectively define a 3D shape visible when light passes through the crystal.
+
+A column-sweep fill produces **many stacked points per (x,y) column**, filling the interior of the crystal like a solid block. The result is a cloudy, indistinct mass — not a recognisable 3D shape. The laser cannot produce a clean image from a solid fill.
+
+**Decision:** Replace column sweep with **surface-map**: for each sampled (x,y) position, emit **one point** at the Z position corresponding to that pixel's depth value.
+
+```
+z = margin_mm + (1.0 - depth[x, y]) × interior_depth_mm
+```
+
+- `depth = 1.0` (near / foreground) → z near the front face of the crystal
+- `depth = 0.0` (far / background) → z near the back face
+- Points with `depth < depth_threshold` are skipped (don't engrave background noise)
+
+The resulting point cloud traces the **surface of the 3D shape** — one speck per (x,y) sample, positioned at the correct depth. When lit, the specks outline the 3D form as the eye expects.
+
+**Implementation spec (`src-tauri/src/volumetric.rs`):**
+
+```rust
+// New VolumetricParams (remove z_spacing_mm, back_plane; add depth_threshold)
+pub struct VolumetricParams {
+    pub step_x: u32,          // sample every N px in X (1 = full res)
+    pub step_y: u32,          // sample every N px in Y (1 = full res)
+    pub depth_threshold: f32, // minimum depth to emit a point (0.0–1.0, default 0.05)
+}
+
+// New algorithm (replaces column sweep):
+for each sampled (px, py):
+    d = depth[py * width + px].clamp(0.0, 1.0)
+    if d < params.depth_threshold { continue }
+    x_mm = (px as f32 / width as f32)  * envelope.interior_length()  + envelope.margin_mm
+    y_mm = (py as f32 / height as f32) * envelope.interior_width()   + envelope.margin_mm
+    z_mm = envelope.margin_mm + (1.0 - d) * envelope.interior_height()
+    emit [x_mm, y_mm, z_mm]
+
+// fit_to_blank() applied after generation (unchanged)
+```
+
+**`estimate_point_count` (simplified):**
+```rust
+num_cols × num_rows × fraction_above_threshold
+```
+Fraction above threshold can be estimated from a histogram pass or approximated as `(1.0 - depth_threshold)`.
+
+**What changes in `volumetric.rs`:**
+- Remove `z_spacing_mm` and `back_plane` from `VolumetricParams`.
+- Add `depth_threshold: f32` (default `0.05`).
+- Rewrite `generate_volumetric_points` body — column sweep loop replaced with single-point-per-column.
+- Update all unit tests to verify one-point-per-column contract.
+
+**What does NOT change:**
+- `BlankEnvelope`, `fit_to_blank`, `compute_bbox` — unchanged.
+- `export.rs` PLY/XYZ/CSV writers — unchanged.
+- Python depth bridge contract — unchanged.
+- Depth adjustments (gamma, curve, mask) — applied before calling `generate_volumetric_points`, unchanged.
+
+**Consequences:**
+- Point count drops dramatically vs column sweep (one per (x,y) sample instead of many per column). This is correct and expected.
+- `depth_threshold` gives users control over how much background to exclude.
+- XY step remains the primary density control (step=1 gives one point per pixel; step=4 gives ~6% of pixels).
+- Implementation task: `todo.md` TD-14, Sprint B — BACK-B-01.
+
+---
+
+### Future: Full 3D Reconstruction Mode (deferred, optional)
 
 **Relationship to ADR-011:** ADR-011 defines the **crystal volumetric branch**, **blank envelope**, **fit policy**, and **depth-first volumetric** options. This subsection is the **AI mesh path**: single-image reconstruction → surface sampling → same dimensioning and export goals as ADR-011.
 

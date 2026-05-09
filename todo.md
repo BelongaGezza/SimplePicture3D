@@ -1,182 +1,187 @@
 # SimplePicture3D — Program TODO and Sprint Roadmap
 
-**Version:** 3.0  
-**Last Updated:** 2026-04-29  
+**Version:** 4.0  
+**Last Updated:** 2026-05-10  
 **Owner:** System Architect
 
 ---
 
-## Current Reality (Architect Review)
+## Current Reality (Restart Review — 2026-05-10)
 
-This roadmap is based on actual code status, not prior planning assumptions.
+This roadmap reflects a deliberate restart decision. The goal is a single-purpose 3D surface point cloud tool for internal UV laser engraving of crystal glass. All prior 2.5D relief work is being retired. See ADR-012 in `RESEARCH/architecture.md` for the algorithm decision.
 
-### As-Built and Working
-- Core relief pipeline is operational: image load, depth generation, depth adjustments, mask tools, undo/redo, presets, preview, STL/OBJ export.
-- Python bridge contract is consistent: Rust uses `--input` temp file, Python emits JSON depth plus `PROGRESS`/`STAGE` on stderr.
-- Sprint 2.1–2.4 capabilities (histogram/curves, undo/redo, presets, progress streaming) are integrated in the app.
+### What Is Working and Retained
+- Depth pipeline: image load, depth estimation (Python bridge), depth adjustments, mask, undo/redo, presets, progress streaming.
+- `blank_envelope.rs` — `BlankEnvelope` struct, `fit_to_blank`, presets. Fully tested. Keep as-is.
+- `export.rs` — PLY/XYZ/CSV writers. Keep; verify output against format specs in Sprint B.
+- `volumetric.rs` — struct/param scaffolding and `fit_to_blank` wiring are reusable. **The `generate_volumetric_points` algorithm (column sweep) must be replaced** with a surface-map algorithm (ADR-012) before wiring. See TD-14.
+- Svelte UI framework: three-panel layout, depth controls, Three.js preview infrastructure.
+- Python bridge contract: Rust `--input` temp file, Python emits JSON depth + `PROGRESS`/`STAGE` on stderr.
 
-### Dead-Ends and Architecture Drift (must fix)
-- `blank_envelope.rs`, `volumetric.rs`, and `export.rs` exist but are not wired into active Tauri commands or frontend flows.
-- No frontend invocations for `export_ply`, `export_xyz`, `export_csv`, or volumetric generation path.
-- `todo.md` and portions of `prd.md` previously claimed volumetric path was already shipped; this is inaccurate.
-- Product metadata is stale: `src-tauri/tauri.conf.json` bundle description still says 2.5D STL/OBJ.
-- Capability design is uneven: broad grouped permission (`allow-generate-depth-map`) plus missing granular permissions for several invoked commands (should be regularized during volumetric integration).
+### What Is Being Removed
+- `mesh_generator.rs` — 2.5D surface triangulation (STL/OBJ). Delete in Sprint A.
+- Relief mode UI components (STL/OBJ export panels, relief-specific controls). Remove in Sprint A.
+- `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md` — superseded by this restart decision; archive or delete.
 
-### Consistency Rule Check (this review cycle)
-- Reviewed `RESEARCH/GOTCHAS.md` before planning.
-- Verified Rust command declarations in `src-tauri/src/lib.rs` are registered in `tauri::generate_handler!`.
-- Verified frontend command usage from `src/lib/tauri.ts` and app/components.
-- Reviewed capability file and command permission coverage for current/next scope.
-- Verified Rust↔Python IO contract alignment between `src-tauri/src/python_bridge.rs` and `python/python/depth_estimator.py`.
-
----
-
-## Program Priorities (P0–P2)
-
-1. **P0: Close quality gates on already-shipped relief flow**
-   - Complete pending manual QA backlog for masking, presets, progress streaming, and undo/redo.
-   - Eliminate known regressions before adding new major flows.
-
-2. **P0: Integrate volumetric path end-to-end (ADR-011)**
-   - Add explicit backend commands for blank envelope + volumetric generation + PLY/XYZ/CSV export.
-   - Wire frontend mode and export UI to those commands.
-   - Keep relief mode available until volumetric path is proven on real engraver software.
-
-3. **P1: Resolve architecture/documentation drift**
-   - Bring `todo.md`, `prd.md`, `README.md`, and app metadata into the same truth model.
-   - Avoid claiming “pivot complete” until volumetric path is selectable and exportable in UI.
-
-4. **P1: Stabilize command/capability boundaries**
-   - Move from legacy broad permissions toward least-privilege capability files aligned with actual command groups.
-
-5. **P2: Defer optional Full 3D reconstruction track**
-   - Keep TripoSR as post-MVP for volumetric branch; do not interleave with volumetric core stabilization.
+### What Remains Unwired (the core problem)
+- `blank_envelope.rs`, `volumetric.rs`, `export.rs` are not connected to any Tauri commands or frontend flows.
+- No Tauri commands exist for: `set_blank_envelope`, `generate_point_cloud`, `export_ply`, `export_xyz`, `export_csv`.
+- Product metadata is stale: `src-tauri/tauri.conf.json` bundle description still references 2.5D STL/OBJ.
+- Capability permissions are uneven; needs regularisation when new commands are added.
 
 ---
 
-## Revised Remaining Phases
+## Program Priorities
 
-## Phase A — Stabilization and Truth Alignment (2–3 sprints)
-**Goal:** remove dead-ends and clear QA debt while keeping relief path stable.
+1. **P0: Replace the column-sweep algorithm with surface-map (ADR-012)**
+   - The existing `generate_volumetric_points` fills the volume from back plane to depth surface.
+   - Crystal laser engraving needs one point per (x,y) sample, placed at the Z position given by the depth value.
+   - Solid fill produces a cloudy, indistinct result; surface-map produces the clean 3D shape outline the laser traces.
 
-### Exit Criteria
-- All outstanding Phase 2 manual QA cases are either passed or explicitly deferred with rationale/date.
-- Documentation status claims match repository reality.
-- No P0/P1 defects in mask/undo/preset/progress features.
+2. **P0: Remove all 2.5D relief code and retire the dual-mode design**
+   - This is a single-purpose 3D surface point cloud app. No relief mode.
+   - Delete `mesh_generator.rs`; remove relief UI.
 
-## Phase B — Volumetric Integration (3–4 sprints)
-**Goal:** ship first true ADR-011 workflow in-app (blank-first, volumetric generation, PLY/XYZ/CSV export).
+3. **P0: Wire the volumetric backend into real Tauri commands**
+   - `blank_envelope.rs`, `volumetric.rs`, `export.rs` must be connected to `lib.rs` and the frontend.
 
-### Exit Criteria
-- User can choose volumetric mode, set blank envelope, generate volumetric preview, export PLY/XYZ/CSV.
-- New backend commands and capabilities are in place, tested, and documented.
-- Relief mode remains functional and intentionally labeled (legacy/advanced).
+4. **P1: Build the frontend volumetric UI**
+   - Blank envelope controls, volumetric params panel, point count estimator, Three.js preview (point cloud + blank wireframe), export panel.
 
-## Phase C — Engraver Validation and Release Hardening (2 sprints)
-**Goal:** validate outputs against target engraver software and harden UX/perf around volumetric flow.
+5. **P1: Validate output with real engraver software**
+   - At least one confirmed end-to-end path before claiming v1.0.
 
-### Exit Criteria
-- E1 charter complete (axis conventions, accepted formats, acceptance tolerances).
-- Manual E2E passes with real engraver toolchain.
-- Blocking interoperability gaps resolved or documented with mitigations.
-
-## Phase D — Cross-Platform and Production Readiness (Phase 3+4 continuation)
-**Goal:** platform parity, packaging, performance, accessibility, and release operations.
-
-### Exit Criteria
-- Existing Phase 3/4 gates remain, but anchored to the integrated volumetric baseline.
+6. **P2: Defer Full 3D reconstruction (TripoSR)**
+   - Keep as a documented future option; do not interleave with core stabilisation.
 
 ---
 
-## Sprint Plan (Rebased)
+## Phases
 
-All sprints are 2 weeks unless explicitly marked.
+### Phase A — Clean House (1 week)
+**Goal:** remove 2.5D dead weight; update all docs and metadata to reflect single-purpose 3D intent.
 
-### Sprint 2.6R — QA Closure and Drift Cleanup
-**Goal:** close known QA gaps and remove false “done” signals.
+**Exit Criteria**
+- `mesh_generator.rs` deleted; relief UI removed; no STL/OBJ references in active code paths.
+- `tauri.conf.json`, `README.md`, `prd.md` describe a 3D surface point cloud app, not a 2.5D relief tool.
+- Documentation status claims match repository reality; no “pivot complete” false signals.
+
+### Phase B — Backend Wiring (1 week)
+**Goal:** expose the complete 3D surface point cloud pipeline as a real Tauri API.
+
+**Exit Criteria**
+- `generate_volumetric_points` rewritten to surface-map algorithm (ADR-012): one point per (x,y) sample at depth-mapped Z.
+- Tauri commands registered and testable: `set_blank_envelope`, `generate_point_cloud`, `export_ply`, `export_xyz`, `export_csv`.
+- `settings.rs` persists blank envelope and export format preference.
+- All new commands have capability permission entries.
+- Command-level tests cover surface-map generation and all three export formats.
+
+### Phase C — Frontend UI (1–2 weeks)
+**Goal:** make the full 3D surface point cloud workflow usable from the UI.
+
+**Exit Criteria**
+- Blank envelope controls (L×W×H mm, margin, standard presets) visible and persisted.
+- Volumetric params panel: XY step, depth threshold, point count estimate updated live.
+- Three.js preview renders point cloud inside blank wireframe box.
+- Export panel: format selector (PLY / XYZ / CSV) with save-to-file.
+- Full workflow completable without touching the terminal.
+
+### Phase D — Validate and Harden (1 week)
+**Goal:** confirm output is compatible with real engraver toolchains; tighten security boundaries.
+
+**Exit Criteria**
+- At least one validated E2E path: image → point cloud → imported into engraver software with correct axis orientation and units.
+- Engraver charter documented: accepted formats, axis convention, unit expectations.
+- Capability permissions align with minimum-privilege intent; command/permission audit passes.
+- Performance: 4K image → point cloud in < 2 minutes on mid-range hardware.
+
+---
+
+## Sprint Plan
+
+All sprints are 1 week unless explicitly marked.
+
+### Sprint A — Clean House
+**Goal:** delete 2.5D code; make docs and metadata truthful.
 
 **Tasks**
-- **QA-2.6R-01:** Re-run masking manual cases (`QA-1201`–`QA-1203`) and sign off or document residual defects.
-- **QA-2.6R-02:** Execute pending manual tests (`QA-1101`–`QA-1103`, `QA-1301`–`QA-1303`, `QA-1401`, `QA-304-STREAM`).
-- **ARCH-2.6R-01:** Rewrite status docs to reflect actual integration state (no “pivot complete” claims).
-- **DOC-2.6R-01:** Update `README.md` status section to “foundation implemented, integration pending”.
-- **BACK-2.6R-01:** Fix any critical defects surfaced by manual QA reruns.
+- **BACK-A-01:** Delete `src-tauri/src/mesh_generator.rs` and remove all references from `lib.rs`, `Cargo.toml`, and tests.
+- **UI-A-01:** Remove relief-mode UI components (STL/OBJ export panel, relief-specific control groups).
+- **DOC-A-01:** Update `tauri.conf.json` bundle description to reflect 3D surface point cloud purpose.
+- **DOC-A-02:** Update `README.md` — replace all 2.5D/relief/STL/OBJ language; describe actual workflow.
+- **DOC-A-03:** Update `prd.md` header status block and §F3.5 feature description to surface-map algorithm (ADR-012).
+- **DOC-A-04:** Update `CLAUDE.md` current status and data flow to match restart.
+- **DOC-A-05:** Archive `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md` (rename to `RESEARCH/archive/PIVOT_PLAN_archived.md`).
+- **ARCH-A-01:** Add ADR-012 to `RESEARCH/architecture.md` documenting the surface-map algorithm decision.
 
 **Gate**
-- Sprint 2.7 cannot start until masking QA is closed or explicit architect waiver is documented.
+- Sprint B cannot start until `mesh_generator.rs` is deleted and tests pass with `cargo test`.
 
 ---
 
-### Sprint 2.7R — Backend Volumetric Wiring
-**Goal:** expose ADR-011 pipeline as real backend API.
+### Sprint B — Backend Wiring
+**Goal:** rewrite the generation algorithm; wire all volumetric modules into Tauri commands.
 
 **Tasks**
-- **ARCH-2.7R-01:** Finalize command contract for volumetric flow (`set_blank_envelope`, `get_point_cloud_data`, `export_ply`, `export_xyz`, `export_csv`).
-- **BACK-2.7R-01:** Add and register volumetric commands in `src-tauri/src/lib.rs`.
-- **BACK-2.7R-02:** Wire `settings.rs` blank envelope and point-cloud format fields into active load/save path.
-- **BACK-2.7R-03:** Integrate `volumetric.rs` generation path with depth+mask adjusted data.
-- **BACK-2.7R-04:** Integrate `export.rs` file export path with secure path validation parity.
-- **QA-2.7R-01:** Add command-level tests for volumetric generation and PLY/XYZ/CSV export.
-- **SEC-2.7R-01:** Review new command surface and export path handling.
+- **BACK-B-01 (TD-14):** Rewrite `generate_volumetric_points` in `volumetric.rs` to surface-map algorithm per ADR-012.
+  - For each sampled (x, y): compute `z = margin + (1.0 - depth[x,y]) × interior_depth`; emit one point `(x_mm, y_mm, z_mm)`.
+  - Remove `z_spacing_mm` and `back_plane` from `VolumetricParams`; add `depth_threshold` (minimum depth value to emit a point).
+  - Update all unit tests in `volumetric.rs` to reflect the new one-point-per-column contract.
+- **BACK-B-02:** Add and register Tauri commands in `src-tauri/src/lib.rs`: `set_blank_envelope`, `generate_point_cloud`, `export_ply`, `export_xyz`, `export_csv`.
+- **BACK-B-03:** Wire `settings.rs` — add `blank_envelope: BlankEnvelope` and `export_format: ExportFormat` to persisted app settings.
+- **BACK-B-04:** Connect `volumetric.rs` generation to depth+mask adjusted data from existing pipeline state.
+- **BACK-B-05:** Verify `export.rs` PLY/XYZ/CSV output against format specs; fix any header or precision issues.
+- **SEC-B-01:** Review new command surface; ensure export path validation matches existing `file_io.rs` patterns.
+- **QA-B-01:** Add command-level integration tests for `generate_point_cloud` and all three export commands.
 
 **Exit Criteria**
-- Volumetric commands callable from frontend layer.
-- PLY/XYZ/CSV exports produced from real app state (not isolated module tests only).
+- `cargo test` passes with new surface-map algorithm.
+- All five new commands callable from Tauri frontend layer.
+- PLY/XYZ/CSV files producible from a real loaded image (not isolated unit tests only).
 
 ---
 
-### Sprint 2.8R — Frontend Volumetric Mode Integration
-**Goal:** make volumetric flow usable from UI without removing relief fallback.
+### Sprint C — Frontend UI
+**Goal:** expose the full 3D workflow through the Svelte UI.
 
 **Tasks**
-- **UI-2.8R-01:** Add mode selector (`Relief` vs `Volumetric`) with safe default behavior.
-- **UI-2.8R-02:** Add blank envelope controls (dimensions + margin) and persist through settings.
-- **UI-2.8R-03:** Update `ExportPanel.svelte` to expose PLY/XYZ/CSV when volumetric mode is active.
-- **UI-2.8R-04:** Add volumetric preview behavior in `Preview3D.svelte` (point cloud + blank wireframe).
-- **UI-2.8R-05:** Keep existing STL/OBJ path in relief mode as advanced/legacy.
-- **QA-2.8R-01:** Manual UX pass for mode switching, settings persistence, and exports.
+- **UI-C-01:** Add blank envelope panel: L / W / H mm inputs, margin input, preset dropdown (Standard 80×50×50, Cube 60×60×60, Large 100×60×60, Tall 50×50×80).
+- **UI-C-02:** Add volumetric params panel: XY step slider (1–8 px), depth threshold slider (0.0–1.0), live point count estimate (calls `estimate_point_count` via Tauri).
+- **UI-C-03:** Update `Preview3D.svelte` — render point cloud from `generate_point_cloud` response; overlay blank wireframe box using Three.js `EdgesGeometry`.
+- **UI-C-04:** Update `ExportPanel.svelte` — format selector (PLY / XYZ / CSV); replace STL/OBJ with new export commands.
+- **UI-C-05:** Persist blank envelope and export format through `settings.rs` load/save cycle.
+- **QA-C-01:** Manual UX pass: full workflow from image load → blank setup → generate → preview → export.
 
 **Exit Criteria**
-- User can complete full volumetric workflow from UI.
-- Relief workflow still works and is clearly scoped.
+- User can complete the full workflow without touching the terminal.
+- Preview shows point cloud correctly positioned inside the blank wireframe.
 
 ---
 
-### Sprint 2.9R — Capability, Contract, and Safety Hardening
-**Goal:** tighten security and architectural boundaries after integration.
+### Sprint D — Validate and Harden
+**Goal:** confirm engraver compatibility; tighten permissions; check performance.
 
 **Tasks**
-- **SEC-2.9R-01:** Split coarse permissions into least-privilege command groups.
-- **BACK-2.9R-01:** Ensure all frontend-invoked commands have explicit permission coverage.
-- **ARCH-2.9R-01:** Re-run command registration/invocation consistency audit.
-- **QA-2.9R-01:** Regression suite across both modes and all export formats.
-- **DOC-2.9R-01:** Update developer docs with finalized command and capability map.
+- **ARCH-D-01:** Document engraver charter: axis convention (which app axis maps to laser X/Y/Z), units (mm), accepted formats, point ordering expectations.
+- **QA-D-01:** Export PLY and XYZ from a real image; import into target engraver software; verify axis orientation and point distribution.
+- **BACK-D-01:** Fix any compatibility defects found (axis flips, unit scaling, header metadata, decimal precision).
+- **SEC-D-01:** Split coarse permissions (`allow-generate-depth-map`) into least-privilege capability groups aligned with actual command groups.
+- **ARCH-D-02:** Re-run command registration/invocation consistency audit (`lib.rs` ↔ `tauri.ts` ↔ capability files).
+- **QA-D-02:** Performance check — time from image load to PLY export for a 4K image on a mid-range machine.
+- **DOC-D-01:** Publish interoperability notes and known-good engraver configuration in `docs/`.
 
 **Exit Criteria**
-- Capability model aligns with actual command usage and minimum-privilege intent.
-- No command drift between Rust, frontend, and permissions.
-
----
-
-### Sprint 3.0R — Engraver Charter and Validation (E1 + E2E)
-**Goal:** close the practical adoption risk by validating real toolchain compatibility.
-
-**Tasks**
-- **ARCH-3.0R-01:** Finalize engraver charter (axis conventions, units, accepted formats, sample profiles).
-- **QA-3.0R-01:** Execute manual export/import validation on target engraver software.
-- **BACK-3.0R-01:** Fix compatibility defects (axis flips, bounds, decimal precision, header metadata).
-- **DOC-3.0R-01:** Publish interoperability notes and known-good configuration matrix.
-
-**Exit Criteria**
-- At least one validated real-world engraver path with repeatable settings and expected output quality.
+- At least one validated real-world engraver path documented with repeatable settings.
+- Capability model aligns with minimum-privilege intent.
+- Performance target met or blocker documented with mitigation plan.
 
 ---
 
 ## Deferred Tracks (Explicit)
 
-- **Full 3D reconstruction (TripoSR)** remains deferred until after Sprint 3.0R success.
-- **Major UI polish initiatives** (dark mode, broad beta polish) are deferred until volumetric flow is validated end-to-end.
-- **Cross-platform rollout** (Phase 3) remains after volumetric integration stability on primary target.
+- **Full 3D reconstruction (TripoSR)** — deferred until after Sprint D validation. Documented in `RESEARCH/3d-reconstruction.md`.
+- **Major UI polish** (dark mode, broad beta polish) — deferred until volumetric flow is engraver-validated.
+- **Cross-platform rollout** (macOS, Linux packaging) — Phase 3, after Phase D stability confirmed on primary platform.
 
 ---
 
@@ -184,16 +189,16 @@ All sprints are 2 weeks unless explicitly marked.
 
 | ID | Title | Severity | Plan |
 |---|---|---|---|
-| TD-11 | Volumetric modules are orphaned from runtime pipeline | Critical | Sprint 2.7R + 2.8R |
-| TD-12 | Documentation claims shipped features that are not wired | Critical | Sprint 2.6R |
-| TD-13 | Command-permission granularity is inconsistent | High | Sprint 2.9R |
-| TD-08 | `lib.rs` testability/coverage gap | High | schedule dedicated refactor slice in Phase C |
-| TD-09 | Accessibility issues in advanced controls | Medium | Phase C polish |
-| TD-06 | Export path TOCTOU write-test pattern | Medium | Phase C security hardening |
+| TD-14 | `generate_volumetric_points` uses column-sweep (fills volume) instead of surface-map (one point per column) | **Critical** | Sprint B — BACK-B-01 |
+| TD-11 | Volumetric modules not wired to Tauri commands or frontend | Critical | Sprint B — BACK-B-02 |
+| TD-13 | Command-permission granularity inconsistent | High | Sprint D — SEC-D-01 |
+| TD-08 | `lib.rs` testability/coverage gap | High | Dedicated refactor slice in Phase D |
+| TD-06 | Export path TOCTOU write-test pattern | Medium | Sprint D security hardening |
+| TD-09 | Accessibility issues in advanced controls | Medium | Post-Phase D polish |
 
 ---
 
-## Sprint Creation Process (Unchanged)
+## Sprint Creation Process
 
 When generating a sprint package:
 - Use `SPRINTS/SPRINT_TASKING_TEMPLATE.md`.
@@ -206,5 +211,7 @@ When generating a sprint package:
 ## Notes
 
 - This file is the operational source of truth for scheduling.
-- Do not mark ADR-011 “implemented” in project status until Sprint 2.8R exit criteria are met.
+- **Do not mark Phase B complete** until `generate_point_cloud` produces a real PLY/XYZ file from a loaded image.
+- **Do not mark Phase D complete** until at least one engraver software import is validated end-to-end.
 - If scope changes, update this file and `prd.md` in the same change set to prevent drift.
+- The column-sweep code in `volumetric.rs` **must not be wired** as-is — it produces a solid fill, not a surface outline. See TD-14 and ADR-012.
