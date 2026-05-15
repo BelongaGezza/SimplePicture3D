@@ -9,9 +9,8 @@
     "dialog:allow-open",
     "dialog:allow-save",
     "allow-load-image",
-    "allow-export-stl",
-    "allow-get-export-defaults",
     "allow-generate-depth-map",
+    "allow-point-cloud",
     "allow-presets"
   ]
 }

@@ -11,6 +11,7 @@ use std::path::PathBuf;
 
 use crate::blank_envelope::BlankEnvelope;
 use crate::depth_adjust::CurvePoint;
+use crate::volumetric::VolumetricParams;
 
 /// Application settings persisted between sessions (BACK-706, BACK-804, BACK-805).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -64,6 +65,10 @@ pub struct AppSettings {
     /// Preferred point cloud export format: "ply", "xyz", or "csv" (ADR-011).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub point_cloud_format: Option<String>,
+
+    /// Last-used volumetric sampling parameters (ADR-012); applied on `generate_point_cloud`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub volumetric_params: Option<VolumetricParams>,
 }
 
 /// App data directory: `~/.simplepicture3d/` (Sprint 2.3 presets, models, logs).
@@ -212,6 +217,9 @@ mod tests {
         assert!(s.target_width_mm.is_none());
         assert!(s.target_height_mm.is_none());
         assert!(s.curve_control_points.is_none());
+        assert!(s.blank_envelope.is_none());
+        assert!(s.point_cloud_format.is_none());
+        assert!(s.volumetric_params.is_none());
     }
 
     #[test]

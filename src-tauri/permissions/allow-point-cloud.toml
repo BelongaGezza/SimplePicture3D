@@ -1,0 +1,13 @@
+[[permission]]
+identifier = "allow-point-cloud"
+description = "Enables crystal blank envelope, volumetric parameters, point cloud generation (ADR-012), and PLY/XYZ/CSV export commands."
+commands.allow = [
+    "set_blank_envelope",
+    "set_volumetric_params",
+    "set_point_cloud_format",
+    "estimate_point_cloud_count",
+    "generate_point_cloud",
+    "export_ply",
+    "export_xyz",
+    "export_csv",
+]

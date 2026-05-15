@@ -387,28 +387,22 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Enables the export_stl command.",
-          "type": "string",
-          "const": "allow-export-stl",
-          "markdownDescription": "Enables the export_stl command."
-        },
-        {
-          "description": "Enables depth map generation, retrieval, adjustment, undo/redo, mesh generation, and mask (Sprint 2.5) commands.",
+          "description": "Enables depth map generation, retrieval, adjustment, undo/redo, and mask commands. Sprint A retired `get_mesh_data` along with the 2.5D mesh pipeline; the 3D point cloud commands (ADR-012) will be added in their own permission group in Sprint B.",
           "type": "string",
           "const": "allow-generate-depth-map",
-          "markdownDescription": "Enables depth map generation, retrieval, adjustment, undo/redo, mesh generation, and mask (Sprint 2.5) commands."
-        },
-        {
-          "description": "Enables the get_export_defaults command.",
-          "type": "string",
-          "const": "allow-get-export-defaults",
-          "markdownDescription": "Enables the get_export_defaults command."
+          "markdownDescription": "Enables depth map generation, retrieval, adjustment, undo/redo, and mask commands. Sprint A retired `get_mesh_data` along with the 2.5D mesh pipeline; the 3D point cloud commands (ADR-012) will be added in their own permission group in Sprint B."
         },
         {
           "description": "Enables the load_image command.",
           "type": "string",
           "const": "allow-load-image",
           "markdownDescription": "Enables the load_image command."
+        },
+        {
+          "description": "Enables crystal blank envelope, volumetric parameters, point cloud generation (ADR-012), and PLY/XYZ/CSV export commands.",
+          "type": "string",
+          "const": "allow-point-cloud",
+          "markdownDescription": "Enables crystal blank envelope, volumetric parameters, point cloud generation (ADR-012), and PLY/XYZ/CSV export commands."
         },
         {
           "description": "Enables preset save, load, and list commands (Sprint 2.3).",

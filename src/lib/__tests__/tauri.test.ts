@@ -8,13 +8,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   loadImage,
-  exportStl,
   generateDepthMap,
   getDepthMap,
   getDepthAdjustmentParams,
   setDepthAdjustmentParams,
   resetDepthAdjustments,
-  getMeshData,
   listPresets,
   savePreset,
   loadPreset,
@@ -62,18 +60,9 @@ describe("tauri IPC", () => {
     });
   });
 
-  describe("exportStl", () => {
-    it("calls invoke with export_stl and path", async () => {
-      mockInvoke.mockResolvedValue(undefined);
-      await exportStl("/out/model.stl");
-      expect(mockInvoke).toHaveBeenCalledWith("export_stl", { path: "/out/model.stl" });
-    });
-
-    it("propagates invoke rejection", async () => {
-      mockInvoke.mockRejectedValue(new Error("export failed"));
-      await expect(exportStl("/bad.stl")).rejects.toThrow("export failed");
-    });
-  });
+  // Sprint A: `exportStl` / `exportObj` and the 2.5D STL/OBJ pipeline have been retired.
+  // Point cloud exporters (PLY/XYZ/CSV per ADR-012) ship in Sprint B (BACK-B-03) and
+  // will get their own coverage when they land.
 
   describe("generateDepthMap", () => {
     it("calls invoke with generate_depth_map and path", async () => {
@@ -189,43 +178,9 @@ describe("tauri IPC", () => {
     });
   });
 
-  describe("getMeshData", () => {
-    it("calls invoke with get_mesh_data (no args when no options)", async () => {
-      const result = {
-        positions: [[0, 0, 2] as [number, number, number]],
-        normals: [[0, 0, 1] as [number, number, number]],
-      };
-      mockInvoke.mockResolvedValue(result);
-      const out = await getMeshData();
-      expect(mockInvoke).toHaveBeenCalledWith("get_mesh_data", {});
-      expect(out).toEqual(result);
-      expect(out?.positions).toHaveLength(1);
-      expect(out?.normals).toHaveLength(1);
-    });
-
-    it("calls invoke with get_mesh_data and preview_step when previewStep provided", async () => {
-      mockInvoke.mockResolvedValue({ positions: [], normals: [] });
-      await getMeshData({ previewStep: 2 });
-      expect(mockInvoke).toHaveBeenCalledWith("get_mesh_data", { preview_step: 2 });
-    });
-
-    it("clamps preview_step to at least 1", async () => {
-      mockInvoke.mockResolvedValue({ positions: [], normals: [] });
-      await getMeshData({ previewStep: 0 });
-      expect(mockInvoke).toHaveBeenCalledWith("get_mesh_data", { preview_step: 1 });
-    });
-
-    it("returns null when backend returns null", async () => {
-      mockInvoke.mockResolvedValue(null);
-      const out = await getMeshData();
-      expect(out).toBeNull();
-    });
-
-    it("propagates invoke rejection", async () => {
-      mockInvoke.mockRejectedValue(new Error("no mesh"));
-      await expect(getMeshData()).rejects.toThrow("no mesh");
-    });
-  });
+  // Sprint A: `getMeshData` and the `get_mesh_data` IPC command have been retired together
+  // with the 2.5D mesh pipeline. The 3D point cloud equivalent (`generate_point_cloud` per
+  // ADR-012) ships in Sprint B (BACK-B-02) and gets its own coverage when it lands.
 
   // --- JR2-1302: Preset API (listPresets, savePreset, loadPreset, deletePreset, renamePreset) ---
 

@@ -4,7 +4,10 @@
 //! SimplePicture3D Tauri application: Tauri commands and app state.
 //!
 //! Public API surface: Tauri commands registered in `run()` (load_image, generate_depth_map,
-//! get_depth_map, set_depth_adjustment_params, get_mesh_data, export_stl, export_obj, etc.).
+//! get_depth_map, set_depth_adjustment_params, etc.). The 2.5D mesh / STL / OBJ surface has been
+//! retired (Sprint A). ADR-012 point cloud commands are registered: `set_blank_envelope`,
+//! `set_volumetric_params`, `generate_point_cloud`, `export_ply`, `export_xyz`, `export_csv`, etc.
+//!
 //! See `docs/developer-guide.md` and `cargo doc` for command contracts and types.
 
 pub mod blank_envelope;
@@ -13,22 +16,24 @@ pub mod export;
 mod file_io;
 mod image_loading;
 pub mod mask;
-pub mod mesh_generator;
 pub mod preset;
 mod python_bridge;
 pub mod settings;
 pub mod undo;
 pub mod volumetric;
 
+use std::path::Path;
 use std::sync::Mutex;
 use std::time::Duration;
 use tauri::Emitter;
 use tauri::State;
 
+use blank_envelope::BlankEnvelope;
 use depth_adjust::{apply_adjustments, compute_histogram, DepthAdjustmentParams};
-use mesh_generator::{depth_to_point_cloud, MeshData, MeshParams};
+use export::ExportMetadata;
 use preset::{get_builtin_preset, sanitize_preset_name, Preset};
 use undo::{SetDepthParamsCommand, SetMaskCommand, UndoRedoHistory, UndoableCommand};
+use volumetric::{validate_volumetric_params, VolumetricParams, VolumetricResult};
 
 /// BACK-1202, BACK-1203: Apply depth adjustments with optional mask and feathering.
 /// When mask is None or dimensions don't match, returns full apply_adjustments(original, params).
@@ -53,25 +58,6 @@ pub(crate) fn apply_adjustments_with_mask(
             (w * adjusted[i] + (1.0 - w) * original[i]).clamp(0.0, 1.0)
         })
         .collect()
-}
-
-/// ADR-009: Compute pixel_to_mm from optional target dimensions. When both are present and positive,
-/// returns min(target_width_mm/width_px, target_height_mm/height_px) so mesh fits inside target rect.
-/// Otherwise returns 1.0 (default behaviour).
-pub(crate) fn compute_pixel_to_mm(
-    width_px: u32,
-    height_px: u32,
-    target_width_mm: Option<f32>,
-    target_height_mm: Option<f32>,
-) -> f32 {
-    match (target_width_mm, target_height_mm) {
-        (Some(tw), Some(th)) if tw > 0.0 && th > 0.0 && width_px > 0 && height_px > 0 => {
-            let scale_w = tw / width_px as f32;
-            let scale_h = th / height_px as f32;
-            scale_w.min(scale_h)
-        }
-        _ => 1.0,
-    }
 }
 
 // Error handling pattern (BACK-004): use anyhow inside commands for context chain;
@@ -166,12 +152,15 @@ struct AppState {
     adjustment_params: Mutex<DepthAdjustmentParams>,
     /// Mask for regional depth adjustments (BACK-1201, ARCH-502). Cleared when depth is replaced.
     mask: Mutex<Option<mask::MaskBitmap>>,
-    /// Path to the source image (for filename generation, BACK-705).
+    /// Path to the source image (for export metadata and PROGRESS context). Written by
+    /// `generate_depth_map`; consumed by point cloud export commands.
     source_image_path: Mutex<Option<String>>,
     /// Persistent app settings (BACK-706).
     app_settings: Mutex<settings::AppSettings>,
     /// Undo/redo history for depth and mask (BACK-1402, ARCH-502).
     undo_redo: Mutex<UndoRedoHistory>,
+    /// Last successful [`generate_point_cloud`] result — used by export commands (ADR-012).
+    last_point_cloud: Mutex<Option<VolumetricResult>>,
 }
 
 /// Payload for "depth-progress" Tauri event (BACK-205-STREAM, ARCH-501).
@@ -200,194 +189,6 @@ fn load_image(path: String) -> Result<image_loading::LoadImageOut, String> {
     image_loading::load_image_impl(path).map_err(|e| e.to_string())
 }
 
-/// Export the current mesh as binary STL (BACK-703, BACK-701, BACK-702).
-///
-/// Takes output file path (from frontend save dialog). Generates triangulated mesh from
-/// current adjusted depth map, validates, and writes binary STL.
-///
-/// **Security (SEC-401, SEC-402):** Path is validated before write:
-/// - Non-empty, canonicalized (resolves `..`, symlinks)
-/// - Must have `.stl` extension
-/// - Must not target system directories (Windows: `C:\Windows`, `C:\Program Files`; Unix: `/etc`, `/usr`, `/bin`, `/sbin`)
-/// - Parent directory must exist and be writable (checked before write attempt)
-/// - Error messages do not leak full paths to the frontend
-#[tauri::command]
-fn export_stl(
-    path: String,
-    state: State<AppState>,
-    target_width_mm: Option<f32>,
-    target_height_mm: Option<f32>,
-) -> Result<(), String> {
-    let (canonical_path, canonical_path_str) = validate_export_path(&path, "stl")?;
-
-    // Get current depth map
-    let guard = state.depth.lock().map_err(|e| e.to_string())?;
-    let original = guard
-        .as_ref()
-        .ok_or_else(|| "No depth map loaded. Generate a depth map first.".to_string())?
-        .clone();
-    drop(guard);
-
-    // ADR-009: Use passed target dimensions or fall back to settings
-    let (tw, th) = match (target_width_mm, target_height_mm) {
-        (Some(a), Some(b)) => (Some(a), Some(b)),
-        _ => {
-            let s = state.app_settings.lock().map_err(|e| e.to_string())?;
-            (s.target_width_mm, s.target_height_mm)
-        }
-    };
-    let pixel_to_mm = compute_pixel_to_mm(original.width, original.height, tw, th);
-
-    // Apply adjustments (BACK-1202, BACK-1203: masked + feathering when mask present)
-    let params_guard = state.adjustment_params.lock().map_err(|e| e.to_string())?;
-    let mask_guard = state.mask.lock().map_err(|e| e.to_string())?;
-    let adjusted = apply_adjustments_with_mask(
-        &original.depth,
-        original.width,
-        original.height,
-        &params_guard,
-        mask_guard.as_ref(),
-    );
-    let mesh_params = MeshParams {
-        step_x: 1,
-        step_y: 1,
-        depth_min_mm: params_guard.depth_min_mm,
-        depth_max_mm: params_guard.depth_max_mm,
-        pixel_to_mm,
-    };
-    drop(params_guard);
-    drop(mask_guard);
-
-    // Generate triangulated mesh
-    let mesh = depth_to_point_cloud(&adjusted, original.width, original.height, &mesh_params)
-        .map_err(|e| format!("Mesh generation failed: {}", e))?;
-
-    // Validate before writing (BACK-702)
-    mesh_generator::validate_mesh_for_export(&mesh)
-        .map_err(|e| format!("Mesh validation failed: {}", e))?;
-
-    // Write STL (BACK-701) — SEC-402: use validated canonical path
-    mesh_generator::write_stl_to_file(&canonical_path_str, &mesh)
-        .map_err(|_| "STL export failed: could not write file".to_string())?;
-
-    // Update last export directory (BACK-706)
-    if let Some(parent) = canonical_path.parent() {
-        let mut settings = state.app_settings.lock().map_err(|e| e.to_string())?;
-        settings.last_export_dir = Some(parent.to_string_lossy().to_string());
-        if let Err(e) = settings.save() {
-            log::warn!("Failed to save settings after export: {}", e);
-        }
-    }
-
-    log::info!("STL exported successfully: {}", canonical_path_str);
-    Ok(())
-}
-
-/// Export the current mesh as ASCII OBJ (BACK-801, BACK-802, BACK-803).
-///
-/// Same security validation as export_stl. Writes OBJ file and optional companion MTL file.
-#[tauri::command]
-fn export_obj(
-    path: String,
-    state: State<AppState>,
-    target_width_mm: Option<f32>,
-    target_height_mm: Option<f32>,
-) -> Result<(), String> {
-    let (canonical_path, canonical_path_str) = validate_export_path(&path, "obj")?;
-
-    // Get current depth map
-    let guard = state.depth.lock().map_err(|e| e.to_string())?;
-    let original = guard
-        .as_ref()
-        .ok_or_else(|| "No depth map loaded. Generate a depth map first.".to_string())?
-        .clone();
-    drop(guard);
-
-    // ADR-009: Use passed target dimensions or fall back to settings
-    let (tw, th) = match (target_width_mm, target_height_mm) {
-        (Some(a), Some(b)) => (Some(a), Some(b)),
-        _ => {
-            let s = state.app_settings.lock().map_err(|e| e.to_string())?;
-            (s.target_width_mm, s.target_height_mm)
-        }
-    };
-    let pixel_to_mm = compute_pixel_to_mm(original.width, original.height, tw, th);
-
-    // Apply adjustments (BACK-1202, BACK-1203: masked + feathering when mask present)
-    let params_guard = state.adjustment_params.lock().map_err(|e| e.to_string())?;
-    let mask_guard = state.mask.lock().map_err(|e| e.to_string())?;
-    let adjusted = apply_adjustments_with_mask(
-        &original.depth,
-        original.width,
-        original.height,
-        &params_guard,
-        mask_guard.as_ref(),
-    );
-    let mesh_params = MeshParams {
-        step_x: 1,
-        step_y: 1,
-        depth_min_mm: params_guard.depth_min_mm,
-        depth_max_mm: params_guard.depth_max_mm,
-        pixel_to_mm,
-    };
-    drop(params_guard);
-    drop(mask_guard);
-
-    // Generate triangulated mesh
-    let mesh = depth_to_point_cloud(&adjusted, original.width, original.height, &mesh_params)
-        .map_err(|e| format!("Mesh generation failed: {}", e))?;
-
-    // Validate before writing (BACK-702)
-    mesh_generator::validate_mesh_for_export(&mesh)
-        .map_err(|e| format!("Mesh validation failed: {}", e))?;
-
-    // Write OBJ + MTL (BACK-801, BACK-802)
-    mesh_generator::write_obj_to_file(&canonical_path_str, &mesh, true)
-        .map_err(|_| "OBJ export failed: could not write file".to_string())?;
-
-    // Update last export directory (BACK-706)
-    if let Some(parent) = canonical_path.parent() {
-        let mut settings = state.app_settings.lock().map_err(|e| e.to_string())?;
-        settings.last_export_dir = Some(parent.to_string_lossy().to_string());
-        if let Err(e) = settings.save() {
-            log::warn!("Failed to save settings after export: {}", e);
-        }
-    }
-
-    log::info!("OBJ exported successfully: {}", canonical_path_str);
-    Ok(())
-}
-
-/// Get a suggested export filename and last export directory (BACK-705, BACK-706).
-#[tauri::command]
-fn get_export_defaults(state: State<AppState>) -> Result<ExportDefaults, String> {
-    let source_path = state
-        .source_image_path
-        .lock()
-        .map_err(|e| e.to_string())?
-        .clone()
-        .unwrap_or_default();
-    let filename = mesh_generator::generate_export_filename(&source_path);
-    let settings_guard = state.app_settings.lock().map_err(|e| e.to_string())?;
-    let last_dir = settings_guard.last_export_dir.clone();
-    let export_format = settings_guard.export_format.clone();
-    drop(settings_guard);
-    Ok(ExportDefaults {
-        suggested_filename: filename,
-        last_export_dir: last_dir,
-        export_format,
-    })
-}
-
-/// Response for get_export_defaults (BACK-705, BACK-706, BACK-803).
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-struct ExportDefaults {
-    suggested_filename: String,
-    last_export_dir: Option<String>,
-    export_format: Option<String>,
-}
-
 /// Get current app settings (BACK-804, BACK-805).
 #[tauri::command]
 fn get_settings(state: State<AppState>) -> Result<settings::AppSettings, String> {
@@ -407,6 +208,196 @@ fn save_settings(
     let mut settings = state.app_settings.lock().map_err(|e| e.to_string())?;
     *settings = new_settings;
     settings.save().map_err(|e| e.to_string())
+}
+
+// --- ADR-012: Crystal surface point cloud (Sprint B, TD-11) ---
+
+fn current_adjusted_depth(state: &AppState) -> Result<Option<(Vec<f32>, u32, u32)>, String> {
+    let guard = state.depth.lock().map_err(|e| e.to_string())?;
+    let original = match guard.as_ref() {
+        Some(d) => d.clone(),
+        None => return Ok(None),
+    };
+    drop(guard);
+    let params = state
+        .adjustment_params
+        .lock()
+        .map_err(|e| e.to_string())?
+        .clone();
+    let mask_guard = state.mask.lock().map_err(|e| e.to_string())?;
+    let adjusted = apply_adjustments_with_mask(
+        &original.depth,
+        original.width,
+        original.height,
+        &params,
+        mask_guard.as_ref(),
+    );
+    Ok(Some((adjusted, original.width, original.height)))
+}
+
+fn resolved_blank_envelope(state: &AppState) -> Result<BlankEnvelope, String> {
+    let guard = state.app_settings.lock().map_err(|e| e.to_string())?;
+    let env = guard.blank_envelope.clone().unwrap_or_default();
+    drop(guard);
+    env.validate()?;
+    Ok(env)
+}
+
+fn resolved_volumetric_params(state: &AppState) -> Result<VolumetricParams, String> {
+    let guard = state.app_settings.lock().map_err(|e| e.to_string())?;
+    Ok(guard.volumetric_params.clone().unwrap_or_default())
+}
+
+fn invalidate_point_cloud_cache(state: &AppState) -> Result<(), String> {
+    *state.last_point_cloud.lock().map_err(|e| e.to_string())? = None;
+    Ok(())
+}
+
+fn build_export_metadata(state: &AppState) -> Result<ExportMetadata, String> {
+    let mut metadata = ExportMetadata::new();
+    let settings = state.app_settings.lock().map_err(|e| e.to_string())?;
+    metadata.blank_envelope = Some(
+        settings
+            .blank_envelope
+            .clone()
+            .unwrap_or_else(BlankEnvelope::default),
+    );
+    drop(settings);
+    let path_guard = state.source_image_path.lock().map_err(|e| e.to_string())?;
+    if let Some(ref p) = *path_guard {
+        if let Some(name) = Path::new(p).file_name() {
+            metadata.source_image = Some(name.to_string_lossy().to_string());
+        }
+    }
+    Ok(metadata)
+}
+
+fn persist_last_export_dir(state: &AppState, export_path: &str) -> Result<(), String> {
+    let Some(parent) = Path::new(export_path).parent() else {
+        return Ok(());
+    };
+    let dir = parent.to_string_lossy().to_string();
+    let mut settings = state.app_settings.lock().map_err(|e| e.to_string())?;
+    settings.last_export_dir = Some(dir);
+    settings.save().map_err(|e| e.to_string())
+}
+
+fn generate_point_cloud_from_state(state: &AppState) -> Result<VolumetricResult, String> {
+    let Some((depth_vec, width, height)) = current_adjusted_depth(state)? else {
+        return Err("No depth map loaded".to_string());
+    };
+    let envelope = resolved_blank_envelope(state)?;
+    let params = resolved_volumetric_params(state)?;
+    volumetric::generate_volumetric_points(&depth_vec, width, height, &params, &envelope)
+}
+
+fn estimate_point_cloud_count_from_state(state: &AppState) -> Result<Option<usize>, String> {
+    let Some((_, width, height)) = current_adjusted_depth(state)? else {
+        return Ok(None);
+    };
+    let envelope = resolved_blank_envelope(state)?;
+    let params = resolved_volumetric_params(state)?;
+    Ok(Some(volumetric::estimate_point_count(
+        width, height, &params, &envelope,
+    )))
+}
+
+#[tauri::command]
+fn set_blank_envelope(envelope: BlankEnvelope, state: State<AppState>) -> Result<(), String> {
+    envelope.validate()?;
+    {
+        let mut settings = state.app_settings.lock().map_err(|e| e.to_string())?;
+        settings.blank_envelope = Some(envelope);
+        settings.save().map_err(|e| e.to_string())?;
+    }
+    invalidate_point_cloud_cache(&state)?;
+    Ok(())
+}
+
+#[tauri::command]
+fn set_volumetric_params(params: VolumetricParams, state: State<AppState>) -> Result<(), String> {
+    validate_volumetric_params(&params)?;
+    {
+        let mut settings = state.app_settings.lock().map_err(|e| e.to_string())?;
+        settings.volumetric_params = Some(params);
+        settings.save().map_err(|e| e.to_string())?;
+    }
+    invalidate_point_cloud_cache(&state)?;
+    Ok(())
+}
+
+#[tauri::command]
+fn set_point_cloud_format(format: String, state: State<AppState>) -> Result<(), String> {
+    let f = format.trim().to_lowercase();
+    match f.as_str() {
+        "ply" | "xyz" | "csv" => {
+            let mut settings = state.app_settings.lock().map_err(|e| e.to_string())?;
+            settings.point_cloud_format = Some(f);
+            settings.save().map_err(|e| e.to_string())?;
+            Ok(())
+        }
+        _ => Err("Format must be ply, xyz, or csv".to_string()),
+    }
+}
+
+#[tauri::command]
+fn estimate_point_cloud_count(state: State<AppState>) -> Result<Option<usize>, String> {
+    estimate_point_cloud_count_from_state(&state)
+}
+
+#[tauri::command]
+fn generate_point_cloud(state: State<AppState>) -> Result<VolumetricResult, String> {
+    let result = generate_point_cloud_from_state(&state)?;
+    *state.last_point_cloud.lock().map_err(|e| e.to_string())? = Some(result.clone());
+    Ok(result)
+}
+
+#[tauri::command]
+fn export_ply(path: String, binary: bool, state: State<AppState>) -> Result<(), String> {
+    let (canonical_path, canonical_str) = validate_export_path(&path, "ply")?;
+    let points = {
+        let guard = state.last_point_cloud.lock().map_err(|e| e.to_string())?;
+        let Some(ref cached) = *guard else {
+            return Err("No point cloud generated; run generate_point_cloud first.".to_string());
+        };
+        cached.points.clone()
+    };
+    let metadata = build_export_metadata(&state)?;
+    export::export_ply(canonical_path.as_path(), &points, &metadata, binary)
+        .map_err(|e| e.to_string())?;
+    persist_last_export_dir(&state, &canonical_str)?;
+    Ok(())
+}
+
+#[tauri::command]
+fn export_xyz(path: String, state: State<AppState>) -> Result<(), String> {
+    let (canonical_path, canonical_str) = validate_export_path(&path, "xyz")?;
+    let points = {
+        let guard = state.last_point_cloud.lock().map_err(|e| e.to_string())?;
+        let Some(ref cached) = *guard else {
+            return Err("No point cloud generated; run generate_point_cloud first.".to_string());
+        };
+        cached.points.clone()
+    };
+    export::export_xyz(canonical_path.as_path(), &points).map_err(|e| e.to_string())?;
+    persist_last_export_dir(&state, &canonical_str)?;
+    Ok(())
+}
+
+#[tauri::command]
+fn export_csv(path: String, state: State<AppState>) -> Result<(), String> {
+    let (canonical_path, canonical_str) = validate_export_path(&path, "csv")?;
+    let points = {
+        let guard = state.last_point_cloud.lock().map_err(|e| e.to_string())?;
+        let Some(ref cached) = *guard else {
+            return Err("No point cloud generated; run generate_point_cloud first.".to_string());
+        };
+        cached.points.clone()
+    };
+    let metadata = build_export_metadata(&state)?;
+    export::export_csv(canonical_path.as_path(), &points, &metadata).map_err(|e| e.to_string())?;
+    persist_last_export_dir(&state, &canonical_str)?;
+    Ok(())
 }
 
 // --- Sprint 2.3: Presets (BACK-1302) ---
@@ -766,6 +757,7 @@ fn generate_depth_map(
     *state.mask.lock().map_err(|e| e.to_string())? = None;
     // Clear undo/redo history on new depth map (PRD F2.4).
     state.undo_redo.lock().map_err(|e| e.to_string())?.clear();
+    invalidate_point_cloud_cache(&state)?;
     // Leave adjustment_params unchanged (user may have presets); reset is explicit (BACK-405).
     let params = state.adjustment_params.lock().map_err(|e| e.to_string())?;
     let adjusted = apply_adjustments(&depth.depth, &params);
@@ -1204,65 +1196,7 @@ fn load_mask_from_path(path: String, state: State<AppState>) -> Result<UndoRedoS
     get_undo_redo_state(state)
 }
 
-/// Returns mesh data (point cloud with normals) from current adjusted depth map (BACK-501–505, BACK-601, BACK-602, BACK-603).
-///
-/// **Transfer (ADR-007):** Current path is JSON over Tauri IPC. If Sprint 1.6A/ADR-007 adopts binary
-/// transfer (e.g. temp file or binary IPC) for latency >100ms at 1080p, add an alternative path here
-/// (write mesh to temp file, return path or handle); frontend contract (positions, normals, dimensions)
-/// remains unchanged from the caller’s perspective.
-///
-/// **LOD (BACK-603):** Optional `preview_step` requests reduced vertex count for preview. When `None`,
-/// full resolution (step 1) is used. When `Some(s)`, step_x = step_y = max(1, s). Full-detail export
-/// (Sprint 1.8) is unaffected.
-#[tauri::command]
-fn get_mesh_data(
-    state: State<AppState>,
-    preview_step: Option<u32>,
-    target_width_mm: Option<f32>,
-    target_height_mm: Option<f32>,
-) -> Result<Option<MeshData>, String> {
-    let guard = state.depth.lock().map_err(|e| e.to_string())?;
-    let original = match guard.as_ref() {
-        Some(d) => d.clone(),
-        None => return Ok(None),
-    };
-    drop(guard);
-
-    // ADR-009: Use passed target dimensions or fall back to settings
-    let (tw, th) = match (target_width_mm, target_height_mm) {
-        (Some(a), Some(b)) => (Some(a), Some(b)),
-        _ => {
-            let s = state.app_settings.lock().map_err(|e| e.to_string())?;
-            (s.target_width_mm, s.target_height_mm)
-        }
-    };
-    let pixel_to_mm = compute_pixel_to_mm(original.width, original.height, tw, th);
-
-    let params_guard = state
-        .adjustment_params
-        .lock()
-        .map_err(|e| e.to_string())?
-        .clone();
-    let mask_guard = state.mask.lock().map_err(|e| e.to_string())?;
-    let adjusted = apply_adjustments_with_mask(
-        &original.depth,
-        original.width,
-        original.height,
-        &params_guard,
-        mask_guard.as_ref(),
-    );
-    let step = preview_step.unwrap_or(1).max(1);
-    let mesh_params = MeshParams {
-        step_x: step,
-        step_y: step,
-        depth_min_mm: params_guard.depth_min_mm,
-        depth_max_mm: params_guard.depth_max_mm,
-        pixel_to_mm,
-    };
-    let mesh = depth_to_point_cloud(&adjusted, original.width, original.height, &mesh_params)
-        .map_err(|e| e.to_string())?;
-    Ok(Some(mesh))
-}
+// Sprint A retired 2.5D mesh preview (`get_mesh_data`); superseded by `generate_point_cloud` (ADR-012).
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -1284,12 +1218,10 @@ pub fn run() {
             source_image_path: Mutex::new(None),
             app_settings: Mutex::new(app_settings),
             undo_redo: Mutex::new(UndoRedoHistory::new()),
+            last_point_cloud: Mutex::new(None),
         })
         .invoke_handler(tauri::generate_handler![
             load_image,
-            export_stl,
-            export_obj,
-            get_export_defaults,
             generate_depth_map,
             get_depth_map,
             get_depth_histogram,
@@ -1306,9 +1238,16 @@ pub fn run() {
             save_mask_to_path,
             load_mask_from_path,
             reset_depth_adjustments,
-            get_mesh_data,
             get_settings,
             save_settings,
+            set_blank_envelope,
+            set_volumetric_params,
+            set_point_cloud_format,
+            estimate_point_cloud_count,
+            generate_point_cloud,
+            export_ply,
+            export_xyz,
+            export_csv,
             save_preset,
             load_preset,
             list_presets,
@@ -1328,6 +1267,49 @@ mod tests {
     use super::*;
     use std::fs::File;
     use std::io::Write;
+
+    #[test]
+    fn point_cloud_estimate_none_without_depth_map() {
+        let state = AppState {
+            depth: Mutex::new(None),
+            adjustment_params: Mutex::new(DepthAdjustmentParams::default()),
+            mask: Mutex::new(None),
+            source_image_path: Mutex::new(None),
+            app_settings: Mutex::new(settings::AppSettings::default()),
+            undo_redo: Mutex::new(UndoRedoHistory::new()),
+            last_point_cloud: Mutex::new(None),
+        };
+        assert_eq!(estimate_point_cloud_count_from_state(&state).unwrap(), None);
+    }
+
+    #[test]
+    fn point_cloud_generation_succeeds_with_uniform_depth() {
+        let depth = python_bridge::DepthMapOutput {
+            width: 4,
+            height: 4,
+            depth: vec![0.5f32; 16],
+        };
+        let app_settings = settings::AppSettings {
+            blank_envelope: Some(BlankEnvelope::default()),
+            volumetric_params: Some(VolumetricParams {
+                step_x: 1,
+                step_y: 1,
+                depth_threshold: 0.0,
+            }),
+            ..Default::default()
+        };
+        let state = AppState {
+            depth: Mutex::new(Some(depth)),
+            adjustment_params: Mutex::new(DepthAdjustmentParams::default()),
+            mask: Mutex::new(None),
+            source_image_path: Mutex::new(None),
+            app_settings: Mutex::new(app_settings),
+            undo_redo: Mutex::new(UndoRedoHistory::new()),
+            last_point_cloud: Mutex::new(None),
+        };
+        let r = generate_point_cloud_from_state(&state).unwrap();
+        assert_eq!(r.point_count, 16);
+    }
 
     #[test]
     fn load_image_rejects_empty_path() {
@@ -1628,79 +1610,9 @@ mod tests {
         );
     }
 
-    // --- JR2-1001: Unit tests for target dimensions (ADR-009) ---
-
-    /// When target_width_mm and target_height_mm are set, pixel_to_mm = min(tw/width_px, th/height_px)
-    /// so mesh fits inside target rectangle and aspect ratio is preserved.
-    #[test]
-    fn compute_pixel_to_mm_target_dimensions_fit_and_aspect_preserved() {
-        let width_px = 100u32;
-        let height_px = 100u32;
-        let target_width_mm = 50.0f32;
-        let target_height_mm = 70.0f32;
-        let pixel_to_mm = compute_pixel_to_mm(
-            width_px,
-            height_px,
-            Some(target_width_mm),
-            Some(target_height_mm),
-        );
-        let scale_w = target_width_mm / width_px as f32;
-        let scale_h = target_height_mm / height_px as f32;
-        assert_eq!(
-            pixel_to_mm,
-            scale_w.min(scale_h),
-            "pixel_to_mm = min(scale_w, scale_h)"
-        );
-        assert!(
-            (pixel_to_mm - 0.5).abs() < 1e-5,
-            "100x100 px → 50x70 mm gives 0.5 mm/px"
-        );
-        let mesh_width_mm = (width_px - 1) as f32 * pixel_to_mm;
-        let mesh_height_mm = (height_px - 1) as f32 * pixel_to_mm;
-        assert!(
-            mesh_width_mm <= target_width_mm + 0.01 && mesh_height_mm <= target_height_mm + 0.01,
-            "mesh XY fits inside target: {}x{} <= {}x{}",
-            mesh_width_mm,
-            mesh_height_mm,
-            target_width_mm,
-            target_height_mm
-        );
-    }
-
-    /// When target dimensions are not set, behaviour unchanged (pixel_to_mm default 1.0).
-    #[test]
-    fn compute_pixel_to_mm_default_when_absent() {
-        assert_eq!(
-            compute_pixel_to_mm(100, 50, None, None),
-            1.0,
-            "None, None → 1.0"
-        );
-        assert_eq!(
-            compute_pixel_to_mm(100, 50, Some(50.0), None),
-            1.0,
-            "only width set → 1.0"
-        );
-        assert_eq!(
-            compute_pixel_to_mm(100, 50, None, Some(70.0)),
-            1.0,
-            "only height set → 1.0"
-        );
-    }
-
-    /// When target dimensions are zero or negative, default 1.0 (treated as absent).
-    #[test]
-    fn compute_pixel_to_mm_default_when_zero_or_negative() {
-        assert_eq!(
-            compute_pixel_to_mm(100, 100, Some(0.0), Some(70.0)),
-            1.0,
-            "zero width → 1.0"
-        );
-        assert_eq!(
-            compute_pixel_to_mm(100, 100, Some(50.0), Some(-1.0)),
-            1.0,
-            "negative height → 1.0"
-        );
-    }
+    // Sprint A: `compute_pixel_to_mm` tests retired alongside the helper itself (was only used
+    // by the removed export_stl / export_obj / get_mesh_data commands). The volumetric pipeline
+    // scales via `BlankEnvelope::fit_to_blank` instead.
 
     /// BACK-1202: With no mask, apply_adjustments_with_mask matches apply_adjustments.
     #[test]

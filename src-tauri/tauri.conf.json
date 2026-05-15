@@ -38,8 +38,8 @@
       "digestAlgorithm": "sha256",
       "timestampUrl": ""
     },
-    "longDescription": "Convert 2D images to 2.5D STL/OBJ for laser engraving.",
-    "shortDescription": "2D to 2.5D mesh for laser engraving",
+    "longDescription": "Convert 2D images into 3D surface point clouds (PLY/XYZ/CSV) for internal UV laser engraving of K9 crystal, glass, and acrylic blanks. 100% offline.",
+    "shortDescription": "2D image to 3D surface point cloud for crystal laser engraving",
     "resources": [],
     "externalBin": [],
     "copyright": "",

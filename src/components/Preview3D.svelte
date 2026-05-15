@@ -3,24 +3,22 @@
 <script lang="ts">
   /**
    * Preview3D — Three.js 3D preview (UI-501–UI-506).
-   * Scene, camera, lights, grid, orbit controls, point cloud from get_mesh_data, render mode toggle.
+   *
+   * Sprint A: the 2.5D mesh preview (point cloud + triangulated wireframe/solid via
+   * `get_mesh_data`) has been retired. The scene, camera, lights, grid, orbit controls,
+   * and synthetic-data performance test remain in place. Live point cloud rendering will
+   * be re-wired to the 3D volumetric pipeline (`generate_point_cloud`, ADR-012) plus a
+   * blank-envelope wireframe in Sprint B / Sprint C.
    */
   import { onMount, onDestroy } from "svelte";
   import * as THREE from "three";
   import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-  import { getMeshData } from "$lib/tauri";
-  import type { MeshData } from "$lib/tauri";
-
-  function disposeMaterial(m: THREE.Material | THREE.Material[]) {
-    if (Array.isArray(m)) {
-      for (const x of m) x.dispose();
-    } else {
-      m.dispose();
-    }
-  }
 
   let container: HTMLDivElement;
-  /** Target dimensions in mm from App (scaling: mesh and preview dimension to fit). When set, getMeshData uses these. */
+  /** Target dimensions in mm from App (legacy 2.5D scaling). Retained as props until Sprint C
+   *  replaces them with blank-envelope dimensions. The values are surfaced as `data-` attributes
+   *  on the root div so they are observable in the DOM and so the Svelte compiler does not
+   *  warn about unused exports during Sprint A. */
   export let targetWidthMm: number | undefined = undefined;
   export let targetHeightMm: number | undefined = undefined;
 
@@ -32,21 +30,14 @@
   /** JR1-505: light refs for intensity controls (set in onMount) */
   let ambientLight: THREE.AmbientLight | undefined;
   let directionalLight: THREE.DirectionalLight | undefined;
+  /** Active rendered point cloud (synthetic from perf test today; real volumetric in Sprint B/C). */
   let pointCloud: THREE.Points | null = null;
-  /** Triangulated mesh for Wireframe/Solid modes (when MeshData has indices). */
-  let triangulatedMeshObj: THREE.Mesh | null = null;
   let animationId: number | null = null;
   let resizeObserver: ResizeObserver | null = null;
-
-  /** True when current mesh has triangle indices (Wireframe/Solid available). */
-  $: triangulatedMesh = triangulatedMeshObj != null;
 
   /** UI-503: loading and error state */
   let meshLoading = false;
   let meshError = "";
-
-  /** UI-506: render mode — "points" | "wireframe" | "solid" */
-  let renderMode: "points" | "wireframe" | "solid" = "points";
 
   /** JR1-501: mesh bounding box for camera presets (set when mesh loaded). */
   let meshBox: THREE.Box3 | null = null;
@@ -69,137 +60,9 @@
     savedPointCloud: THREE.Points | null;
   } | null = null;
 
-  /** Update point cloud and triangulated mesh visibility when render mode changes. */
-  $: if (pointCloud) {
-    pointCloud.visible = renderMode === "points" || !triangulatedMesh;
-  }
-  $: if (triangulatedMeshObj) {
-    triangulatedMeshObj.visible = renderMode === "wireframe" || renderMode === "solid";
-    const mat = triangulatedMeshObj.material as THREE.Material;
-    if (renderMode === "wireframe") {
-      if (!(mat instanceof THREE.MeshBasicMaterial) || !mat.wireframe) {
-        disposeMaterial(triangulatedMeshObj.material);
-        triangulatedMeshObj.material = new THREE.MeshBasicMaterial({
-          color: 0x4a90d9,
-          wireframe: true,
-        });
-      }
-    } else {
-      if (!(mat instanceof THREE.MeshPhongMaterial)) {
-        disposeMaterial(triangulatedMeshObj.material);
-        triangulatedMeshObj.material = new THREE.MeshPhongMaterial({
-          color: 0x4a90d9,
-          side: THREE.DoubleSide,
-          shininess: 30,
-        });
-      }
-    }
-  }
   /** JR1-505: apply lighting control values in real time. */
   $: if (ambientLight) ambientLight.intensity = ambientIntensity;
   $: if (directionalLight) directionalLight.intensity = directionalIntensity;
-
-  /** When target dimensions change and we already have a mesh, reload so preview is zoomed to fit new scale. */
-  let prevTargetKey = "";
-  $: targetKey = [targetWidthMm, targetHeightMm].join(",");
-  $: if (targetKey && targetKey !== prevTargetKey && pointCloud && scene && !meshLoading) {
-    prevTargetKey = targetKey;
-    loadMesh();
-  }
-  $: if (targetKey && !prevTargetKey) prevTargetKey = targetKey;
-
-  /**
-   * Build BufferGeometry and THREE.Points from mesh data (UI-504).
-   * Flips Y so image top (row 0) appears at top in Three.js (Y-up). Backend uses row-major with y = row.
-   * Guards against missing/short normals and empty positions to avoid range errors.
-   */
-  function buildPointCloud(meshData: MeshData): THREE.Points {
-    const posList = meshData.positions ?? [];
-    const normList = meshData.normals ?? [];
-    const n = posList.length;
-    if (n === 0) {
-      const emptyGeo = new THREE.BufferGeometry();
-      return new THREE.Points(
-        emptyGeo,
-        new THREE.PointsMaterial({ size: 0.5, color: 0x4a90d9 })
-      );
-    }
-    const maxY =
-      n > 0 ? Math.max(...posList.map((p) => (p && p[1] != null ? p[1] : 0))) : 0;
-    const positions = new Float32Array(n * 3);
-    const normals = new Float32Array(n * 3);
-    const defaultNormal = [0, 0, 1] as const;
-    for (let i = 0; i < n; i++) {
-      const p = posList[i];
-      const q = normList[i] ?? defaultNormal;
-      const px = p && p[0] != null ? p[0] : 0;
-      const py = p && p[1] != null ? p[1] : 0;
-      const pz = p && p[2] != null ? p[2] : 0;
-      positions[i * 3 + 0] = px;
-      positions[i * 3 + 1] = maxY - py; // flip Y: image top → Three.js top
-      positions[i * 3 + 2] = pz;
-      const qx = q[0] != null && !Number.isNaN(q[0]) ? q[0] : 0;
-      const qy = q[1] != null && !Number.isNaN(q[1]) ? q[1] : 0;
-      const qz = q[2] != null && !Number.isNaN(q[2]) ? q[2] : 1;
-      normals[i * 3 + 0] = qx;
-      normals[i * 3 + 1] = -qy; // flip normal to match
-      normals[i * 3 + 2] = qz;
-    }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
-    geometry.computeBoundingSphere();
-    const material = new THREE.PointsMaterial({
-      size: 0.5,
-      color: 0x4a90d9,
-      sizeAttenuation: true,
-    });
-    return new THREE.Points(geometry, material);
-  }
-
-  /**
-   * Build indexed BufferGeometry and THREE.Mesh for Wireframe/Solid modes (UI-1403).
-   * Uses same Y-flip as buildPointCloud. Returns null if no indices or invalid.
-   */
-  function buildTriangulatedMesh(meshData: MeshData): THREE.Mesh | null {
-    const posList = meshData.positions ?? [];
-    const normList = meshData.normals ?? [];
-    const idxList = meshData.indices ?? [];
-    const n = posList.length;
-    if (n === 0 || idxList.length < 3 || idxList.length % 3 !== 0) return null;
-    const maxY =
-      n > 0 ? Math.max(...posList.map((p) => (p && p[1] != null ? p[1] : 0))) : 0;
-    const positions = new Float32Array(n * 3);
-    const normals = new Float32Array(n * 3);
-    const defaultNormal = [0, 0, 1] as const;
-    for (let i = 0; i < n; i++) {
-      const p = posList[i];
-      const q = normList[i] ?? defaultNormal;
-      const px = p && p[0] != null ? p[0] : 0;
-      const py = p && p[1] != null ? p[1] : 0;
-      const pz = p && p[2] != null ? p[2] : 0;
-      positions[i * 3 + 0] = px;
-      positions[i * 3 + 1] = maxY - py;
-      positions[i * 3 + 2] = pz;
-      const qx = q[0] != null && !Number.isNaN(q[0]) ? q[0] : 0;
-      const qy = q[1] != null && !Number.isNaN(q[1]) ? q[1] : 0;
-      const qz = q[2] != null && !Number.isNaN(q[2]) ? q[2] : 1;
-      normals[i * 3 + 0] = qx;
-      normals[i * 3 + 1] = -qy;
-      normals[i * 3 + 2] = qz;
-    }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
-    geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(idxList), 1));
-    geometry.computeBoundingSphere();
-    const material = new THREE.MeshPhongMaterial({
-      color: 0x4a90d9,
-      side: THREE.DoubleSide,
-      shininess: 30,
-    });
-    return new THREE.Mesh(geometry, material);
-  }
 
   /** JR1-504: Create synthetic point cloud for performance testing. */
   function createSyntheticPointCloud(vertexCount: number): THREE.Points {
@@ -256,21 +119,16 @@
     return String(n);
   }
 
-  /** UI-503: Load mesh from backend and add to scene (UI-504). Uses target dimensions when set (scaling: zoom to fit). */
+  /**
+   * Sprint A stub: live point cloud loading from the backend has been retired alongside the
+   * 2.5D mesh pipeline. Sprint B will introduce `generate_point_cloud` (ADR-012) and Sprint C
+   * will re-wire this button to render the resulting 3D surface point cloud inside the blank
+   * envelope wireframe.
+   */
   async function loadMesh() {
     meshLoading = true;
     meshError = "";
     try {
-      const opts: { targetWidthMm?: number; targetHeightMm?: number } = {};
-      if (targetWidthMm != null && targetWidthMm > 0) opts.targetWidthMm = targetWidthMm;
-      if (targetHeightMm != null && targetHeightMm > 0) opts.targetHeightMm = targetHeightMm;
-      const data = await getMeshData(opts);
-      if (triangulatedMeshObj) {
-        scene.remove(triangulatedMeshObj);
-        triangulatedMeshObj.geometry.dispose();
-        disposeMaterial(triangulatedMeshObj.material);
-        triangulatedMeshObj = null;
-      }
       if (pointCloud) {
         scene.remove(pointCloud);
         pointCloud.geometry.dispose();
@@ -279,41 +137,8 @@
       }
       meshBox = null;
       meshStats = null;
-      if (!data || !data.positions?.length) {
-        meshError = "No mesh data. Generate a depth map first.";
-        meshBox = null;
-        meshStats = null;
-        return;
-      }
-      pointCloud = buildPointCloud(data);
-      pointCloud.visible = renderMode === "points";
-      scene.add(pointCloud);
-      const triMesh = buildTriangulatedMesh(data);
-      if (triMesh) {
-        triMesh.visible = renderMode === "wireframe" || renderMode === "solid";
-        scene.add(triMesh);
-        triangulatedMeshObj = triMesh;
-      }
-      // Fit camera to point cloud; store box for JR1-501 presets
-      const box = new THREE.Box3().setFromObject(pointCloud);
-      const center = box.getCenter(new THREE.Vector3());
-      controls.target.copy(center);
-      meshBox = box.clone();
-      // JR1-503: compute mesh stats from backend positions (units mm)
-      const positions = data.positions;
-      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
-      for (const p of positions) {
-        minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0]);
-        minY = Math.min(minY, p[1]); maxY = Math.max(maxY, p[1]);
-        minZ = Math.min(minZ, p[2]); maxZ = Math.max(maxZ, p[2]);
-      }
-      meshStats = positions.length
-        ? { vertexCount: positions.length, minX, maxX, minY, maxY, minZ, maxZ }
-        : null;
-    } catch (e) {
-      meshError = String(e);
-      meshBox = null;
-      meshStats = null;
+      meshError =
+        "3D point cloud preview will be wired in Sprint B (generate_point_cloud, ADR-012).";
     } finally {
       meshLoading = false;
     }
@@ -436,12 +261,6 @@
     resizeObserver?.disconnect();
     resizeObserver = null;
     if (animationId != null) cancelAnimationFrame(animationId);
-    if (triangulatedMeshObj) {
-      scene?.remove(triangulatedMeshObj);
-      triangulatedMeshObj.geometry.dispose();
-      disposeMaterial(triangulatedMeshObj.material);
-      triangulatedMeshObj = null;
-    }
     if (pointCloud) {
       scene?.remove(pointCloud);
       pointCloud.geometry.dispose();
@@ -453,28 +272,25 @@
   });
 </script>
 
-<div class="preview3d flex flex-col w-full h-full min-h-[300px] rounded overflow-hidden bg-slate-800">
+<div
+  class="preview3d flex flex-col w-full h-full min-h-[300px] rounded overflow-hidden bg-slate-800"
+  data-target-width-mm={targetWidthMm ?? ""}
+  data-target-height-mm={targetHeightMm ?? ""}
+>
   <!-- Canvas container: Three.js renderer appended here -->
   <div
     class="preview3d-canvas flex-1 min-h-[200px] relative flex items-center justify-center"
     bind:this={container}
     role="img"
-    aria-label="3D mesh preview"
-  >
-    <!-- Overlay when Wireframe/Solid selected but mesh has no triangles -->
-    {#if (renderMode === "wireframe" || renderMode === "solid") && pointCloud && !triangulatedMesh}
-      <div
-        class="absolute inset-0 flex items-center justify-center bg-slate-800/80 z-10 pointer-events-none rounded"
-        aria-live="polite"
-      >
-        <p class="text-slate-300 text-sm px-4 py-2 bg-slate-900/90 rounded border border-slate-600">
-          {renderMode === "wireframe" ? "Wireframe" : "Solid"} mode requires a triangulated mesh. Use <strong>Points</strong> for this mesh.
-        </p>
-      </div>
-    {/if}
-  </div>
+    aria-label="3D point cloud preview"
+  ></div>
 
-  <!-- Toolbar: Load mesh + render mode (UI-503, UI-506) -->
+  <!--
+    Sprint A toolbar: 2.5D mesh "Load mesh" + Wireframe/Solid render-mode buttons have been
+    retired. Camera presets, lighting sliders, and the perf-test button remain so the scene
+    infrastructure is exercised end-to-end. Sprint B will replace "Load mesh" with a
+    "Generate point cloud" action wired to ADR-012.
+  -->
   <div
     class="flex items-center gap-3 px-3 py-2 border-t border-slate-600 bg-slate-900 text-slate-200 text-sm"
   >
@@ -483,8 +299,9 @@
       class="px-3 py-1.5 rounded bg-slate-600 hover:bg-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-400 disabled:opacity-50"
       disabled={meshLoading}
       on:click={loadMesh}
+      title="Sprint A stub — point cloud generation is wired in Sprint B"
     >
-      {meshLoading ? "Loading…" : "Load mesh"}
+      {meshLoading ? "Loading…" : "Load point cloud (Sprint B)"}
     </button>
     <!-- JR1-501: Camera presets (top, front, side) -->
     <span class="text-slate-500">View:</span>
@@ -517,37 +334,6 @@
         Side
       </button>
     </div>
-    <span class="text-slate-500">Render:</span>
-    <div class="flex gap-1" role="group" aria-label="Render mode">
-      <button
-        type="button"
-        class="px-2 py-1 rounded {renderMode === 'points' ? 'bg-slate-600 ring-1 ring-slate-400' : 'bg-slate-700 hover:bg-slate-600'} focus:outline-none focus:ring-2 focus:ring-slate-400"
-        on:click={() => (renderMode = "points")}
-      >
-        Points
-      </button>
-      <button
-        type="button"
-        class="px-2 py-1 rounded {renderMode === 'wireframe' ? 'bg-slate-600 ring-1 ring-slate-400' : 'bg-slate-700 hover:bg-slate-600'} focus:outline-none focus:ring-2 focus:ring-slate-400"
-        on:click={() => (renderMode = "wireframe")}
-        title="Show mesh as wireframe (when triangulated)"
-      >
-        Wireframe
-      </button>
-      <button
-        type="button"
-        class="px-2 py-1 rounded {renderMode === 'solid' ? 'bg-slate-600 ring-1 ring-slate-400' : 'bg-slate-700 hover:bg-slate-600'} focus:outline-none focus:ring-2 focus:ring-slate-400"
-        on:click={() => (renderMode = "solid")}
-        title="Show shaded mesh (when triangulated)"
-      >
-        Solid
-      </button>
-    </div>
-    {#if (renderMode === "wireframe" || renderMode === "solid") && !triangulatedMesh && pointCloud}
-      <span class="text-slate-500 text-xs" role="status">
-        (Triangulated mesh required)
-      </span>
-    {/if}
     <!-- JR1-505: Lighting controls -->
     <span class="text-slate-500">Light:</span>
     <label class="flex items-center gap-1 text-xs">

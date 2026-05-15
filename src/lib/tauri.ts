@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: MIT
 
 /**
- * Tauri IPC helpers (UI-004, JR1-003). Stub invoke calls for load_image, export_stl, generate_depth_map, get_depth_map.
- * Types match backend command signatures (src-tauri/src/lib.rs). See docs/architecture.md § Sprint 1.4 command contract.
+ * Tauri IPC helpers (UI-004). Types match backend commands in `src-tauri/src/lib.rs`.
+ *
+ * ADR-012: `setBlankEnvelope`, `setVolumetricParams`, `generatePointCloud`,
+ * `exportPly` / `exportXyz` / `exportCsv`.
  */
 import { invoke } from "@tauri-apps/api/core";
 
@@ -25,21 +27,43 @@ export interface LoadImageResult {
   message?: string;
 }
 
-/** Arguments for export_stl command (ADR-009: optional target dimensions). */
-export interface ExportStlArgs {
-  path: string;
-  target_width_mm?: number | null;
-  target_height_mm?: number | null;
+/** Crystal blank dimensions (mm), matches Rust `BlankEnvelope` (camelCase). */
+export interface BlankEnvelope {
+  lengthMm: number;
+  widthMm: number;
+  heightMm: number;
+  marginMm: number;
 }
 
-/** Arguments for export_obj command (BACK-801, ADR-009). */
-export interface ExportObjArgs {
-  path: string;
-  target_width_mm?: number | null;
-  target_height_mm?: number | null;
+/** Surface-map sampling (ADR-012); matches Rust `VolumetricParams`. */
+export interface VolumetricParams {
+  stepX: number;
+  stepY: number;
+  depthThreshold: number;
 }
 
-/** App settings persisted between sessions (BACK-804, BACK-805, ADR-009). */
+/** Fit statistics from blank scaling (`fit_to_blank`). */
+export interface FitResult {
+  scale: number;
+  translation: [number, number, number];
+  pointCount: number;
+  outliers: number;
+}
+
+/** Result from `generate_point_cloud`. */
+export interface VolumetricResult {
+  points: [number, number, number][];
+  pointCount: number;
+  fitResult: FitResult;
+  memoryBytes: number;
+}
+
+/**
+ * App settings persisted between sessions (BACK-804, BACK-805).
+ *
+ * Legacy `targetWidthMm` / `targetHeightMm` / `exportFormat` remain for old settings files.
+ * The crystal pipeline uses `blankEnvelope`, `pointCloudFormat`, and `volumetricParams`.
+ */
 export interface AppSettings {
   lastExportDir?: string | null;
   exportFormat?: string | null;
@@ -49,39 +73,25 @@ export interface AppSettings {
   depthInvert?: boolean | null;
   depthMinMm?: number | null;
   depthMaxMm?: number | null;
-  /** Target output size in mm for mesh/export (ADR-009). When both set, mesh XY fits inside this rectangle. */
+  /** Legacy field from the 2.5D pipeline; retained on disk only. */
   targetWidthMm?: number | null;
-  /** Target output size in mm for mesh/export (ADR-009). */
+  /** Legacy field from the 2.5D pipeline; retained on disk only. */
   targetHeightMm?: number | null;
   windowWidth?: number | null;
   windowHeight?: number | null;
   /** Curve control points (CURVE-001). Persisted in settings; restored on load. */
   curveControlPoints?: CurvePoint[] | null;
+  /** Crystal blank L×W×H (mm) + margin; persisted when set via `setBlankEnvelope`. */
+  blankEnvelope?: BlankEnvelope | null;
+  /** Preferred point cloud export format: `"ply"` | `"xyz"` | `"csv"`. */
+  pointCloudFormat?: string | null;
+  /** Sampling parameters for `generatePointCloud` (ADR-012). */
+  volumetricParams?: VolumetricParams | null;
 }
 
 /** Load and validate image at path; returns dimensions, file size, and base64 preview (BACK-101, BACK-105). */
 export async function loadImage(path: string): Promise<LoadImageResult> {
   return invoke<LoadImageResult>("load_image", { path });
-}
-
-/** Options for export (ADR-009: optional target size in mm). */
-export interface ExportOptions {
-  targetWidthMm?: number | null;
-  targetHeightMm?: number | null;
-}
-
-export async function exportStl(path: string, options?: ExportOptions): Promise<void> {
-  const args: Record<string, unknown> = { path };
-  if (options?.targetWidthMm != null && options.targetWidthMm > 0) args.target_width_mm = options.targetWidthMm;
-  if (options?.targetHeightMm != null && options.targetHeightMm > 0) args.target_height_mm = options.targetHeightMm;
-  return invoke("export_stl", args);
-}
-
-export async function exportObj(path: string, options?: ExportOptions): Promise<void> {
-  const args: Record<string, unknown> = { path };
-  if (options?.targetWidthMm != null && options.targetWidthMm > 0) args.target_width_mm = options.targetWidthMm;
-  if (options?.targetHeightMm != null && options.targetHeightMm > 0) args.target_height_mm = options.targetHeightMm;
-  return invoke("export_obj", args);
 }
 
 /** Get current app settings (depth range, target dimensions, window size, etc.). */
@@ -92,12 +102,6 @@ export async function getSettings(): Promise<AppSettings> {
 /** Persist app settings to disk (BACK-804, BACK-805). */
 export async function saveSettings(newSettings: AppSettings): Promise<void> {
   return invoke("save_settings", { newSettings });
-}
-
-/** Payload for "depth-progress" Tauri event (BACK-205-STREAM). Emitted during depth estimation. */
-export interface DepthProgressEvent {
-  percent: number;
-  stage?: string;
 }
 
 /** Payload for "depth-progress" Tauri event (BACK-205-STREAM). Emitted during depth estimation. */
@@ -142,11 +146,6 @@ export interface DepthAdjustmentParams {
   curveControlPoints?: CurvePoint[] | null;
 }
 
-/**
- * Runs AI depth estimation on the image at the given path (BACK-303, BACK-205-STREAM).
- * Returns when complete with depth map and stages. Real-time progress is available by
- * listening to the "depth-progress" Tauri event (payload: DepthProgressEvent) before calling.
- */
 /**
  * Run AI depth estimation on the image at path. Returns when complete.
  * Real-time progress is emitted via the "depth-progress" Tauri event (listen with @tauri-apps/api/event).
@@ -261,19 +260,44 @@ export async function loadMaskFromPath(path: string): Promise<UndoRedoState> {
   return invoke<UndoRedoState>("load_mask_from_path", { path });
 }
 
-/** Mesh data for 3D preview (BACK-601, BACK-602, 3D_PREVIEW_API.md). Positions/normals in mm. Optional indices for triangulated mesh (wireframe/solid). */
-export interface MeshData {
-  positions: [number, number, number][];
-  normals: [number, number, number][];
-  /** Triangle index buffer (every 3 consecutive = one triangle). When present, Wireframe/Solid modes are available. */
-  indices?: number[];
+// --- ADR-012: Crystal surface point cloud ---
+
+export async function setBlankEnvelope(envelope: BlankEnvelope): Promise<void> {
+  return invoke("set_blank_envelope", { envelope });
 }
 
-/** Optional preview_step for reduced-detail preview (BACK-603). Optional target dimensions in mm (ADR-009, scaling). */
-export interface GetMeshDataOptions {
-  previewStep?: number;
-  targetWidthMm?: number | null;
-  targetHeightMm?: number | null;
+export async function setVolumetricParams(params: VolumetricParams): Promise<void> {
+  return invoke("set_volumetric_params", { params });
+}
+
+/** Persist preferred export format (`ply`, `xyz`, or `csv`). */
+export async function setPointCloudFormat(format: string): Promise<void> {
+  return invoke("set_point_cloud_format", { format });
+}
+
+/** Estimated point count from current depth + settings; `null` if no depth loaded. */
+export async function estimatePointCloudCount(): Promise<number | null> {
+  return invoke<number | null>("estimate_point_cloud_count");
+}
+
+/** Generate surface-map point cloud from current adjusted depth (cached for export commands). */
+export async function generatePointCloud(): Promise<VolumetricResult> {
+  return invoke<VolumetricResult>("generate_point_cloud");
+}
+
+/** Write cached point cloud as PLY. Run `generatePointCloud` first. */
+export async function exportPly(path: string, binary: boolean): Promise<void> {
+  return invoke("export_ply", { path, binary });
+}
+
+/** Write cached point cloud as XYZ. */
+export async function exportXyz(path: string): Promise<void> {
+  return invoke("export_xyz", { path });
+}
+
+/** Write cached point cloud as CSV. */
+export async function exportCsv(path: string): Promise<void> {
+  return invoke("export_csv", { path });
 }
 
 // --- Sprint 1.10: Model management ---
@@ -314,26 +338,6 @@ export async function getModelInfo(): Promise<ModelInfo> {
 
 export async function downloadModel(): Promise<DownloadResult> {
   return invoke<DownloadResult>("download_model");
-}
-
-/**
- * Get mesh data (positions, normals) for 3D preview from current adjusted depth map (BACK-601, BACK-603).
- * Use previewStep to request reduced vertex count for faster preview; export always uses full resolution.
- */
-export async function getMeshData(
-  options?: GetMeshDataOptions
-): Promise<MeshData | null> {
-  const args: Record<string, unknown> = {};
-  if (options?.previewStep != null) {
-    args.preview_step = Math.max(1, options.previewStep);
-  }
-  if (options?.targetWidthMm != null && options.targetWidthMm > 0) {
-    args.target_width_mm = options.targetWidthMm;
-  }
-  if (options?.targetHeightMm != null && options.targetHeightMm > 0) {
-    args.target_height_mm = options.targetHeightMm;
-  }
-  return invoke<MeshData | null>("get_mesh_data", args);
 }
 
 // --- Sprint 2.3: Presets (F2.3, BACK-1302, UI-1301–1304) ---

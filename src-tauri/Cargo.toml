@@ -1,7 +1,7 @@
 [package]
 name = "simplepicture3d"
 version = "0.1.0"
-description = "SimplePicture3D — 2D to 2.5D mesh for laser engraving"
+description = "SimplePicture3D — 2D image to 3D surface point cloud for internal UV laser engraving of crystal blanks"
 authors = ["SimplePicture3D Contributors"]
 license = "MIT"
 repository = ""
@@ -40,8 +40,4 @@ harness = false
 
 [[bench]]
 name = "ipc_depth_map_serialization"
-harness = false
-
-[[bench]]
-name = "mesh_generation"
 harness = false

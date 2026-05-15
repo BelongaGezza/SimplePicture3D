@@ -1,54 +1,59 @@
 // Copyright (c) 2026 SimplePicture3D Contributors
 // SPDX-License-Identifier: MIT
 
-//! 3D surface point cloud generation (ADR-012).
+//! 3D surface-map point cloud generation (ADR-012).
 //!
-//! Generates a 3D surface point cloud from a depth map for internal UV laser engraving
-//! of crystal glass. One point is emitted per sampled (x,y) position, placed at the
-//! Z depth given by the depth map. Foreground pixels land near the front face of the
-//! crystal; background pixels land near the back face. The collection of specks traces
-//! the 3D shape surface inside the crystal.
+//! Generates a 3D surface point cloud from a depth map for internal UV laser
+//! engraving of crystal glass. For each sampled (x, y) position above the depth
+//! threshold the algorithm emits **exactly one point** at the Z position
+//! determined by that pixel's depth value:
 //!
-//! # IMPORTANT — Algorithm rewrite required (TD-14)
-//!
-//! The current `generate_volumetric_points` body implements a **column-sweep fill**
-//! (ADR-011), which emits many stacked Z points per (x,y) column. This produces a
-//! solid fill — incorrect for crystal engraving. Do NOT wire this function to Tauri
-//! commands until it has been rewritten per ADR-012 (Sprint B — BACK-B-01).
-//!
-//! Target algorithm (ADR-012):
 //! ```text
 //! for each sampled (px, py):
-//!     d = depth[py * width + px]
+//!     d = depth[py * width + px].clamp(0.0, 1.0)
 //!     if d < params.depth_threshold { continue }
-//!     z = margin_mm + (1.0 - d) * interior_height
-//!     emit [x_mm, y_mm, z]   // one point per column
+//!     x_mm = (px / width)  * envelope.interior_length()  + envelope.margin_mm
+//!     y_mm = (py / height) * envelope.interior_width()   + envelope.margin_mm
+//!     z_mm = envelope.margin_mm + (1.0 - d) * envelope.interior_height()
+//!     emit [x_mm, y_mm, z_mm]
 //! ```
+//!
+//! Convention (matches the rest of the pipeline):
+//! - `depth = 1.0` (near / foreground) → Z near the front face of the blank.
+//! - `depth = 0.0` (far / background) → Z near the back face of the blank.
+//! - Points with `depth < depth_threshold` are skipped so background noise does
+//!   not get engraved.
+//!
+//! After point generation, [`fit_to_blank`] is applied to scale and centre the
+//! cloud inside the [`BlankEnvelope`] (unchanged from previous behaviour).
+//!
+//! This module supersedes the ADR-011 column-sweep fill that previously lived
+//! here. See `RESEARCH/architecture.md` § ADR-012 for the rationale.
 
 use crate::blank_envelope::{fit_to_blank, BlankEnvelope, FitResult};
 use serde::{Deserialize, Serialize};
 
-/// Parameters for 3D surface point cloud generation (ADR-012).
+/// Default minimum depth required to emit a point. Pixels below this value are
+/// treated as background and skipped. ADR-012 calls for a small positive value
+/// (≈ 0.05) so that pure-background pixels never produce engraving points but
+/// realistic foreground/midground content is still captured.
+pub const DEFAULT_DEPTH_THRESHOLD: f32 = 0.05;
+
+/// Parameters for 3D surface-map point cloud generation (ADR-012).
 ///
-/// # ADR-012 rewrite (TD-14, Sprint B — BACK-B-01)
-/// When the algorithm is rewritten, replace `z_spacing_mm`, `depth_min`, `depth_max`,
-/// and `back_plane` with `depth_threshold`. Fields marked DEPRECATED below will be
-/// removed in that sprint.
+/// Field semantics:
+/// - `step_x` / `step_y` — pixel stride for XY sampling (1 = every pixel).
+/// - `depth_threshold` — pixels with `depth < depth_threshold` are skipped.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VolumetricParams {
-    /// Sample every N pixels in X direction (1 = full resolution). KEEP.
+    /// Sample every N pixels in X direction (1 = full resolution). Must be > 0.
     pub step_x: u32,
-    /// Sample every N pixels in Y direction (1 = full resolution). KEEP.
+    /// Sample every N pixels in Y direction (1 = full resolution). Must be > 0.
     pub step_y: u32,
-    /// DEPRECATED (ADR-012): remove when algorithm rewritten. Column-sweep Z spacing.
-    pub z_spacing_mm: f32,
-    /// DEPRECATED (ADR-012): remove when algorithm rewritten. Replace with depth_threshold.
-    pub depth_min: f32,
-    /// DEPRECATED (ADR-012): remove when algorithm rewritten.
-    pub depth_max: f32,
-    /// DEPRECATED (ADR-012): remove when algorithm rewritten.
-    pub back_plane: f32,
+    /// Minimum depth value [0.0, 1.0] required to emit a point. Pixels with a
+    /// depth value below this threshold are treated as background and skipped.
+    pub depth_threshold: f32,
 }
 
 impl Default for VolumetricParams {
@@ -56,15 +61,12 @@ impl Default for VolumetricParams {
         Self {
             step_x: 1,
             step_y: 1,
-            z_spacing_mm: 0.5,
-            depth_min: 0.0,
-            depth_max: 1.0,
-            back_plane: 0.0,
+            depth_threshold: DEFAULT_DEPTH_THRESHOLD,
         }
     }
 }
 
-/// Result of volumetric point cloud generation.
+/// Result of surface-map point cloud generation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VolumetricResult {
@@ -78,27 +80,26 @@ pub struct VolumetricResult {
     pub memory_bytes: usize,
 }
 
-/// Generate a volumetric point cloud from a depth map using column sweep.
+/// Generate a 3D surface-map point cloud from a depth map (ADR-012).
 ///
-/// # Algorithm (Column Sweep)
-/// For each sampled (x, y) position:
-/// 1. Get the depth value from the depth map
-/// 2. Convert depth to a front surface Z position
-/// 3. Generate points along Z from back plane to front surface
-/// 4. Space points according to z_spacing_mm
+/// For each sampled (x, y) position above [`VolumetricParams::depth_threshold`]
+/// the function emits a single point at the depth-mapped Z position. There is
+/// no column sweep / Z fill — exactly one point per accepted (x, y) sample.
 ///
-/// After generation, points are fitted to the blank envelope using uniform scaling.
+/// After generation, points are scaled and centred inside the blank envelope
+/// via [`fit_to_blank`].
 ///
 /// # Arguments
-/// * `depth` - Row-major depth map, normalized 0.0-1.0 (0=far, 1=near)
-/// * `width` - Depth map width in pixels
-/// * `height` - Depth map height in pixels
-/// * `params` - Volumetric generation parameters
-/// * `envelope` - Target blank envelope for fitting
+/// * `depth` - Row-major depth map, normalized 0.0-1.0 (0=far, 1=near).
+/// * `width` - Depth map width in pixels.
+/// * `height` - Depth map height in pixels.
+/// * `params` - Surface-map generation parameters.
+/// * `envelope` - Target blank envelope for fitting.
 ///
 /// # Returns
-/// * `Ok(VolumetricResult)` - Generated point cloud with fit information
-/// * `Err(String)` - Invalid parameters or depth map
+/// * `Ok(VolumetricResult)` - Generated point cloud with fit information.
+/// * `Err(String)` - Invalid parameters, invalid envelope, or no points above
+///   threshold.
 pub fn generate_volumetric_points(
     depth: &[f32],
     width: u32,
@@ -106,7 +107,6 @@ pub fn generate_volumetric_points(
     params: &VolumetricParams,
     envelope: &BlankEnvelope,
 ) -> Result<VolumetricResult, String> {
-    // Validate inputs
     let expected_len = (width as usize)
         .checked_mul(height as usize)
         .ok_or("Depth map dimensions overflow")?;
@@ -129,70 +129,56 @@ pub fn generate_volumetric_points(
         return Err("Step size must be positive".to_string());
     }
 
-    if params.z_spacing_mm <= 0.0 {
-        return Err("Z spacing must be positive".to_string());
+    if !params.depth_threshold.is_finite()
+        || params.depth_threshold < 0.0
+        || params.depth_threshold > 1.0
+    {
+        return Err("Depth threshold must be in [0.0, 1.0]".to_string());
     }
 
     envelope.validate()?;
 
-    // Calculate grid dimensions
+    let interior_length = envelope.interior_length();
+    let interior_width = envelope.interior_width();
+    let interior_height = envelope.interior_height();
+    let margin = envelope.margin_mm;
+
+    let width_f = width as f32;
+    let height_f = height as f32;
+
     let num_cols = width.div_ceil(params.step_x);
     let num_rows = height.div_ceil(params.step_y);
 
-    // Working space dimensions (before fitting)
-    // We'll generate points in a normalized space, then fit to blank
-    let work_width = width as f32;
-    let work_height = height as f32;
-    let work_depth = envelope.interior_height(); // Use interior height as working depth
+    let capacity = (num_cols as usize).saturating_mul(num_rows as usize);
+    let mut points: Vec<[f32; 3]> = Vec::with_capacity(capacity);
 
-    // Pre-allocate points (estimate: average ~5 points per column)
-    let estimated_points = (num_cols * num_rows * 5) as usize;
-    let mut points: Vec<[f32; 3]> = Vec::with_capacity(estimated_points);
+    let threshold = params.depth_threshold;
 
-    // Back plane Z position in working space
-    let back_z = params.back_plane * work_depth;
-
-    // Column sweep: iterate over sampled (x, y) positions
     for row in 0..num_rows {
         let py = (row * params.step_y).min(height - 1);
-        let y_mm = (py as f32 / work_height) * work_height;
+        let y_mm = (py as f32 / height_f) * interior_width + margin;
 
         for col in 0..num_cols {
             let px = (col * params.step_x).min(width - 1);
-            let x_mm = (px as f32 / work_width) * work_width;
 
-            // Get depth value at this position
             let idx = (py as usize) * (width as usize) + (px as usize);
             let d = depth[idx].clamp(0.0, 1.0);
 
-            // Skip if outside depth range
-            if d < params.depth_min || d > params.depth_max {
+            if d < threshold {
                 continue;
             }
 
-            // Convert depth to front surface Z position
-            // depth=0 (far) -> back, depth=1 (near) -> front
-            let front_z = back_z + d * (work_depth - back_z);
+            let x_mm = (px as f32 / width_f) * interior_length + margin;
+            let z_mm = margin + (1.0 - d) * interior_height;
 
-            // Generate points along Z from back to front
-            let mut z = back_z;
-            while z <= front_z {
-                points.push([x_mm, y_mm, z]);
-                z += params.z_spacing_mm;
-            }
-
-            // Always include the front surface point
-            if points.last().is_none_or(|p| (p[2] - front_z).abs() > 0.001) {
-                points.push([x_mm, y_mm, front_z]);
-            }
+            points.push([x_mm, y_mm, z_mm]);
         }
     }
 
     if points.is_empty() {
-        return Err("No points generated (check depth range parameters)".to_string());
+        return Err("No points generated (all depth values are below depth_threshold)".to_string());
     }
 
-    // Fit points to blank envelope
     let fit_result = fit_to_blank(&mut points, envelope)?;
 
     let point_count = points.len();
@@ -206,22 +192,48 @@ pub fn generate_volumetric_points(
     })
 }
 
-/// Estimate the number of points that will be generated without actually generating them.
+/// Estimate the number of points that will be generated without performing the
+/// full sampling pass. Uses the ADR-012 simplified formula:
 ///
-/// Useful for UI to show estimated point count before generation.
+/// ```text
+/// num_cols * num_rows * (1.0 - depth_threshold)
+/// ```
+///
+/// where `(1.0 - depth_threshold)` is a coarse approximation of the fraction of
+/// pixels above threshold for a uniformly distributed depth map. Useful for
+/// driving "estimated point count" UI before generation runs.
 pub fn estimate_point_count(
     width: u32,
     height: u32,
     params: &VolumetricParams,
-    envelope: &BlankEnvelope,
+    _envelope: &BlankEnvelope,
 ) -> usize {
-    let num_cols = width.div_ceil(params.step_x);
-    let num_rows = height.div_ceil(params.step_y);
-    let avg_depth = (params.depth_max - params.depth_min) / 2.0;
-    let work_depth = envelope.interior_height();
-    let points_per_column = (avg_depth * work_depth / params.z_spacing_mm) as usize + 1;
+    if width == 0 || height == 0 || params.step_x == 0 || params.step_y == 0 {
+        return 0;
+    }
 
-    (num_cols as usize) * (num_rows as usize) * points_per_column
+    let num_cols = width.div_ceil(params.step_x) as usize;
+    let num_rows = height.div_ceil(params.step_y) as usize;
+    let grid = num_cols.saturating_mul(num_rows);
+
+    let threshold = params.depth_threshold.clamp(0.0, 1.0);
+    let fraction = (1.0 - threshold).max(0.0) as f64;
+
+    ((grid as f64) * fraction).round() as usize
+}
+
+/// Validate [`VolumetricParams`] without a depth map (e.g. Tauri `set_volumetric_params`).
+pub fn validate_volumetric_params(params: &VolumetricParams) -> Result<(), String> {
+    if params.step_x == 0 || params.step_y == 0 {
+        return Err("Step size must be positive".to_string());
+    }
+    if !params.depth_threshold.is_finite()
+        || params.depth_threshold < 0.0
+        || params.depth_threshold > 1.0
+    {
+        return Err("Depth threshold must be in [0.0, 1.0]".to_string());
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -236,7 +248,6 @@ mod tests {
         let mut depth = Vec::with_capacity((width * height) as usize);
         for y in 0..height {
             for x in 0..width {
-                // Gradient from 0 (top-left) to 1 (bottom-right)
                 let d = ((x as f32 / width as f32) + (y as f32 / height as f32)) / 2.0;
                 depth.push(d);
             }
@@ -245,33 +256,61 @@ mod tests {
     }
 
     #[test]
-    fn generate_flat_depth() {
+    fn default_params_have_expected_values() {
+        let p = VolumetricParams::default();
+        assert_eq!(p.step_x, 1);
+        assert_eq!(p.step_y, 1);
+        assert!((p.depth_threshold - DEFAULT_DEPTH_THRESHOLD).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn generate_flat_depth_emits_one_point_per_sample() {
+        // Flat depth 0.5 with threshold below 0.5 -> every sampled pixel emits one point.
         let depth = make_flat_depth(10, 10, 0.5);
         let params = VolumetricParams {
             step_x: 2,
             step_y: 2,
-            z_spacing_mm: 1.0,
-            ..Default::default()
+            depth_threshold: 0.0,
         };
         let envelope = BlankEnvelope::default();
 
         let result = generate_volumetric_points(&depth, 10, 10, &params, &envelope).unwrap();
 
-        assert!(result.point_count > 0);
-        assert_eq!(result.points.len(), result.point_count);
+        // 10/2 = 5 cols, 5 rows -> exactly 25 points (one per sample).
+        let expected = 5usize * 5usize;
+        assert_eq!(result.point_count, expected);
+        assert_eq!(result.points.len(), expected);
         assert_eq!(result.fit_result.outliers, 0);
     }
 
     #[test]
-    fn generate_gradient_depth() {
+    fn generate_full_resolution_emits_width_times_height_points() {
+        let depth = make_flat_depth(8, 6, 0.5);
+        let params = VolumetricParams {
+            step_x: 1,
+            step_y: 1,
+            depth_threshold: 0.0,
+        };
+        let envelope = BlankEnvelope::default();
+
+        let result = generate_volumetric_points(&depth, 8, 6, &params, &envelope).unwrap();
+        assert_eq!(result.point_count, 8 * 6);
+    }
+
+    #[test]
+    fn generate_gradient_keeps_points_inside_envelope() {
         let depth = make_gradient_depth(20, 20);
-        let params = VolumetricParams::default();
+        let params = VolumetricParams {
+            step_x: 1,
+            step_y: 1,
+            depth_threshold: 0.0,
+        };
         let envelope = BlankEnvelope::default();
 
         let result = generate_volumetric_points(&depth, 20, 20, &params, &envelope).unwrap();
 
-        assert!(result.point_count > 0);
-        // All points should be within envelope after fitting
+        // Every (x,y) sample with d >= 0 is kept -> exactly 20*20 points.
+        assert_eq!(result.point_count, 20 * 20);
         for p in &result.points {
             assert!(p[0] >= 0.0 && p[0] <= envelope.length_mm);
             assert!(p[1] >= 0.0 && p[1] <= envelope.width_mm);
@@ -280,20 +319,103 @@ mod tests {
     }
 
     #[test]
-    fn generate_with_depth_range() {
-        let depth = make_gradient_depth(10, 10);
+    fn threshold_skips_background_pixels() {
+        // Half the pixels at d=0.0 (background), half at d=1.0 (foreground).
+        // With threshold = 0.5, only the foreground half should be emitted.
+        let mut depth = Vec::with_capacity(10 * 10);
+        for y in 0..10u32 {
+            for _x in 0..10u32 {
+                let d = if y < 5 { 0.0 } else { 1.0 };
+                depth.push(d);
+            }
+        }
+
         let params = VolumetricParams {
             step_x: 1,
             step_y: 1,
-            z_spacing_mm: 1.0,
-            depth_min: 0.3,
-            depth_max: 0.7,
-            ..Default::default()
+            depth_threshold: 0.5,
         };
         let envelope = BlankEnvelope::default();
 
         let result = generate_volumetric_points(&depth, 10, 10, &params, &envelope).unwrap();
-        assert!(result.point_count > 0);
+        assert_eq!(result.point_count, 5 * 10);
+    }
+
+    #[test]
+    fn threshold_one_skips_everything_returns_error() {
+        // depth values are 0.5 everywhere; threshold of 1.0 rejects every pixel.
+        let depth = make_flat_depth(10, 10, 0.5);
+        let params = VolumetricParams {
+            step_x: 1,
+            step_y: 1,
+            depth_threshold: 1.0,
+        };
+        let envelope = BlankEnvelope::default();
+
+        let result = generate_volumetric_points(&depth, 10, 10, &params, &envelope);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn threshold_default_keeps_above_default() {
+        // Pixels at d=0.0 (below default 0.05) and d=0.5 (above). Only the 0.5
+        // pixels should be emitted with default params.
+        let mut depth = Vec::with_capacity(4 * 4);
+        for i in 0..16u32 {
+            depth.push(if i < 8 { 0.0 } else { 0.5 });
+        }
+
+        let params = VolumetricParams::default();
+        let envelope = BlankEnvelope::default();
+
+        let result = generate_volumetric_points(&depth, 4, 4, &params, &envelope).unwrap();
+        assert_eq!(result.point_count, 8);
+    }
+
+    #[test]
+    fn step_reduces_point_count() {
+        let depth = make_flat_depth(8, 8, 0.5);
+        let envelope = BlankEnvelope::default();
+
+        let p_full = VolumetricParams {
+            step_x: 1,
+            step_y: 1,
+            depth_threshold: 0.0,
+        };
+        let r_full = generate_volumetric_points(&depth, 8, 8, &p_full, &envelope).unwrap();
+        assert_eq!(r_full.point_count, 8 * 8);
+
+        let p_step2 = VolumetricParams {
+            step_x: 2,
+            step_y: 2,
+            depth_threshold: 0.0,
+        };
+        let r_step2 = generate_volumetric_points(&depth, 8, 8, &p_step2, &envelope).unwrap();
+        assert_eq!(r_step2.point_count, 4 * 4);
+
+        let p_step4 = VolumetricParams {
+            step_x: 4,
+            step_y: 4,
+            depth_threshold: 0.0,
+        };
+        let r_step4 = generate_volumetric_points(&depth, 8, 8, &p_step4, &envelope).unwrap();
+        assert_eq!(r_step4.point_count, 2 * 2);
+    }
+
+    #[test]
+    fn step_handles_non_divisor_dimensions() {
+        // width=10, step_x=3 -> ceil(10/3) = 4 columns sampled (px = 0, 3, 6, 9).
+        let depth = make_flat_depth(10, 5, 0.5);
+        let params = VolumetricParams {
+            step_x: 3,
+            step_y: 2,
+            depth_threshold: 0.0,
+        };
+        let envelope = BlankEnvelope::default();
+
+        let result = generate_volumetric_points(&depth, 10, 5, &params, &envelope).unwrap();
+        // ceil(10/3) = 4 cols, ceil(5/2) = 3 rows -> 12 points.
+        assert_eq!(result.point_count, 4 * 3);
     }
 
     #[test]
@@ -307,11 +429,22 @@ mod tests {
     }
 
     #[test]
+    fn reject_mismatched_depth_length() {
+        let depth = vec![0.5; 50];
+        let params = VolumetricParams::default();
+        let envelope = BlankEnvelope::default();
+
+        let result = generate_volumetric_points(&depth, 10, 10, &params, &envelope);
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn reject_invalid_step() {
         let depth = make_flat_depth(10, 10, 0.5);
         let params = VolumetricParams {
             step_x: 0,
-            ..Default::default()
+            step_y: 1,
+            depth_threshold: 0.0,
         };
         let envelope = BlankEnvelope::default();
 
@@ -320,11 +453,12 @@ mod tests {
     }
 
     #[test]
-    fn reject_invalid_z_spacing() {
+    fn reject_negative_threshold() {
         let depth = make_flat_depth(10, 10, 0.5);
         let params = VolumetricParams {
-            z_spacing_mm: 0.0,
-            ..Default::default()
+            step_x: 1,
+            step_y: 1,
+            depth_threshold: -0.1,
         };
         let envelope = BlankEnvelope::default();
 
@@ -333,18 +467,114 @@ mod tests {
     }
 
     #[test]
-    fn estimate_gives_reasonable_count() {
+    fn reject_threshold_above_one() {
+        let depth = make_flat_depth(10, 10, 0.5);
+        let params = VolumetricParams {
+            step_x: 1,
+            step_y: 1,
+            depth_threshold: 1.5,
+        };
+        let envelope = BlankEnvelope::default();
+
+        let result = generate_volumetric_points(&depth, 10, 10, &params, &envelope);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn reject_invalid_envelope() {
+        let depth = make_flat_depth(10, 10, 0.5);
+        let params = VolumetricParams::default();
+        // Margin too large for blank size.
+        let envelope = BlankEnvelope::new(10.0, 10.0, 10.0, 6.0);
+
+        let result = generate_volumetric_points(&depth, 10, 10, &params, &envelope);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn z_increases_with_decreasing_depth() {
+        // Two pixels with different depths -> verify that the smaller-depth
+        // pixel ends up with the larger Z (near back face) before fit_to_blank
+        // is applied. Because fit_to_blank scales/translates uniformly, the
+        // relative ordering on Z is preserved.
+        let depth = vec![0.9, 0.1];
+        let params = VolumetricParams {
+            step_x: 1,
+            step_y: 1,
+            depth_threshold: 0.0,
+        };
+        let envelope = BlankEnvelope::default();
+
+        let result = generate_volumetric_points(&depth, 2, 1, &params, &envelope).unwrap();
+        assert_eq!(result.point_count, 2);
+        // First pixel (d=0.9, near) should have smaller Z than second (d=0.1, far).
+        assert!(result.points[0][2] < result.points[1][2]);
+    }
+
+    #[test]
+    fn estimate_matches_actual_for_threshold_zero() {
+        // With threshold = 0.0, every sampled pixel is emitted, so the estimator
+        // (which uses 1 - threshold as the fraction) should equal the grid size.
         let params = VolumetricParams {
             step_x: 2,
             step_y: 2,
-            z_spacing_mm: 1.0,
-            ..Default::default()
+            depth_threshold: 0.0,
         };
         let envelope = BlankEnvelope::default();
 
         let estimate = estimate_point_count(100, 100, &params, &envelope);
-        assert!(estimate > 0);
-        assert!(estimate < 10_000_000); // Sanity check
+        // 100/2 * 100/2 = 50 * 50 = 2500.
+        assert_eq!(estimate, 2500);
+    }
+
+    #[test]
+    fn estimate_scales_with_threshold() {
+        let envelope = BlankEnvelope::default();
+
+        let lo = estimate_point_count(
+            100,
+            100,
+            &VolumetricParams {
+                step_x: 1,
+                step_y: 1,
+                depth_threshold: 0.1,
+            },
+            &envelope,
+        );
+        let hi = estimate_point_count(
+            100,
+            100,
+            &VolumetricParams {
+                step_x: 1,
+                step_y: 1,
+                depth_threshold: 0.9,
+            },
+            &envelope,
+        );
+
+        assert!(lo > hi);
+        // 0.9 fraction of 10000 = 9000; 0.1 fraction of 10000 = 1000.
+        assert_eq!(lo, 9000);
+        assert_eq!(hi, 1000);
+    }
+
+    #[test]
+    fn estimate_handles_zero_dimensions() {
+        let params = VolumetricParams::default();
+        let envelope = BlankEnvelope::default();
+        assert_eq!(estimate_point_count(0, 100, &params, &envelope), 0);
+        assert_eq!(estimate_point_count(100, 0, &params, &envelope), 0);
+    }
+
+    #[test]
+    fn estimate_handles_zero_step() {
+        let params = VolumetricParams {
+            step_x: 0,
+            step_y: 1,
+            depth_threshold: 0.0,
+        };
+        let envelope = BlankEnvelope::default();
+        assert_eq!(estimate_point_count(100, 100, &params, &envelope), 0);
     }
 
     #[test]
@@ -352,14 +582,14 @@ mod tests {
         let params = VolumetricParams {
             step_x: 2,
             step_y: 3,
-            z_spacing_mm: 0.75,
-            depth_min: 0.1,
-            depth_max: 0.9,
-            back_plane: 0.1,
+            depth_threshold: 0.25,
         };
         let json = serde_json::to_string(&params).unwrap();
+        // camelCase rename should expose depthThreshold in the JSON payload.
+        assert!(json.contains("depthThreshold"));
         let loaded: VolumetricParams = serde_json::from_str(&json).unwrap();
         assert_eq!(loaded.step_x, 2);
-        assert_eq!(loaded.z_spacing_mm, 0.75);
+        assert_eq!(loaded.step_y, 3);
+        assert!((loaded.depth_threshold - 0.25).abs() < f32::EPSILON);
     }
 }
