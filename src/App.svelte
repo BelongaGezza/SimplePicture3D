@@ -74,6 +74,17 @@
     } catch {
       // Non-critical
     }
+    try {
+      const s = await getSettings();
+      if (s.blankEnvelope) {
+        blankL = s.blankEnvelope.lengthMm;
+        blankW = s.blankEnvelope.widthMm;
+        blankH = s.blankEnvelope.heightMm;
+        blankM = s.blankEnvelope.marginMm;
+      }
+    } catch {
+      // Non-critical
+    }
     refreshPresetList();
     window.addEventListener("keydown", onKeyDown);
   });
@@ -111,6 +122,12 @@
   let effectiveTargetWidthMm = 40;
   let effectiveTargetHeightMm = 40;
   let zoomScale = 1; // 1 = 100%; 0.5 = 50%, 1.5 = 150%, 2 = 200%
+
+  /** Crystal blank (mm); ExportPanel and Preview3D stay in sync via bind. */
+  let blankL = 80;
+  let blankW = 50;
+  let blankH = 50;
+  let blankM = 2;
 
   /** UI-404: Debounce interval for preview updates (ms). */
   const DEBOUNCE_MS = 80;
@@ -576,6 +593,11 @@
         <Preview3D
           targetWidthMm={effectiveTargetWidthMm}
           targetHeightMm={effectiveTargetHeightMm}
+          blankLengthMm={blankL}
+          blankWidthMm={blankW}
+          blankHeightMm={blankH}
+          blankMarginMm={blankM}
+          hasDepth={depthMap != null && depthMap.depth.length > 0}
         />
       </div>
     </section>
@@ -817,6 +839,10 @@
       </div>
     </div>
     <ExportPanel
+      bind:blankLengthMm={blankL}
+      bind:blankWidthMm={blankW}
+      bind:blankHeightMm={blankH}
+      bind:blankMarginMm={blankM}
       hasDepth={depthMap != null && depthMap.depth.length > 0}
       sourceFileName={sourceFileName}
       effectiveTargetWidthMm={effectiveTargetWidthMm}

@@ -4,29 +4,32 @@
   /**
    * Preview3D — Three.js 3D preview (UI-501–UI-506).
    *
-   * Sprint A: the 2.5D mesh preview (point cloud + triangulated wireframe/solid via
-   * `get_mesh_data`) has been retired. The scene, camera, lights, grid, orbit controls,
-   * and synthetic-data performance test remain in place. Live point cloud rendering will
-   * be re-wired to the 3D volumetric pipeline (`generate_point_cloud`, ADR-012) plus a
-   * blank-envelope wireframe in Sprint B / Sprint C.
+   * ADR-012: loads a surface-map point cloud from `generate_point_cloud` and draws a wireframe
+   * of the crystal blank envelope (physical L×W×H mm).
    */
   import { onMount, onDestroy } from "svelte";
   import * as THREE from "three";
   import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+  import { generatePointCloud, setBlankEnvelope } from "$lib/tauri";
 
   let container: HTMLDivElement;
-  /** Target dimensions in mm from App (legacy 2.5D scaling). Retained as props until Sprint C
-   *  replaces them with blank-envelope dimensions. The values are surfaced as `data-` attributes
-   *  on the root div so they are observable in the DOM and so the Svelte compiler does not
-   *  warn about unused exports during Sprint A. */
+  /** Legacy target dimensions from App (depth / metadata). Surfaced as `data-` attributes. */
   export let targetWidthMm: number | undefined = undefined;
   export let targetHeightMm: number | undefined = undefined;
+
+  /** Blank envelope dimensions (mm), matches Rust defaults until user edits footer. */
+  export let blankLengthMm = 80;
+  export let blankWidthMm = 50;
+  export let blankHeightMm = 50;
+  export let blankMarginMm = 2;
+  export let hasDepth = false;
 
   let scene: THREE.Scene;
   let camera: THREE.PerspectiveCamera;
   let renderer: THREE.WebGLRenderer;
   let controls: OrbitControls;
   let gridHelper: THREE.GridHelper;
+  let blankOutline: THREE.LineSegments | null = null;
   /** JR1-505: light refs for intensity controls (set in onMount) */
   let ambientLight: THREE.AmbientLight | undefined;
   let directionalLight: THREE.DirectionalLight | undefined;
@@ -63,6 +66,37 @@
   /** JR1-505: apply lighting control values in real time. */
   $: if (ambientLight) ambientLight.intensity = ambientIntensity;
   $: if (directionalLight) directionalLight.intensity = directionalIntensity;
+
+  function refreshBlankOutline() {
+    if (!scene) return;
+    if (blankOutline) {
+      scene.remove(blankOutline);
+      blankOutline.geometry.dispose();
+      (blankOutline.material as THREE.Material).dispose();
+      blankOutline = null;
+    }
+    const L = Math.max(blankLengthMm, 1);
+    const W = Math.max(blankWidthMm, 1);
+    const H = Math.max(blankHeightMm, 1);
+    const geom = new THREE.BoxGeometry(L, W, H);
+    geom.translate(L / 2, W / 2, H / 2);
+    const edges = new THREE.EdgesGeometry(geom);
+    blankOutline = new THREE.LineSegments(
+      edges,
+      new THREE.LineBasicMaterial({ color: 0xfbbf24 }),
+    );
+    scene.add(blankOutline);
+    geom.dispose();
+    edges.dispose();
+  }
+
+  $: if (scene) {
+    blankLengthMm;
+    blankWidthMm;
+    blankHeightMm;
+    blankMarginMm;
+    refreshBlankOutline();
+  }
 
   /** JR1-504: Create synthetic point cloud for performance testing. */
   function createSyntheticPointCloud(vertexCount: number): THREE.Points {
@@ -119,26 +153,67 @@
     return String(n);
   }
 
-  /**
-   * Sprint A stub: live point cloud loading from the backend has been retired alongside the
-   * 2.5D mesh pipeline. Sprint B will introduce `generate_point_cloud` (ADR-012) and Sprint C
-   * will re-wire this button to render the resulting 3D surface point cloud inside the blank
-   * envelope wireframe.
-   */
+  /** Loads ADR-012 surface-map point cloud and frames the camera. */
   async function loadMesh() {
+    if (!hasDepth || meshLoading || !scene) return;
     meshLoading = true;
     meshError = "";
     try {
+      await setBlankEnvelope({
+        lengthMm: blankLengthMm,
+        widthMm: blankWidthMm,
+        heightMm: blankHeightMm,
+        marginMm: blankMarginMm,
+      });
+      const res = await generatePointCloud();
+
       if (pointCloud) {
         scene.remove(pointCloud);
         pointCloud.geometry.dispose();
         (pointCloud.material as THREE.Material).dispose();
         pointCloud = null;
       }
+
+      const n = res.pointCount;
+      const positions = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) {
+        const p = res.points[i];
+        positions[i * 3] = p[0];
+        positions[i * 3 + 1] = p[1];
+        positions[i * 3 + 2] = p[2];
+      }
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      geometry.computeBoundingBox();
+      const material = new THREE.PointsMaterial({
+        size: 0.35,
+        color: 0x4a90d9,
+        sizeAttenuation: true,
+      });
+      pointCloud = new THREE.Points(geometry, material);
+      scene.add(pointCloud);
+
+      if (geometry.boundingBox) {
+        meshBox = geometry.boundingBox.clone();
+        const c = meshBox.getCenter(new THREE.Vector3());
+        if (controls) controls.target.copy(c);
+        meshStats = {
+          vertexCount: n,
+          minX: meshBox.min.x,
+          maxX: meshBox.max.x,
+          minY: meshBox.min.y,
+          maxY: meshBox.max.y,
+          minZ: meshBox.min.z,
+          maxZ: meshBox.max.z,
+        };
+      } else {
+        meshBox = null;
+        meshStats = null;
+      }
+    } catch (e) {
+      meshError = String(e);
       meshBox = null;
       meshStats = null;
-      meshError =
-        "3D point cloud preview will be wired in Sprint B (generate_point_cloud, ADR-012).";
     } finally {
       meshLoading = false;
     }
@@ -261,6 +336,12 @@
     resizeObserver?.disconnect();
     resizeObserver = null;
     if (animationId != null) cancelAnimationFrame(animationId);
+    if (blankOutline && scene) {
+      scene.remove(blankOutline);
+      blankOutline.geometry.dispose();
+      (blankOutline.material as THREE.Material).dispose();
+      blankOutline = null;
+    }
     if (pointCloud) {
       scene?.remove(pointCloud);
       pointCloud.geometry.dispose();
@@ -276,6 +357,10 @@
   class="preview3d flex flex-col w-full h-full min-h-[300px] rounded overflow-hidden bg-slate-800"
   data-target-width-mm={targetWidthMm ?? ""}
   data-target-height-mm={targetHeightMm ?? ""}
+  data-blank-l={blankLengthMm}
+  data-blank-w={blankWidthMm}
+  data-blank-h={blankHeightMm}
+  data-blank-margin={blankMarginMm}
 >
   <!-- Canvas container: Three.js renderer appended here -->
   <div
@@ -285,23 +370,17 @@
     aria-label="3D point cloud preview"
   ></div>
 
-  <!--
-    Sprint A toolbar: 2.5D mesh "Load mesh" + Wireframe/Solid render-mode buttons have been
-    retired. Camera presets, lighting sliders, and the perf-test button remain so the scene
-    infrastructure is exercised end-to-end. Sprint B will replace "Load mesh" with a
-    "Generate point cloud" action wired to ADR-012.
-  -->
   <div
     class="flex items-center gap-3 px-3 py-2 border-t border-slate-600 bg-slate-900 text-slate-200 text-sm"
   >
     <button
       type="button"
       class="px-3 py-1.5 rounded bg-slate-600 hover:bg-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-400 disabled:opacity-50"
-      disabled={meshLoading}
+      disabled={meshLoading || !hasDepth}
       on:click={loadMesh}
-      title="Sprint A stub — point cloud generation is wired in Sprint B"
+      title="Generate point cloud from current depth map and blank size"
     >
-      {meshLoading ? "Loading…" : "Load point cloud (Sprint B)"}
+      {meshLoading ? "Loading…" : "Load point cloud"}
     </button>
     <!-- JR1-501: Camera presets (top, front, side) -->
     <span class="text-slate-500">View:</span>
