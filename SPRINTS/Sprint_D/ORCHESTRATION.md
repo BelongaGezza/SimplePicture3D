@@ -1,7 +1,7 @@
 # Sprint D — Sub-Agent Orchestration Board
 
 **Orchestrator:** Senior Engineer  
-**Last Updated:** 2026-05-19 (Wave 2 complete)  
+**Last Updated:** 2026-05-19 (Wave 3 in progress)  
 **Sprint:** Validate and Harden (Phase D)  
 **Roadmap:** `ROADMAP.md` — do not mark Phase D complete until QA-D-01 + SEC-D-02/03 pass
 
@@ -25,13 +25,13 @@ Validate engraver-compatible exports; close P0/P1 security gaps; align Tauri ACL
 | SEC-D-01 | Senior Engineer | — | Available | Split coarse permissions |
 | SEC-D-07–11 | Senior Engineer | — | Available | P2/P3 — see task assignment |
 | SEC-D-12 | Security Specialist | Wave 1 sub-agent | Complete | PLY/CSV comment sanitization |
-| ARCH-D-01 | System Architect | — | Available | Engraver charter doc |
+| ARCH-D-01 | System Architect | Wave 3 sub-agent | Complete | `docs/engraver-charter.md` |
 | ARCH-D-02 | System Architect | — | Available | Command ↔ ACL audit |
-| QA-D-01 | Quality Engineer | — | Available | Manual engraver import |
+| QA-D-01 | Quality Engineer | Wave 3 sub-agent | Review | Procedure ready; engraver import blocked (TBD software) |
 | QA-D-02 | Quality Engineer | — | Available | 4K timing benchmark |
 | QA-D-03 | Quality Engineer | — | Available | Pentest checklist |
 | QA-B-01 | Quality Engineer | — | Available | Export integration tests |
-| BACK-D-01 | Senior Engineer | — | Available | Fix defects from QA-D-01 |
+| BACK-D-01 | Senior Engineer | Orchestrator | Blocked | Awaiting QA-D-01 results |
 | DOC-D-01 | Documentation Specialist | — | Available | Interoperability notes |
 | DOC-D-02 | Security + Docs | — | Partial | Threat model §2.4/§2.6 updated Wave 2 |
 
@@ -50,10 +50,10 @@ Validate engraver-compatible exports; close P0/P1 security gaps; align Tauri ACL
 4. **SEC-D-04** — IPC point cloud payload caps + preview subsampling
 5. **SEC-D-05** — preset/mask path restrictions (`path_security.rs`)
 
-### Wave 3 — Validation (next)
-6. **ARCH-D-01** — Engraver charter (axes, mm, formats)
-7. **QA-D-01** — Import PLY/XYZ; record in MANUAL_TEST_REPORT
-8. **BACK-D-01** — Fix axis/units bugs from QA
+### Wave 3 — Validation (in progress)
+6. **ARCH-D-01** — Engraver charter (axes, mm, formats) — delegated
+7. **QA-D-01** — Import PLY/XYZ; record in MANUAL_TEST_REPORT — delegated (procedure + checklist)
+8. **BACK-D-01** — Fix axis/units bugs from QA — blocked on QA-D-01 execution
 
 ### Wave 4 — Closeout
 9. **ARCH-D-02** — Full command audit
@@ -69,6 +69,16 @@ Validate engraver-compatible exports; close P0/P1 security gaps; align Tauri ACL
 | 2026-05-19 | Security Specialist | SEC-D-02, SEC-D-12 | Complete |
 | 2026-05-19 | senior-engineer | SEC-D-03 | Complete |
 | 2026-05-19 | Orchestrator (direct) | SEC-D-04, SEC-D-05, SEC-D-06 | Complete — permissions, path_security, IPC caps |
+| 2026-05-19 | System Architect | ARCH-D-01 | Complete — `docs/engraver-charter.md` |
+| 2026-05-19 | Quality Engineer | QA-D-01 | Procedure complete — `QA-D-01_TEST_PROCEDURE.md`, MANUAL_TEST_REPORT expanded; engraver run blocked |
+
+---
+
+## Wave 3 plan (orchestrator)
+
+1. **ARCH-D-01:** Document axis mapping (image px → X/Y mm, depth → Z mm), right-handed frame, origin at blank corner (0,0,0), units mm, PLY/XYZ/CSV formats, point order (row-major sample order), `fit_to_blank` post-scale. Source: ADR-012, `volumetric.rs`, `export.rs`, `blank_envelope.rs`.
+2. **QA-D-01:** Expand `MANUAL_TEST_REPORT.md` with step-by-step import procedure, pass/fail matrix, engraver software field (TBD product name). Generate a minimal golden PLY/XYZ via `cargo test` export tests or document using app export.
+3. **BACK-D-01:** After QA records failures, fix Rust export/coordinate bugs or document engraver limitation in charter.
 
 ---
 
@@ -84,10 +94,14 @@ Validate engraver-compatible exports; close P0/P1 security gaps; align Tauri ACL
 
 ## Integration checklist (orchestrator)
 
-After Wave 2:
+After Wave 3:
 - [ ] `cargo test --manifest-path src-tauri/Cargo.toml` (blocked: GTK/WebKit on Linux dev)
 - [ ] `cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings`
-- [x] `npm test` — run after Wave 2 commit
+- [x] `npm test` — 75 passed (Wave 3)
 - [x] `SP3D_USE_STUB=1 pytest python/` — 24 passed (Wave 1)
-- [ ] Update Role Assignment in `SPRINT_D_Task_Assignment.md`
+- [x] ARCH-D-01 charter: `docs/engraver-charter.md`
+- [x] QA-D-01 procedure: `QA-D-01_TEST_PROCEDURE.md`
+- [ ] QA-D-01 engraver execution (blocked: target software TBD)
+- [ ] BACK-D-01 (blocked on QA-D-01)
+- [x] Update Role Assignment in `SPRINT_D_Task_Assignment.md`
 - [x] Update this file

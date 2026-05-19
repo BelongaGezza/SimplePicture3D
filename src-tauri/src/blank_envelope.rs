@@ -1,7 +1,7 @@
 // Copyright (c) 2026 SimplePicture3D Contributors
 // SPDX-License-Identifier: MIT
 
-//! Crystal blank envelope and fit-to-blank scaling (ADR-011).
+//! Crystal blank envelope and fit-to-blank scaling (ADR-011 envelope; ADR-012 generation).
 //!
 //! Defines the physical 3D bounds of a crystal blank and provides functions
 //! to scale and translate point clouds to fit within the blank with margins.
