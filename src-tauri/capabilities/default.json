@@ -11,6 +11,8 @@
     "allow-load-image",
     "allow-generate-depth-map",
     "allow-point-cloud",
-    "allow-presets"
+    "allow-presets",
+    "allow-settings",
+    "allow-model"
   ]
 }

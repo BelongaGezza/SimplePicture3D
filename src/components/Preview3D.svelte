@@ -169,7 +169,7 @@
         marginMm: blankMarginMm,
       });
       await setVolumetricParams({ stepX, stepY, depthThreshold });
-      const res = await generatePointCloud();
+      const res = await generatePointCloud(true);
 
       if (pointCloud) {
         scene.remove(pointCloud);
@@ -178,10 +178,11 @@
         pointCloud = null;
       }
 
-      const n = res.pointCount;
+      const previewPoints = res.points;
+      const n = previewPoints.length;
       const positions = new Float32Array(n * 3);
       for (let i = 0; i < n; i++) {
-        const p = res.points[i];
+        const p = previewPoints[i];
         positions[i * 3] = p[0];
         positions[i * 3 + 1] = p[1];
         positions[i * 3 + 2] = p[2];

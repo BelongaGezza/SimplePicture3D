@@ -80,6 +80,26 @@ pub struct VolumetricResult {
     pub memory_bytes: usize,
 }
 
+/// Maximum points returned over IPC for 3D preview (SEC-D-04). Full cloud remains in backend cache.
+pub const MAX_IPC_POINT_CLOUD_POINTS: usize = 1_000_000;
+
+/// Hard cap on point cloud generation; reject above this with a step-size hint.
+pub const MAX_POINT_CLOUD_GENERATION: usize = 8_000_000;
+
+/// Uniformly subsample points for IPC preview when the full cloud exceeds [`MAX_IPC_POINT_CLOUD_POINTS`].
+pub fn subsample_points_for_ipc(points: &[[f32; 3]], max_points: usize) -> Vec<[f32; 3]> {
+    if points.len() <= max_points {
+        return points.to_vec();
+    }
+    let stride = (points.len() + max_points - 1) / max_points;
+    points
+        .iter()
+        .step_by(stride.max(1))
+        .take(max_points)
+        .copied()
+        .collect()
+}
+
 /// Generate a 3D surface-map point cloud from a depth map (ADR-012).
 ///
 /// For each sampled (x, y) position above [`VolumetricParams::depth_threshold`]
@@ -253,6 +273,14 @@ mod tests {
             }
         }
         depth
+    }
+
+    #[test]
+    fn subsample_for_ipc_reduces_large_cloud() {
+        let points: Vec<[f32; 3]> = (0..2000).map(|i| [i as f32, 0.0, 0.0]).collect();
+        let out = subsample_points_for_ipc(&points, 1000);
+        assert!(out.len() <= 1000);
+        assert!(!out.is_empty());
     }
 
     #[test]

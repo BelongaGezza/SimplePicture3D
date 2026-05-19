@@ -387,16 +387,22 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Enables depth map generation, retrieval, adjustment, undo/redo, and mask commands. Sprint A retired `get_mesh_data` along with the 2.5D mesh pipeline; the 3D point cloud commands (ADR-012) will be added in their own permission group in Sprint B.",
+          "description": "Enables depth map generation, retrieval, adjustment, undo/redo, and mask commands. Point cloud commands are in allow-point-cloud.toml.",
           "type": "string",
           "const": "allow-generate-depth-map",
-          "markdownDescription": "Enables depth map generation, retrieval, adjustment, undo/redo, and mask commands. Sprint A retired `get_mesh_data` along with the 2.5D mesh pipeline; the 3D point cloud commands (ADR-012) will be added in their own permission group in Sprint B."
+          "markdownDescription": "Enables depth map generation, retrieval, adjustment, undo/redo, and mask commands. Point cloud commands are in allow-point-cloud.toml."
         },
         {
           "description": "Enables the load_image command.",
           "type": "string",
           "const": "allow-load-image",
           "markdownDescription": "Enables the load_image command."
+        },
+        {
+          "description": "Enables AI model check, info, and download commands (SEC-D-06).",
+          "type": "string",
+          "const": "allow-model",
+          "markdownDescription": "Enables AI model check, info, and download commands (SEC-D-06)."
         },
         {
           "description": "Enables crystal blank envelope, volumetric parameters, point cloud generation (ADR-012), and PLY/XYZ/CSV export commands.",
@@ -409,6 +415,12 @@
           "type": "string",
           "const": "allow-presets",
           "markdownDescription": "Enables preset save, load, and list commands (Sprint 2.3)."
+        },
+        {
+          "description": "Enables get_settings and save_settings (SEC-D-06).",
+          "type": "string",
+          "const": "allow-settings",
+          "markdownDescription": "Enables get_settings and save_settings (SEC-D-06)."
         },
         {
           "description": "Default core plugins set.\n#### This default permission set includes:\n\n- `core:path:default`\n- `core:event:default`\n- `core:window:default`\n- `core:webview:default`\n- `core:app:default`\n- `core:image:default`\n- `core:resources:default`\n- `core:menu:default`\n- `core:tray:default`",

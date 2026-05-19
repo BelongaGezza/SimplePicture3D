@@ -1,0 +1,8 @@
+[[permission]]
+identifier = "allow-model"
+description = "Enables AI model check, info, and download commands (SEC-D-06)."
+commands.allow = [
+    "check_model",
+    "get_model_info",
+    "download_model",
+]

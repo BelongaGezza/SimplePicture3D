@@ -224,8 +224,19 @@ describe("tauri IPC", () => {
       };
       mockInvoke.mockResolvedValue(result);
       const out = await generatePointCloud();
-      expect(mockInvoke).toHaveBeenCalledWith("generate_point_cloud");
+      expect(mockInvoke).toHaveBeenCalledWith("generate_point_cloud", { forPreview: false });
       expect(out.pointCount).toBe(1);
+    });
+
+    it("generatePointCloud passes forPreview when requested", async () => {
+      mockInvoke.mockResolvedValue({
+        points: [],
+        pointCount: 0,
+        fitResult: { scale: 1, translation: [0, 0, 0], pointCount: 0, outliers: 0 },
+        memoryBytes: 0,
+      });
+      await generatePointCloud(true);
+      expect(mockInvoke).toHaveBeenCalledWith("generate_point_cloud", { forPreview: true });
     });
 
     it("exportPly calls export_ply with path and binary flag", async () => {

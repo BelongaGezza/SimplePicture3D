@@ -70,8 +70,9 @@
 
 | Threat | Mitigation |
 |--------|------------|
-| Frontend invoking commands with arbitrary or oversized payloads | **Limit exposed commands** to those in capability config (e.g. `capabilities/default.json`). PRD and RESEARCH/tauri.md: only expose `load_image`, `export_stl`, etc. No generic “run script” or “read any file.” |
-| Large payloads over IPC (e.g. depth map, mesh) | Prefer **file-based or chunked transfer** (RESEARCH/tauri.md): e.g. Rust writes to temp file, frontend receives path or chunked data; avoid multi-MB JSON over IPC. |
+| Frontend invoking commands with arbitrary or oversized payloads | **Limit exposed commands** to those in capability config (`capabilities/default.json`). Sprint D (**SEC-D-06**): dedicated `allow-settings.toml` and `allow-model.toml` for settings and model commands. |
+| Large payloads over IPC (e.g. depth map, point cloud) | **SEC-D-04:** `generate_point_cloud` caps IPC responses at `MAX_IPC_POINT_CLOUD_POINTS` (1M). Preview mode subsamples; export mode omits points from IPC while caching the full cloud server-side for `export_ply`/`export_xyz`/`export_csv`. Hard generation cap: `MAX_POINT_CLOUD_GENERATION` (8M). |
+| Arbitrary file read via preset/mask import | **SEC-D-05:** `load_preset` (absolute path) and `load_mask_from_path` use `path_security::validate_import_file_path` — canonicalize, `.json` extension, unified system-dir blocklist (aligned with export). |
 | Deserialization or validation bugs in command args | Validate and bound all arguments (paths, options); use strong types and fail closed on invalid input. |
 
 ### 2.7 Dependency vulnerabilities

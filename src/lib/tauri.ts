@@ -281,8 +281,10 @@ export async function estimatePointCloudCount(): Promise<number | null> {
 }
 
 /** Generate surface-map point cloud from current adjusted depth (cached for export commands). */
-export async function generatePointCloud(): Promise<VolumetricResult> {
-  return invoke<VolumetricResult>("generate_point_cloud");
+export async function generatePointCloud(
+  forPreview = false,
+): Promise<VolumetricResult> {
+  return invoke<VolumetricResult>("generate_point_cloud", { forPreview });
 }
 
 /** Write cached point cloud as PLY. Run `generatePointCloud` first. */

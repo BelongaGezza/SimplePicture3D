@@ -60,50 +60,10 @@ fn validate_path(path: &str) -> anyhow::Result<PathBuf> {
         .context("path could not be resolved (missing or inaccessible)")?;
     ensure!(canonical.is_file(), "path is not a file");
     ensure!(
-        !is_blocklisted(&canonical),
+        !crate::path_security::is_blocklisted(&canonical),
         "access to system directories is not allowed"
     );
     Ok(canonical)
-}
-
-/// Returns true if the canonical path is under a blocklisted system directory (threat model §2.3).
-fn is_blocklisted(canonical: &Path) -> bool {
-    #[cfg(windows)]
-    {
-        let s = match canonical.to_str() {
-            Some(x) => x.to_uppercase(),
-            None => return true,
-        };
-        // Block system dirs; allow user dirs (e.g. C:\Users\..., D:\...).
-        s.starts_with("C:\\WINDOWS\\")
-            || s.starts_with("C:\\PROGRAM FILES\\")
-            || s.starts_with("C:\\PROGRAM FILES (X86)\\")
-            || s.starts_with("C:\\PROGRAMDATA\\")
-            || s == "C:\\WINDOWS"
-            || s == "C:\\PROGRAM FILES"
-            || s == "C:\\PROGRAM FILES (X86)"
-            || s == "C:\\PROGRAMDATA"
-    }
-    #[cfg(unix)]
-    {
-        let s = match canonical.to_str() {
-            Some(x) => x,
-            None => return true,
-        };
-        // macOS/iOS: /System, /usr; Linux etc: /usr, /etc
-        s.starts_with("/System/")
-            || s.starts_with("/usr/bin")
-            || s.starts_with("/usr/sbin")
-            || s.starts_with("/etc/")
-            || s == "/System"
-            || s == "/usr"
-            || s == "/etc"
-    }
-    #[cfg(not(any(windows, unix)))]
-    {
-        let _ = canonical;
-        false
-    }
 }
 
 /// Enforces the maximum image file size before any read into RAM (SEC-D-03).

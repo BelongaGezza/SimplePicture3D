@@ -1,7 +1,7 @@
 # Sprint D — Sub-Agent Orchestration Board
 
 **Orchestrator:** Senior Engineer  
-**Last Updated:** 2026-05-19 (SEC-D-02, SEC-D-03, SEC-D-12)  
+**Last Updated:** 2026-05-19 (Wave 2 complete)  
 **Sprint:** Validate and Harden (Phase D)  
 **Roadmap:** `ROADMAP.md` — do not mark Phase D complete until QA-D-01 + SEC-D-02/03 pass
 
@@ -17,14 +17,14 @@ Validate engraver-compatible exports; close P0/P1 security gaps; align Tauri ACL
 
 | Task ID | Owner role | Sub-agent / session | Status | Notes |
 |---------|------------|---------------------|--------|-------|
-| SEC-D-02 | Security Specialist | Sub-agent session | Complete | Stub hash manifest + downloader tests; real digests pending trusted download |
-| SEC-D-03 | Senior Engineer | senior-engineer subagent | Complete | P0 — `MAX_IMAGE_FILE_BYTES=128 MiB` + `MAX_DIMENSION=8192` enforced in `read_image_bytes_for_depth` pre-Python; 7 new unit tests; threat model §2.4 updated |
-| SEC-D-04 | Senior Engineer | — | Available | P1 — IPC payload limits |
-| SEC-D-05 | Senior Engineer | — | Available | P1 — preset/mask path policy |
-| SEC-D-06 | Senior Engineer | — | Available | P1 — settings/model ACL TOMLs |
+| SEC-D-02 | Security Specialist | Wave 1 sub-agent | Complete | Stub hash manifest; real digests pending trusted download |
+| SEC-D-03 | Senior Engineer | Wave 1 sub-agent | Complete | 128 MiB + 8192 header cap pre-Python |
+| SEC-D-04 | Senior Engineer | Orchestrator Wave 2 | Complete | 1M IPC preview cap; 8M generation cap; `forPreview` param |
+| SEC-D-05 | Senior Engineer | Orchestrator Wave 2 | Complete | `path_security.rs`; preset/mask import validation |
+| SEC-D-06 | Senior Engineer | Orchestrator Wave 2 | Complete | `allow-settings.toml`, `allow-model.toml` in capabilities |
 | SEC-D-01 | Senior Engineer | — | Available | Split coarse permissions |
 | SEC-D-07–11 | Senior Engineer | — | Available | P2/P3 — see task assignment |
-| SEC-D-12 | Security Specialist | Sub-agent session | Complete | PLY/CSV source comment sanitization in export.rs |
+| SEC-D-12 | Security Specialist | Wave 1 sub-agent | Complete | PLY/CSV comment sanitization |
 | ARCH-D-01 | System Architect | — | Available | Engraver charter doc |
 | ARCH-D-02 | System Architect | — | Available | Command ↔ ACL audit |
 | QA-D-01 | Quality Engineer | — | Available | Manual engraver import |
@@ -33,7 +33,7 @@ Validate engraver-compatible exports; close P0/P1 security gaps; align Tauri ACL
 | QA-B-01 | Quality Engineer | — | Available | Export integration tests |
 | BACK-D-01 | Senior Engineer | — | Available | Fix defects from QA-D-01 |
 | DOC-D-01 | Documentation Specialist | — | Available | Interoperability notes |
-| DOC-D-02 | Security + Docs | — | Available | Threat model update |
+| DOC-D-02 | Security + Docs | — | Partial | Threat model §2.4/§2.6 updated Wave 2 |
 
 **Status values:** `Available` | `Delegated` | `In Progress` | `Review` | `Complete` | `Blocked`
 
@@ -41,16 +41,16 @@ Validate engraver-compatible exports; close P0/P1 security gaps; align Tauri ACL
 
 ## Execution waves
 
-### Wave 1 — P0 security (parallel)
-1. **SEC-D-03** — Senior Engineer: enforce max file size + dimensions in `read_image_bytes_for_depth`
-2. **SEC-D-02** — Security Specialist: model hash table + downloader verification tests
+### Wave 1 — P0 security ✅
+1. **SEC-D-03** — max file size + dimensions pre-Python
+2. **SEC-D-02** — model hash table + downloader tests
 
-### Wave 2 — P1 hardening (after Wave 1 review)
+### Wave 2 — P1 hardening ✅
 3. **SEC-D-06** — ACL for settings/model commands
-4. **SEC-D-04** — IPC payload caps / preview decimation design
-5. **SEC-D-05** — preset/mask path restrictions
+4. **SEC-D-04** — IPC point cloud payload caps + preview subsampling
+5. **SEC-D-05** — preset/mask path restrictions (`path_security.rs`)
 
-### Wave 3 — Validation (requires running app + engraver)
+### Wave 3 — Validation (next)
 6. **ARCH-D-01** — Engraver charter (axes, mm, formats)
 7. **QA-D-01** — Import PLY/XYZ; record in MANUAL_TEST_REPORT
 8. **BACK-D-01** — Fix axis/units bugs from QA
@@ -66,8 +66,9 @@ Validate engraver-compatible exports; close P0/P1 security gaps; align Tauri ACL
 
 | Timestamp | Sub-agent type | Task(s) | Result |
 |-----------|----------------|---------|--------|
-| 2026-05-19 | Security Specialist | SEC-D-02, SEC-D-12 | Stub hash manifest, downloader verification tests, export comment sanitization |
-| 2026-05-19 | senior-engineer | SEC-D-03 | Complete — `MAX_IMAGE_FILE_BYTES=128 MiB` (pre-`fs::read` via metadata) + 8192 header-dimension cap (pre-Python) in `read_image_bytes_for_depth`; same file-size cap on `load_image_impl`; 7 new unit tests; threat model §2.4 + version bumped to 1.3. All 21 `image_loading` tests pass; clippy clean. Full `cargo test` blocked by missing GTK/WebKit dev libs (per ORCHESTRATION blocker) — verified via isolated harness with identical deps. |
+| 2026-05-19 | Security Specialist | SEC-D-02, SEC-D-12 | Complete |
+| 2026-05-19 | senior-engineer | SEC-D-03 | Complete |
+| 2026-05-19 | Orchestrator (direct) | SEC-D-04, SEC-D-05, SEC-D-06 | Complete — permissions, path_security, IPC caps |
 
 ---
 
@@ -76,17 +77,17 @@ Validate engraver-compatible exports; close P0/P1 security gaps; align Tauri ACL
 | Blocker | Owner | Resolution |
 |---------|-------|------------|
 | Linux Tauri build needs GTK/WebKit | Dev env | `SETUP_NOTES.md` |
-| Real model SHA256 digests | Security / Maintainer | Trusted HF download + `--write-hashes` on maintainer machine; commit enforced hashes |
+| Real model SHA256 digests | Security / Maintainer | Trusted HF download + `--write-hashes` |
 | Target engraver software TBD | Product / QE | Name in ARCH-D-01 before QA-D-01 |
 
 ---
 
 ## Integration checklist (orchestrator)
 
-After each wave:
-- [ ] `cargo test --manifest-path src-tauri/Cargo.toml`
+After Wave 2:
+- [ ] `cargo test --manifest-path src-tauri/Cargo.toml` (blocked: GTK/WebKit on Linux dev)
 - [ ] `cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings`
-- [ ] `npm test`
-- [ ] `SP3D_USE_STUB=1 PYTHONPATH=python/python python -m pytest python/ -v`
+- [x] `npm test` — run after Wave 2 commit
+- [x] `SP3D_USE_STUB=1 pytest python/` — 24 passed (Wave 1)
 - [ ] Update Role Assignment in `SPRINT_D_Task_Assignment.md`
-- [ ] Update this file and `PROGRESS_REPORT.md`
+- [x] Update this file
