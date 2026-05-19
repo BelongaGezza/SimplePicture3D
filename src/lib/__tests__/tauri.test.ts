@@ -18,6 +18,11 @@ import {
   loadPreset,
   deletePreset,
   renamePreset,
+  setBlankEnvelope,
+  setVolumetricParams,
+  estimatePointCloudCount,
+  generatePointCloud,
+  exportPly,
   type DepthAdjustmentParams,
   type LoadImageResult,
   type DepthMapResult,
@@ -179,8 +184,56 @@ describe("tauri IPC", () => {
   });
 
   // Sprint A: `getMeshData` and the `get_mesh_data` IPC command have been retired together
-  // with the 2.5D mesh pipeline. The 3D point cloud equivalent (`generate_point_cloud` per
-  // ADR-012) ships in Sprint B (BACK-B-02) and gets its own coverage when it lands.
+  // with the 2.5D mesh pipeline.
+
+  describe("point cloud IPC (ADR-012)", () => {
+    it("setBlankEnvelope calls set_blank_envelope with envelope", async () => {
+      mockInvoke.mockResolvedValue(undefined);
+      await setBlankEnvelope({
+        lengthMm: 80,
+        widthMm: 50,
+        heightMm: 50,
+        marginMm: 2,
+      });
+      expect(mockInvoke).toHaveBeenCalledWith("set_blank_envelope", {
+        envelope: { lengthMm: 80, widthMm: 50, heightMm: 50, marginMm: 2 },
+      });
+    });
+
+    it("setVolumetricParams calls set_volumetric_params with params", async () => {
+      mockInvoke.mockResolvedValue(undefined);
+      await setVolumetricParams({ stepX: 2, stepY: 2, depthThreshold: 0.1 });
+      expect(mockInvoke).toHaveBeenCalledWith("set_volumetric_params", {
+        params: { stepX: 2, stepY: 2, depthThreshold: 0.1 },
+      });
+    });
+
+    it("estimatePointCloudCount calls estimate_point_cloud_count", async () => {
+      mockInvoke.mockResolvedValue(4096);
+      const count = await estimatePointCloudCount();
+      expect(mockInvoke).toHaveBeenCalledWith("estimate_point_cloud_count");
+      expect(count).toBe(4096);
+    });
+
+    it("generatePointCloud calls generate_point_cloud and returns result", async () => {
+      const result = {
+        points: [[1, 2, 3]] as [number, number, number][],
+        pointCount: 1,
+        fitResult: { scale: 1, translation: [0, 0, 0] as [number, number, number], pointCount: 1, outliers: 0 },
+        memoryBytes: 12,
+      };
+      mockInvoke.mockResolvedValue(result);
+      const out = await generatePointCloud();
+      expect(mockInvoke).toHaveBeenCalledWith("generate_point_cloud");
+      expect(out.pointCount).toBe(1);
+    });
+
+    it("exportPly calls export_ply with path and binary flag", async () => {
+      mockInvoke.mockResolvedValue(undefined);
+      await exportPly("/tmp/out.ply", true);
+      expect(mockInvoke).toHaveBeenCalledWith("export_ply", { path: "/tmp/out.ply", binary: true });
+    });
+  });
 
   // --- JR2-1302: Preset API (listPresets, savePreset, loadPreset, deletePreset, renamePreset) ---
 

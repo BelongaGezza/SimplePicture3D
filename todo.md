@@ -1,52 +1,50 @@
 # SimplePicture3D — Program TODO and Sprint Roadmap
 
-**Version:** 4.0  
-**Last Updated:** 2026-05-10  
-**Owner:** System Architect
+**Version:** 4.1  
+**Last Updated:** 2026-05-18  
+**Owner:** System Architect  
+**Latest Commit:** `6bbe3da` — feat(ui): wire crystal blank, point cloud preview, and export
 
 ---
 
-## Current Reality (Restart Review — 2026-05-10)
+## Current Reality (Post-Sync — 2026-05-18)
 
-This roadmap reflects a deliberate restart decision. The goal is a single-purpose 3D surface point cloud tool for internal UV laser engraving of crystal glass. All prior 2.5D relief work is being retired. See ADR-012 in `RESEARCH/architecture.md` for the algorithm decision.
+This roadmap reflects the deliberate restart decision (2026-05-10) plus two implementation commits landed from GitHub (`17ae055`, `6bbe3da`). The goal remains a single-purpose 3D surface point cloud tool for internal UV laser engraving of crystal glass. Canonical algorithm: ADR-012 in `RESEARCH/architecture.md`.
 
-### What Is Working and Retained
+### What Is Working
 - Depth pipeline: image load, depth estimation (Python bridge), depth adjustments, mask, undo/redo, presets, progress streaming.
-- `blank_envelope.rs` — `BlankEnvelope` struct, `fit_to_blank`, presets. Fully tested. Keep as-is.
-- `export.rs` — PLY/XYZ/CSV writers. Keep; verify output against format specs in Sprint B.
-- `volumetric.rs` — struct/param scaffolding and `fit_to_blank` wiring are reusable. **The `generate_volumetric_points` algorithm (column sweep) must be replaced** with a surface-map algorithm (ADR-012) before wiring. See TD-14.
-- Svelte UI framework: three-panel layout, depth controls, Three.js preview infrastructure.
-- Python bridge contract: Rust `--input` temp file, Python emits JSON depth + `PROGRESS`/`STAGE` on stderr.
+- `blank_envelope.rs` — `BlankEnvelope` struct, `fit_to_blank`, presets. Fully tested.
+- `export.rs` — PLY/XYZ/CSV writers; wired to Tauri export commands.
+- `volumetric.rs` — **surface-map algorithm (ADR-012)** implemented: one point per (x,y) at depth-mapped Z; `depth_threshold`, `step_x`/`step_y`; unit tests pass in isolation.
+- Tauri commands registered and permissioned (`allow-point-cloud.toml`): `set_blank_envelope`, `set_volumetric_params`, `set_point_cloud_format`, `estimate_point_cloud_count`, `generate_point_cloud`, `export_ply`, `export_xyz`, `export_csv`.
+- `settings.rs` persists `blank_envelope`, `volumetric_params`, and `point_cloud_format`.
+- Frontend: `ExportPanel.svelte` — blank presets (Standard/Cube/Large/Tall), PLY/XYZ/CSV export workflow.
+- Frontend: `Preview3D.svelte` — point cloud from `generate_point_cloud`, crystal blank wireframe overlay.
+- `mesh_generator.rs` deleted; STL/OBJ export UI retired.
+- `tauri.conf.json` bundle description updated for 3D surface point cloud purpose.
+- Python bridge contract unchanged: Rust `--input` temp file, Python emits JSON depth + `PROGRESS`/`STAGE` on stderr.
 
-### What Is Being Removed
-- `mesh_generator.rs` — 2.5D surface triangulation (STL/OBJ). Delete in Sprint A.
-- Relief mode UI components (STL/OBJ export panels, relief-specific controls). Remove in Sprint A.
-- `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md` — superseded by this restart decision; archive or delete.
-
-### What Remains Unwired (the core problem)
-- `blank_envelope.rs`, `volumetric.rs`, `export.rs` are not connected to any Tauri commands or frontend flows.
-- No Tauri commands exist for: `set_blank_envelope`, `generate_point_cloud`, `export_ply`, `export_xyz`, `export_csv`.
-- Product metadata is stale: `src-tauri/tauri.conf.json` bundle description still references 2.5D STL/OBJ.
-- Capability permissions are uneven; needs regularisation when new commands are added.
+### Remaining Gaps (next work)
+- **UI-C-02:** ✅ Volumetric params panel — pixel step, depth threshold, live point count estimate (`VolumetricParamsPanel.svelte`).
+- **DOC-A-02:** `README.md` “How It Works” still describes volumetric interior fill; should say surface-map (one dot per column).
+- **DOC-A-05:** `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md` not yet archived.
+- **QA-B-01 / QA-C-01:** Command-level export integration tests and manual full-workflow UX pass not yet recorded.
+- **Phase D:** No engraver software validation, performance benchmark, or permission granularity audit yet.
+- **Stale settings comments:** `settings.rs` still documents legacy `export_format` (stl/obj) alongside new `point_cloud_format`.
 
 ---
 
 ## Program Priorities
 
-1. **P0: Replace the column-sweep algorithm with surface-map (ADR-012)**
-   - The existing `generate_volumetric_points` fills the volume from back plane to depth surface.
-   - Crystal laser engraving needs one point per (x,y) sample, placed at the Z position given by the depth value.
-   - Solid fill produces a cloudy, indistinct result; surface-map produces the clean 3D shape outline the laser traces.
+1. ~~**P0: Replace the column-sweep algorithm with surface-map (ADR-012)**~~ ✅ Done (`17ae055`)
 
-2. **P0: Remove all 2.5D relief code and retire the dual-mode design**
-   - This is a single-purpose 3D surface point cloud app. No relief mode.
-   - Delete `mesh_generator.rs`; remove relief UI.
+2. ~~**P0: Remove all 2.5D relief code and retire the dual-mode design**~~ ✅ Done (`17ae055`)
 
-3. **P0: Wire the volumetric backend into real Tauri commands**
-   - `blank_envelope.rs`, `volumetric.rs`, `export.rs` must be connected to `lib.rs` and the frontend.
+3. ~~**P0: Wire the volumetric backend into real Tauri commands**~~ ✅ Done (`17ae055`)
 
-4. **P1: Build the frontend volumetric UI**
-   - Blank envelope controls, volumetric params panel, point count estimator, Three.js preview (point cloud + blank wireframe), export panel.
+4. **P1: Complete the frontend volumetric UI** — ✅ Done
+   - ✅ Blank envelope controls, Three.js preview (point cloud + blank wireframe), export panel (`6bbe3da`)
+   - ✅ Volumetric params panel (XY step, depth threshold, live point count estimate)
 
 5. **P1: Validate output with real engraver software**
    - At least one confirmed end-to-end path before claiming v1.0.
@@ -58,33 +56,35 @@ This roadmap reflects a deliberate restart decision. The goal is a single-purpos
 
 ## Phases
 
-### Phase A — Clean House (1 week)
+### Phase A — Clean House (1 week) — **mostly complete**
 **Goal:** remove 2.5D dead weight; update all docs and metadata to reflect single-purpose 3D intent.
 
 **Exit Criteria**
-- `mesh_generator.rs` deleted; relief UI removed; no STL/OBJ references in active code paths.
-- `tauri.conf.json`, `README.md`, `prd.md` describe a 3D surface point cloud app, not a 2.5D relief tool.
-- Documentation status claims match repository reality; no “pivot complete” false signals.
+- ✅ `mesh_generator.rs` deleted; relief UI removed; no STL/OBJ in active export paths.
+- ✅ `tauri.conf.json`, `prd.md` describe a 3D surface point cloud app.
+- ⏳ `README.md` still has legacy “volumetric fill” wording (DOC-A-02).
+- ⏳ `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md` not archived (DOC-A-05).
 
-### Phase B — Backend Wiring (1 week)
+### Phase B — Backend Wiring (1 week) — **mostly complete**
 **Goal:** expose the complete 3D surface point cloud pipeline as a real Tauri API.
 
 **Exit Criteria**
-- `generate_volumetric_points` rewritten to surface-map algorithm (ADR-012): one point per (x,y) sample at depth-mapped Z.
-- Tauri commands registered and testable: `set_blank_envelope`, `generate_point_cloud`, `export_ply`, `export_xyz`, `export_csv`.
-- `settings.rs` persists blank envelope and export format preference.
-- All new commands have capability permission entries.
-- Command-level tests cover surface-map generation and all three export formats.
+- ✅ `generate_volumetric_points` rewritten to surface-map algorithm (ADR-012).
+- ✅ Tauri commands registered: `set_blank_envelope`, `generate_point_cloud`, `export_ply`, `export_xyz`, `export_csv` (+ params/format helpers).
+- ✅ `settings.rs` persists blank envelope, volumetric params, and point cloud format.
+- ✅ `allow-point-cloud.toml` capability permission group added.
+- ⏳ Command-level integration tests for all three export commands (QA-B-01).
+- ⏳ `export.rs` output not yet verified against engraver import (Phase D).
 
-### Phase C — Frontend UI (1–2 weeks)
+### Phase C — Frontend UI (1–2 weeks) — **mostly complete**
 **Goal:** make the full 3D surface point cloud workflow usable from the UI.
 
 **Exit Criteria**
-- Blank envelope controls (L×W×H mm, margin, standard presets) visible and persisted.
-- Volumetric params panel: XY step, depth threshold, point count estimate updated live.
-- Three.js preview renders point cloud inside blank wireframe box.
-- Export panel: format selector (PLY / XYZ / CSV) with save-to-file.
-- Full workflow completable without touching the terminal.
+- ✅ Blank envelope controls (L×W×H mm, margin, standard presets) in `ExportPanel.svelte`.
+- ✅ Volumetric params panel: XY step, depth threshold, live point count estimate (UI-C-02).
+- ✅ Three.js preview renders point cloud inside blank wireframe box.
+- ✅ Export panel: format selector (PLY / XYZ / CSV) with save-to-file.
+- ⏳ Full workflow UX pass not yet signed off (QA-C-01).
 
 ### Phase D — Validate and Harden (1 week)
 **Goal:** confirm output is compatible with real engraver toolchains; tighten security boundaries.
@@ -105,17 +105,17 @@ All sprints are 1 week unless explicitly marked.
 **Goal:** delete 2.5D code; make docs and metadata truthful.
 
 **Tasks**
-- **BACK-A-01:** Delete `src-tauri/src/mesh_generator.rs` and remove all references from `lib.rs`, `Cargo.toml`, and tests.
-- **UI-A-01:** Remove relief-mode UI components (STL/OBJ export panel, relief-specific control groups).
-- **DOC-A-01:** Update `tauri.conf.json` bundle description to reflect 3D surface point cloud purpose.
-- **DOC-A-02:** Update `README.md` — replace all 2.5D/relief/STL/OBJ language; describe actual workflow.
-- **DOC-A-03:** Update `prd.md` header status block and §F3.5 feature description to surface-map algorithm (ADR-012).
-- **DOC-A-04:** Update `CLAUDE.md` current status and data flow to match restart.
-- **DOC-A-05:** Archive `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md` (rename to `RESEARCH/archive/PIVOT_PLAN_archived.md`).
-- **ARCH-A-01:** Add ADR-012 to `RESEARCH/architecture.md` documenting the surface-map algorithm decision.
+- **BACK-A-01:** ✅ Delete `mesh_generator.rs` and remove all references (`17ae055`).
+- **UI-A-01:** ✅ Remove relief-mode UI; `ExportPanel` now exports PLY/XYZ/CSV (`6bbe3da`).
+- **DOC-A-01:** ✅ Update `tauri.conf.json` bundle description (`17ae055`).
+- **DOC-A-02:** ⏳ Update `README.md` — replace volumetric-fill / 2.5D language.
+- **DOC-A-03:** ✅ `prd.md` header reflects restart and ADR-012 (2026-05-10).
+- **DOC-A-04:** ✅ `CLAUDE.md` updated for 3D surface point cloud workflow.
+- **DOC-A-05:** ⏳ Archive `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md`.
+- **ARCH-A-01:** ✅ ADR-012 in `RESEARCH/architecture.md`.
 
 **Gate**
-- Sprint B cannot start until `mesh_generator.rs` is deleted and tests pass with `cargo test`.
+- ✅ Sprint B gate passed — `mesh_generator.rs` deleted; backend wired.
 
 ---
 
@@ -123,21 +123,18 @@ All sprints are 1 week unless explicitly marked.
 **Goal:** rewrite the generation algorithm; wire all volumetric modules into Tauri commands.
 
 **Tasks**
-- **BACK-B-01 (TD-14):** Rewrite `generate_volumetric_points` in `volumetric.rs` to surface-map algorithm per ADR-012.
-  - For each sampled (x, y): compute `z = margin + (1.0 - depth[x,y]) × interior_depth`; emit one point `(x_mm, y_mm, z_mm)`.
-  - Remove `z_spacing_mm` and `back_plane` from `VolumetricParams`; add `depth_threshold` (minimum depth value to emit a point).
-  - Update all unit tests in `volumetric.rs` to reflect the new one-point-per-column contract.
-- **BACK-B-02:** Add and register Tauri commands in `src-tauri/src/lib.rs`: `set_blank_envelope`, `generate_point_cloud`, `export_ply`, `export_xyz`, `export_csv`.
-- **BACK-B-03:** Wire `settings.rs` — add `blank_envelope: BlankEnvelope` and `export_format: ExportFormat` to persisted app settings.
-- **BACK-B-04:** Connect `volumetric.rs` generation to depth+mask adjusted data from existing pipeline state.
-- **BACK-B-05:** Verify `export.rs` PLY/XYZ/CSV output against format specs; fix any header or precision issues.
-- **SEC-B-01:** Review new command surface; ensure export path validation matches existing `file_io.rs` patterns.
-- **QA-B-01:** Add command-level integration tests for `generate_point_cloud` and all three export commands.
+- **BACK-B-01 (TD-14):** ✅ Surface-map algorithm in `volumetric.rs` per ADR-012 (`17ae055`).
+- **BACK-B-02:** ✅ Tauri commands registered in `lib.rs` + `allow-point-cloud.toml` (`17ae055`).
+- **BACK-B-03:** ✅ `settings.rs` persists `blank_envelope`, `volumetric_params`, `point_cloud_format` (`17ae055`).
+- **BACK-B-04:** ✅ Generation uses adjusted depth + mask from pipeline state (`17ae055`).
+- **BACK-B-05:** ⏳ Verify `export.rs` PLY/XYZ/CSV output against format specs / engraver import.
+- **SEC-B-01:** ✅ Export path validation via `validate_export_path` (inherits `file_io.rs` patterns).
+- **QA-B-01:** ⏳ `point_cloud_generation_succeeds_with_uniform_depth` exists; export command integration tests still needed.
 
 **Exit Criteria**
-- `cargo test` passes with new surface-map algorithm.
-- All five new commands callable from Tauri frontend layer.
-- PLY/XYZ/CSV files producible from a real loaded image (not isolated unit tests only).
+- ⏳ `cargo test` — blocked on this Linux machine until GTK/WebKit/libsoup dev libs installed (see `SETUP_NOTES.md`).
+- ✅ All point cloud commands callable from frontend (`tauri.ts`).
+- ⏳ PLY/XYZ/CSV from a real loaded image — manual verification pending (Phase D).
 
 ---
 
@@ -145,16 +142,16 @@ All sprints are 1 week unless explicitly marked.
 **Goal:** expose the full 3D workflow through the Svelte UI.
 
 **Tasks**
-- **UI-C-01:** Add blank envelope panel: L / W / H mm inputs, margin input, preset dropdown (Standard 80×50×50, Cube 60×60×60, Large 100×60×60, Tall 50×50×80).
-- **UI-C-02:** Add volumetric params panel: XY step slider (1–8 px), depth threshold slider (0.0–1.0), live point count estimate (calls `estimate_point_count` via Tauri).
-- **UI-C-03:** Update `Preview3D.svelte` — render point cloud from `generate_point_cloud` response; overlay blank wireframe box using Three.js `EdgesGeometry`.
-- **UI-C-04:** Update `ExportPanel.svelte` — format selector (PLY / XYZ / CSV); replace STL/OBJ with new export commands.
-- **UI-C-05:** Persist blank envelope and export format through `settings.rs` load/save cycle.
-- **QA-C-01:** Manual UX pass: full workflow from image load → blank setup → generate → preview → export.
+- **UI-C-01:** ✅ Blank envelope panel in `ExportPanel.svelte` with presets (`6bbe3da`).
+- **UI-C-02:** ✅ Volumetric params panel with debounced backend sync and live estimate.
+- **UI-C-03:** ✅ `Preview3D.svelte` — point cloud + blank wireframe (`6bbe3da`).
+- **UI-C-04:** ✅ `ExportPanel.svelte` — PLY / XYZ / CSV export (`6bbe3da`).
+- **UI-C-05:** ✅ Blank envelope and format persisted via backend on export/generate (`6bbe3da`); volumetric params use defaults until UI-C-02.
+- **QA-C-01:** ⏳ Manual UX pass not yet recorded.
 
 **Exit Criteria**
-- User can complete the full workflow without touching the terminal.
-- Preview shows point cloud correctly positioned inside the blank wireframe.
+- ⏳ Full workflow without terminal — likely achievable; needs manual sign-off (QA-C-01).
+- ✅ Preview shows point cloud inside blank wireframe.
 
 ---
 
@@ -189,8 +186,8 @@ All sprints are 1 week unless explicitly marked.
 
 | ID | Title | Severity | Plan |
 |---|---|---|---|
-| TD-14 | `generate_volumetric_points` uses column-sweep (fills volume) instead of surface-map (one point per column) | **Critical** | Sprint B — BACK-B-01 |
-| TD-11 | Volumetric modules not wired to Tauri commands or frontend | Critical | Sprint B — BACK-B-02 |
+| TD-14 | ~~Column-sweep algorithm~~ — **resolved**; surface-map (ADR-012) shipped in `17ae055` | ~~Critical~~ | Closed |
+| TD-11 | ~~Volumetric modules not wired~~ — **resolved** for backend + core UI; volumetric params UI still missing | ~~Critical~~ | UI-C-02 |
 | TD-13 | Command-permission granularity inconsistent | High | Sprint D — SEC-D-01 |
 | TD-08 | `lib.rs` testability/coverage gap | High | Dedicated refactor slice in Phase D |
 | TD-06 | Export path TOCTOU write-test pattern | Medium | Sprint D security hardening |
@@ -211,7 +208,8 @@ When generating a sprint package:
 ## Notes
 
 - This file is the operational source of truth for scheduling.
-- **Do not mark Phase B complete** until `generate_point_cloud` produces a real PLY/XYZ file from a loaded image.
+- **Do not mark Phase B complete** until export integration tests pass and a real-image PLY/XYZ export is verified.
+- **Do not mark Phase C complete** until UI-C-02 (volumetric params panel) and QA-C-01 (manual UX pass) are done.
 - **Do not mark Phase D complete** until at least one engraver software import is validated end-to-end.
 - If scope changes, update this file and `prd.md` in the same change set to prevent drift.
-- The column-sweep code in `volumetric.rs` **must not be wired** as-is — it produces a solid fill, not a surface outline. See TD-14 and ADR-012.
+- **Linux dev setup on this machine (2026-05-18):** `npm`, Python venv/pytest, and Tauri GTK/WebKit/libsoup dev libs not installed — run `SETUP_NOTES.md` steps before local test/build.

@@ -29,6 +29,8 @@ to the current machine.
   # macOS/Linux: source python/venv/bin/activate
   pip install -r python/requirements.txt
   ```
+  **Linux:** if `python -m venv` fails with `ensurepip is not available`, install the venv package first:
+  `sudo apt-get install -y python3-venv` (or `python3.12-venv` on Ubuntu 24.04).
 - Verify setup: `cargo test --manifest-path src-tauri/Cargo.toml && npm test`
 - Run dev server: `npm run tauri dev`
 
@@ -63,17 +65,38 @@ to the current machine.
 
 ## Linux Only (Phase 3 — Q4 2026 target)
 
-- Install system libraries required by Tauri:
+- Install system libraries required by Tauri (Ubuntu/Debian):
   ```
   sudo apt-get update && sudo apt-get install -y \
+    build-essential \
+    python3-venv \
     libgtk-3-dev \
+    libglib2.0-dev \
     libwebkit2gtk-4.1-dev \
     libappindicator3-dev \
     librsvg2-dev \
+    libsoup-3.0-dev \
     pkg-config \
     libssl-dev
   ```
-- Verify: `pkg-config --libs gtk+-3.0`
+  **Why `libsoup-3.0-dev`?** Tauri's Linux build links against WebKit/GTK stacks that use libsoup 3. If it is missing, `cargo test` / `cargo build` fails with:
+  `The system library libsoup-3.0 required by crate soup3-sys was not found.`
+  (`libwebkit2gtk-4.1-dev` pulls this in as a dependency, but listing it explicitly makes the fix obvious.)
+
+- Verify all pkg-config probes (every line must print `OK`):
+  ```
+  for pkg in gtk+-3.0 webkit2gtk-4.1 libsoup-3.0 librsvg-2.0; do
+    printf '%-20s ' "$pkg"
+    pkg-config --exists "$pkg" && echo OK || echo MISSING
+  done
+  ```
+  Quick single check: `pkg-config --libs gtk+-3.0`
+
+- Verify Rust build after system libs are installed:
+  ```
+  cargo test --manifest-path src-tauri/Cargo.toml
+  ```
+
 - Build Linux Tauri app: `npm run tauri build`
   - Output: AppImage and .deb in `src-tauri/target/release/bundle/`
 

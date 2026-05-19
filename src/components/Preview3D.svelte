@@ -10,7 +10,7 @@
   import { onMount, onDestroy } from "svelte";
   import * as THREE from "three";
   import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-  import { generatePointCloud, setBlankEnvelope } from "$lib/tauri";
+  import { generatePointCloud, setBlankEnvelope, setVolumetricParams } from "$lib/tauri";
 
   let container: HTMLDivElement;
   /** Legacy target dimensions from App (depth / metadata). Surfaced as `data-` attributes. */
@@ -22,6 +22,9 @@
   export let blankWidthMm = 50;
   export let blankHeightMm = 50;
   export let blankMarginMm = 2;
+  export let stepX = 1;
+  export let stepY = 1;
+  export let depthThreshold = 0.05;
   export let hasDepth = false;
 
   let scene: THREE.Scene;
@@ -165,6 +168,7 @@
         heightMm: blankHeightMm,
         marginMm: blankMarginMm,
       });
+      await setVolumetricParams({ stepX, stepY, depthThreshold });
       const res = await generatePointCloud();
 
       if (pointCloud) {

@@ -8,6 +8,7 @@
   import { save as saveDialog } from "@tauri-apps/plugin-dialog";
   import {
     setBlankEnvelope,
+    setVolumetricParams,
     setPointCloudFormat,
     generatePointCloud,
     exportPly,
@@ -25,6 +26,9 @@
   export let blankWidthMm = 50;
   export let blankHeightMm = 50;
   export let blankMarginMm = 2;
+  export let stepX = 1;
+  export let stepY = 1;
+  export let depthThreshold = 0.05;
 
   type CloudFormat = "ply" | "xyz" | "csv";
   let format: CloudFormat = "ply";
@@ -93,6 +97,7 @@
         heightMm: blankHeightMm,
         marginMm: blankMarginMm,
       });
+      await setVolumetricParams({ stepX, stepY, depthThreshold });
       await handleFormatChange();
       await generatePointCloud();
       const ext = format;

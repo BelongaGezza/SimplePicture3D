@@ -6,6 +6,7 @@
   import DepthMapPreview from "./components/DepthMapPreview.svelte";
   import DepthControls from "./components/DepthControls.svelte";
   import ExportPanel from "./components/ExportPanel.svelte";
+  import VolumetricParamsPanel from "./components/VolumetricParamsPanel.svelte";
   import FirstRunWizard from "./components/FirstRunWizard.svelte";
   import Button from "./components/Button.svelte";
   import PresetManager from "./components/PresetManager.svelte";
@@ -82,6 +83,11 @@
         blankH = s.blankEnvelope.heightMm;
         blankM = s.blankEnvelope.marginMm;
       }
+      if (s.volumetricParams) {
+        volStepX = s.volumetricParams.stepX;
+        volStepY = s.volumetricParams.stepY;
+        volDepthThreshold = s.volumetricParams.depthThreshold;
+      }
     } catch {
       // Non-critical
     }
@@ -128,6 +134,11 @@
   let blankW = 50;
   let blankH = 50;
   let blankM = 2;
+
+  /** ADR-012 surface-map sampling; synced to backend via VolumetricParamsPanel. */
+  let volStepX = 1;
+  let volStepY = 1;
+  let volDepthThreshold = 0.05;
 
   /** UI-404: Debounce interval for preview updates (ms). */
   const DEBOUNCE_MS = 80;
@@ -597,6 +608,9 @@
           blankWidthMm={blankW}
           blankHeightMm={blankH}
           blankMarginMm={blankM}
+          stepX={volStepX}
+          stepY={volStepY}
+          depthThreshold={volDepthThreshold}
           hasDepth={depthMap != null && depthMap.depth.length > 0}
         />
       </div>
@@ -838,15 +852,30 @@
         {/each}
       </div>
     </div>
-    <ExportPanel
-      bind:blankLengthMm={blankL}
-      bind:blankWidthMm={blankW}
-      bind:blankHeightMm={blankH}
-      bind:blankMarginMm={blankM}
-      hasDepth={depthMap != null && depthMap.depth.length > 0}
-      sourceFileName={sourceFileName}
-      effectiveTargetWidthMm={effectiveTargetWidthMm}
-      effectiveTargetHeightMm={effectiveTargetHeightMm}
-    />
+    <div class="flex flex-col gap-2 basis-full lg:basis-auto lg:ml-auto">
+      <VolumetricParamsPanel
+        bind:stepX={volStepX}
+        bind:stepY={volStepY}
+        bind:depthThreshold={volDepthThreshold}
+        blankLengthMm={blankL}
+        blankWidthMm={blankW}
+        blankHeightMm={blankH}
+        blankMarginMm={blankM}
+        hasDepth={depthMap != null && depthMap.depth.length > 0}
+      />
+      <ExportPanel
+        bind:blankLengthMm={blankL}
+        bind:blankWidthMm={blankW}
+        bind:blankHeightMm={blankH}
+        bind:blankMarginMm={blankM}
+        stepX={volStepX}
+        stepY={volStepY}
+        depthThreshold={volDepthThreshold}
+        hasDepth={depthMap != null && depthMap.depth.length > 0}
+        sourceFileName={sourceFileName}
+        effectiveTargetWidthMm={effectiveTargetWidthMm}
+        effectiveTargetHeightMm={effectiveTargetHeightMm}
+      />
+    </div>
   </footer>
 </div>
