@@ -7,23 +7,25 @@
 
 ---
 
-> ## ARCHITECTURAL PIVOT (2026-04-08)
+> ## PRODUCT STATUS (2026-05-19)
 >
-> SimplePicture3D is transitioning from **2.5D relief mesh generation** to **3D volumetric point cloud** output for internal UV laser engraving of crystal blocks.
+> SimplePicture3D is a **3D surface point cloud** application for internal UV laser engraving. The 2.5D relief mesh pipeline (STL/OBJ) is **removed**.
 >
-> **Canonical reference:** **ADR-011** (Crystal Volumetric Point Cloud)
-> **Transition roadmap:** `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md`
+> **Canonical reference:** **ADR-012** (Surface-Map Point Cloud)  
+> **Production roadmap:** `ROADMAP.md`  
+> **Historical pivot plan:** `RESEARCH/archive/PIVOT_PLAN_2.5D_TO_3D.md`
 >
 > **ADR Status Summary:**
 > | ADR | Status | Notes |
 > |-----|--------|-------|
-> | ADR-001 to ADR-005 | **Active** | Infrastructure decisions (Svelte, subprocess, Python, models) |
-> | ADR-006 | **DEPRECATED** | 2.5D relief mesh generation — superseded by ADR-011 |
+> | ADR-001 to ADR-005 | **Active** | Infrastructure (Svelte, subprocess, Python, models) |
+> | ADR-006 | **DEPRECATED** | 2.5D relief mesh — removed |
 > | ADR-007 | **Active** | Binary IPC transfer |
-> | ADR-008 | **DEPRECATED** | 2.5D triangulation for STL — superseded by ADR-011 |
-> | ADR-009 | **Superseded** | Target dimensions — replaced by BlankEnvelope in ADR-011 |
+> | ADR-008 | **DEPRECATED** | 2.5D triangulation for STL — removed |
+> | ADR-009 | **Superseded** | Target dimensions — replaced by BlankEnvelope |
 > | ADR-010 | **Active** | State management (undo/redo) |
-> | ADR-011 | **CANONICAL** | Crystal volumetric point cloud — primary architecture |
+> | ADR-011 | **Superseded** | Column-sweep volumetric fill — replaced by ADR-012 |
+> | ADR-012 | **CANONICAL** | Surface-map point cloud — primary generation algorithm |
 
 ---
 
@@ -216,7 +218,7 @@
 **Date:** 2026-02-07
 **Superseded by:** ADR-011 (Crystal Volumetric Point Cloud)
 
-> **DEPRECATION NOTICE:** This ADR describes 2.5D relief mesh generation (one Z per XY). As of 2026-04-08, SimplePicture3D is pivoting to 3D volumetric point cloud output per ADR-011. The 2.5D relief approach is no longer the primary development path. Existing code in `mesh_generator.rs` may be retained for legacy/optional relief mode but is not the target architecture. See `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md`.
+> **DEPRECATION NOTICE:** This ADR describes 2.5D relief mesh generation (one Z per XY). As of 2026-04-08, SimplePicture3D is pivoting to 3D volumetric point cloud output per ADR-011. The 2.5D relief approach is no longer the primary development path. Existing code in `mesh_generator.rs` may be retained for legacy/optional relief mode but is not the target architecture. See `RESEARCH/archive/PIVOT_PLAN_2.5D_TO_3D.md`.
 
 **Context:** ARCH-201. Need to decide point cloud vs triangulated mesh and sampling strategy for depth map → 3D geometry.
 
@@ -245,7 +247,7 @@
 **Date:** 2026-02-08
 **Superseded by:** ADR-011 (Crystal Volumetric Point Cloud)
 
-> **DEPRECATION NOTICE:** This ADR describes triangulation for 2.5D relief STL export. As of 2026-04-08, SimplePicture3D is pivoting to 3D volumetric point cloud output (PLY/XYZ/CSV) per ADR-011. Triangulation for STL is no longer the primary export path; it may be retained as an "Advanced" option for users with mesh-based workflows. See `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md`.
+> **DEPRECATION NOTICE:** This ADR describes triangulation for 2.5D relief STL export. As of 2026-04-08, SimplePicture3D is pivoting to 3D volumetric point cloud output (PLY/XYZ/CSV) per ADR-011. Triangulation for STL is no longer the primary export path; it may be retained as an "Advanced" option for users with mesh-based workflows. See `RESEARCH/archive/PIVOT_PLAN_2.5D_TO_3D.md`.
 
 **Context:** ARCH-301. Sprint 1.8 requires STL export, which mandates triangulated faces with normals. The existing `mesh_generator.rs` produces a uniform-grid point cloud (ADR-006). A triangulation strategy must be chosen and documented before BACK-700 implementation begins. This ADR supersedes the deferred ARCH-205–207 spike from Sprint 1.6A.
 

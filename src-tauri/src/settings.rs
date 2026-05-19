@@ -17,11 +17,12 @@ use crate::volumetric::VolumetricParams;
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
-    /// Last directory used for STL/OBJ export (BACK-706).
+    /// Last directory used for point cloud export.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_export_dir: Option<String>,
 
-    /// Preferred export format: "stl" or "obj" (BACK-804).
+    /// Legacy field from mesh era ("stl" / "obj"). Prefer `point_cloud_format`.
+    /// Kept for settings file backward compatibility; not used by export commands.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub export_format: Option<String>,
 
@@ -45,8 +46,8 @@ pub struct AppSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub window_height: Option<u32>,
 
-    /// Target output size in mm for mesh/export (ADR-009, BACK-1006). When both set and positive,
-    /// mesh XY fits inside target_width_mm × target_height_mm with aspect ratio preserved.
+    /// Legacy depth-preview zoom target in mm (ADR-009). Does not drive point cloud
+    /// generation — blank envelope controls export bounds. Kept for UI zoom persistence.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_width_mm: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -57,12 +58,12 @@ pub struct AppSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub curve_control_points: Option<Vec<CurvePoint>>,
 
-    /// Crystal blank envelope for volumetric point cloud fitting (ADR-011).
+    /// Crystal blank envelope for point cloud fitting (ADR-012).
     /// Defines the 3D bounds and margin for the target crystal blank.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub blank_envelope: Option<BlankEnvelope>,
 
-    /// Preferred point cloud export format: "ply", "xyz", or "csv" (ADR-011).
+    /// Preferred point cloud export format: "ply", "xyz", or "csv" (ADR-012).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub point_cloud_format: Option<String>,
 

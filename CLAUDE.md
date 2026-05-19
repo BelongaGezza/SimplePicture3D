@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-SimplePicture3D is a desktop application that transforms 2D images into **volumetric 3D point clouds** for internal UV laser engraving of K9 crystal, glass, and acrylic. Uses AI-powered depth estimation with volumetric sampling to generate dense point distributions inside a user-specified crystal blank.
+SimplePicture3D is a desktop application that transforms 2D images into **3D surface point clouds** for internal UV laser engraving of K9 crystal, glass, and acrylic. Uses AI-powered depth estimation with the ADR-012 surface-map algorithm — one laser dot per sampled (x,y) at the depth-mapped Z position inside a user-specified crystal blank.
 
-**Current Status:** Restarted 2026-05-10 as a single-purpose **3D surface point cloud** tool for internal UV laser engraving of crystal glass. 2.5D relief code (`mesh_generator.rs`, STL/OBJ) is being removed. The surface-map algorithm (ADR-012) is canonical — one laser dot per (x,y) sample at the depth-mapped Z position. Core infrastructure is working; volumetric backend wiring and frontend UI are the next sprints (B and C). See `todo.md` for the full sprint plan.
+**Current Status (2026-05-19):** Phases A–C complete — 2.5D relief code removed; ADR-012 surface-map pipeline wired end-to-end (backend + frontend + PLY/XYZ/CSV export). **Phase D in progress:** engraver validation and security hardening before v1.0 beta. See `ROADMAP.md` for vision and `todo.md` for task IDs.
 
 **Canonical algorithm reference:** `RESEARCH/architecture.md` **ADR-012** (surface-map point cloud)  
-**Sprint plan:** `todo.md`  
-**Critical:** Do NOT wire `volumetric.rs::generate_volumetric_points` until algorithm is rewritten per ADR-012 (TD-14, Sprint B — BACK-B-01).
+**Production path:** `ROADMAP.md`  
+**Active tasks:** `todo.md`
 
 ## Repository Structure (Current)
 
@@ -19,8 +19,8 @@ SimplePicture3D/
 ├── .agents/                    # Agent personas for multi-agent development
 ├── .cursor/rules/              # Cursor IDE rules (reference .agents/*.md)
 ├── RESEARCH/                   # Technology guidance and knowledge base
-│   ├── architecture.md         # System architecture, ADRs (ADR-011 is canonical)
-│   ├── PIVOT_PLAN_2.5D_TO_3D.md # Transition roadmap from 2.5D to 3D
+│   ├── architecture.md         # System architecture, ADRs (ADR-012 is canonical)
+│   ├── archive/                # Historical docs (e.g. 2.5D pivot plan)
 │   ├── 3d-reconstruction.md    # Full 3D reconstruction models (TripoSR, optional)
 │   ├── AI_DEVELOPMENT_GUIDE.md # Multi-agent coordination patterns
 │   ├── GOTCHAS.md              # Debugging findings (all agents contribute)
@@ -43,8 +43,8 @@ SimplePicture3D/
 
 | Document | Purpose |
 |----------|---------|
-| `RESEARCH/architecture.md` | **ADR-011** is canonical for 3D volumetric architecture |
-| `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md` | Transition roadmap, component analysis, implementation phases |
+| `ROADMAP.md` | Vision and path to production v1.0 |
+| `RESEARCH/architecture.md` | **ADR-012** is canonical (surface-map point cloud) |
 | `prd.md` | Product requirements (updated for 3D pivot) |
 | `todo.md` | Sprint planning, phase milestones, task IDs |
 | `RESEARCH/3d-reconstruction.md` | TripoSR full 3D reconstruction (optional future) |
@@ -175,7 +175,7 @@ This project uses agent personas for development coordination:
 - `load_image` - Load and validate image file
 - `generate_depth_map` - Run AI depth estimation
 - `set_blank_envelope` - Set crystal blank dimensions
-- `get_point_cloud_data` - Get volumetric points for preview
+- `generate_point_cloud` - Generate surface-map point cloud (ADR-012); caches for export
 - `export_ply` - Export PLY format
 - `export_xyz` - Export XYZ format
 - `export_csv` - Export CSV format

@@ -1,6 +1,6 @@
 [[permission]]
 identifier = "allow-generate-depth-map"
-description = "Enables depth map generation, retrieval, adjustment, undo/redo, and mask commands. Sprint A retired `get_mesh_data` along with the 2.5D mesh pipeline; the 3D point cloud commands (ADR-012) will be added in their own permission group in Sprint B."
+description = "Enables depth map generation, retrieval, adjustment, undo/redo, and mask commands. Point cloud commands are in allow-point-cloud.toml."
 commands.allow = [
     "generate_depth_map",
     "get_depth_map",

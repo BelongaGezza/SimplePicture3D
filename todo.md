@@ -1,9 +1,11 @@
 # SimplePicture3D — Program TODO and Sprint Roadmap
 
-**Version:** 4.2  
+**Version:** 4.3  
 **Last Updated:** 2026-05-19  
 **Owner:** System Architect  
-**Latest Commit:** `6bbe3da` — feat(ui): wire crystal blank, point cloud preview, and export
+**Latest Commit:** see git log  
+**Production path:** `ROADMAP.md`  
+**Takeover review:** `docs/ARCHITECT_REVIEW_2026-05.md`
 
 ---
 
@@ -26,8 +28,8 @@ This roadmap reflects the deliberate restart decision (2026-05-10) plus two impl
 
 ### Remaining Gaps (next work)
 - **UI-C-02:** ✅ Volumetric params panel — pixel step, depth threshold, live point count estimate (`VolumetricParamsPanel.svelte`).
-- **DOC-A-02:** `README.md` “How It Works” still describes volumetric interior fill; should say surface-map (one dot per column).
-- **DOC-A-05:** `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md` not yet archived.
+- **DOC-A-02:** ✅ `README.md` updated for ADR-012 surface-map (2026-05-19).
+- **DOC-A-05:** ✅ `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md` archived to `RESEARCH/archive/`.
 - **QA-B-01 / QA-C-01:** Command-level export integration tests and manual full-workflow UX pass not yet recorded.
 - **Phase D:** No engraver software validation, performance benchmark, or permission granularity audit yet.
 - **Security (2026-05-19 review):** Model SHA256 table empty (`expected_model_hashes.json`); IPC DoS limits missing; `load_preset` absolute-path read; settings/model commands not in Tauri ACL — see Sprint D (`SEC-D-02`–`SEC-D-10`) and `SPRINTS/Sprint_D/SECURITY_REVIEW_2026-05.md`.
@@ -68,8 +70,8 @@ This roadmap reflects the deliberate restart decision (2026-05-10) plus two impl
 **Exit Criteria**
 - ✅ `mesh_generator.rs` deleted; relief UI removed; no STL/OBJ in active export paths.
 - ✅ `tauri.conf.json`, `prd.md` describe a 3D surface point cloud app.
-- ⏳ `README.md` still has legacy “volumetric fill” wording (DOC-A-02).
-- ⏳ `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md` not archived (DOC-A-05).
+- ⏳ `README.md` — updated 2026-05-19 (DOC-A-02 ✅).
+- ✅ `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md` archived (DOC-A-05).
 
 ### Phase B — Backend Wiring (1 week) — **mostly complete**
 **Goal:** expose the complete 3D surface point cloud pipeline as a real Tauri API.
@@ -115,10 +117,10 @@ All sprints are 1 week unless explicitly marked.
 - **BACK-A-01:** ✅ Delete `mesh_generator.rs` and remove all references (`17ae055`).
 - **UI-A-01:** ✅ Remove relief-mode UI; `ExportPanel` now exports PLY/XYZ/CSV (`6bbe3da`).
 - **DOC-A-01:** ✅ Update `tauri.conf.json` bundle description (`17ae055`).
-- **DOC-A-02:** ⏳ Update `README.md` — replace volumetric-fill / 2.5D language.
+- **DOC-A-02:** ✅ Update `README.md` — ADR-012 surface-map language (2026-05-19).
 - **DOC-A-03:** ✅ `prd.md` header reflects restart and ADR-012 (2026-05-10).
 - **DOC-A-04:** ✅ `CLAUDE.md` updated for 3D surface point cloud workflow.
-- **DOC-A-05:** ⏳ Archive `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md`.
+- **DOC-A-05:** ✅ Archive pivot plan to `RESEARCH/archive/` (2026-05-19).
 - **ARCH-A-01:** ✅ ADR-012 in `RESEARCH/architecture.md`.
 
 **Gate**
@@ -218,7 +220,7 @@ All sprints are 1 week unless explicitly marked.
 | ID | Title | Severity | Plan |
 |---|---|---|---|
 | TD-14 | ~~Column-sweep algorithm~~ — **resolved**; surface-map (ADR-012) shipped in `17ae055` | ~~Critical~~ | Closed |
-| TD-11 | ~~Volumetric modules not wired~~ — **resolved** for backend + core UI; volumetric params UI still missing | ~~Critical~~ | UI-C-02 |
+| TD-11 | ~~Volumetric modules not wired~~ — **resolved** (backend + UI + params panel) | ~~Critical~~ | Closed |
 | TD-13 | Command-permission granularity inconsistent | High | Sprint D — SEC-D-01 |
 | TD-15 | Model SHA256 hashes empty — verification skipped on download | High | Sprint D — SEC-D-02 |
 | TD-16 | IPC DoS: unbounded depth/mask/point-cloud payloads over Tauri | High | Sprint D — SEC-D-04 |
@@ -245,9 +247,9 @@ When generating a sprint package:
 
 ## Notes
 
-- This file is the operational source of truth for scheduling.
+- This file is the operational source of truth for **task IDs and sprint gates**. Vision and phases: **`ROADMAP.md`**.
 - **Do not mark Phase B complete** until export integration tests pass and a real-image PLY/XYZ export is verified.
-- **Do not mark Phase C complete** until UI-C-02 (volumetric params panel) and QA-C-01 (manual UX pass) are done.
+- **Do not mark Phase C complete** until QA-C-01 (manual UX pass) is done.
 - **Do not mark Phase D complete** until at least one engraver software import is validated end-to-end **and** P0 security tasks **SEC-D-02** / **SEC-D-03** are complete (or explicitly risk-accepted in `SPRINTS/Sprint_D/SECURITY_SIGNOFF.md`).
 - If scope changes, update this file and `prd.md` in the same change set to prevent drift.
 - **Linux dev setup on this machine (2026-05-18):** `npm`, Python venv/pytest, and Tauri GTK/WebKit/libsoup dev libs not installed — run `SETUP_NOTES.md` steps before local test/build.

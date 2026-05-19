@@ -12,7 +12,11 @@
 
 SimplePicture3D is a Tauri desktop application with a Rust backend, **Svelte 4** frontend, and a Python subprocess for AI depth estimation. All processing runs locally (100% offline).
 
-**Architecture decisions** are recorded as ADRs in [RESEARCH/architecture.md](../RESEARCH/architecture.md): ADR-001 (Svelte 4), ADR-002 (Subprocess), ADR-003 (Python distribution), ADR-004 (Depth models), ADR-005 (Model licensing), ADR-006 (Mesh generation), ADR-008 (Grid triangulation for STL), ADR-009 (Target dimensions for laser etching).
+**Current product (2026-05-19):** 3D **surface-map point cloud** output for internal UV laser engraving (ADR-012). Export formats: PLY, XYZ, CSV. The 2.5D mesh/STL pipeline is **removed**.
+
+**Architecture decisions** are recorded as ADRs in [RESEARCH/architecture.md](../RESEARCH/architecture.md): ADR-001 (Svelte 4), ADR-002 (Subprocess), ADR-003 (Python distribution), ADR-004/005 (Depth models and licensing), ADR-010 (Undo/redo), **ADR-012 (Surface-map point cloud — canonical)**. ADR-006, ADR-008, ADR-011 are deprecated/superseded.
+
+**Production roadmap:** [ROADMAP.md](../ROADMAP.md)
 
 ---
 
@@ -36,8 +40,8 @@ SimplePicture3D is a Tauri desktop application with a Rust backend, **Svelte 4**
 │  │  Core Logic                                                  │ │
 │  │  • Image loading (image crate)                               │ │
 │  │  • Depth map processing (gamma, contrast, brightness, curve) │ │
-│  │  • Mesh generation (point cloud, triangulation)              │ │
-│  │  • STL/OBJ export (custom writers in mesh_generator.rs)       │ │
+│  │  • Surface-map point cloud (ADR-012, volumetric.rs)          │ │
+│  │  • PLY/XYZ/CSV export (export.rs)                            │ │
 │  │  • Settings & state (serde JSON)                             │ │
 │  └─────────────────────────────────────────────────────────────┘ │
 │  ┌─────────────────────────────────────────────────────────────┐ │
@@ -55,7 +59,7 @@ SimplePicture3D is a Tauri desktop application with a Rust backend, **Svelte 4**
 
 ---
 
-## Data Flow: Image → STL
+## Data Flow: Image → Point Cloud Export
 
 ```
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
@@ -63,15 +67,20 @@ SimplePicture3D is a Tauri desktop application with a Rust backend, **Svelte 4**
 │  Image       │ ──► │  (Rust)      │ ──► │  Estimation  │ ──► │  Depth       │
 │  (Frontend)  │     │  Format,     │     │  (Python)    │     │  (Rust)      │
 │  File picker │     │  size, 8K    │     │  NN infer    │     │  Gamma,      │
-└──────────────┘     └──────────────┘     └──────────────┘     │  curve       │
+└──────────────┘     └──────────────┘     └──────────────┘     │  curve, mask │
                                                                 └──────┬───────┘
                                                                        │
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐             │
-│  7. Export   │     │  6. Preview  │     │  5. Mesh     │             │
-│  STL/OBJ     │ ◄── │  (Frontend)  │ ◄── │  Generation  │ ◄───────────┘
+│  8. Export   │     │  7. Preview  │     │  6. Generate │             │
+│  PLY/XYZ/CSV │ ◄── │  (Frontend)  │ ◄── │  Point Cloud │ ◄───────────┘
 │  (Rust)      │     │  Three.js    │     │  (Rust)      │
-│  User path   │     │  BufferGeo   │     │  Depth→mesh  │
+│  User path   │     │  Points      │     │  ADR-012     │
 └──────────────┘     └──────────────┘     └──────────────┘
+                              ▲
+                     ┌────────┴────────┐
+                     │ 5. Blank setup  │
+                     │ L×W×H + margin  │
+                     └─────────────────┘
 ```
 
 ### Pipeline Steps
@@ -79,14 +88,17 @@ SimplePicture3D is a Tauri desktop application with a Rust backend, **Svelte 4**
 1. **Load image** (Frontend → Rust): File picker → `load_image` Tauri command
 2. **Validate** (Rust): Format, dimensions, downsample if >8K
 3. **Depth estimation** (Rust → Python): Image bytes → subprocess → depth map
-4. **Depth processing** (Rust): Invert → gamma → contrast → brightness → curve (Sprint 2.1); optional histogram for UI
-5. **Mesh generation** (Rust): Depth map → point cloud / triangulated mesh
-6. **Preview** (Frontend): Vertex data → Three.js BufferGeometry
-7. **Export** (Rust): STL/OBJ to user-selected path
+4. **Depth processing** (Rust): Invert → gamma → contrast → brightness → curve; optional mask
+5. **Blank envelope** (Frontend → Rust): User sets crystal dimensions via `set_blank_envelope`
+6. **Point cloud generation** (Rust): ADR-012 surface-map — one point per (x,y) at mapped Z → `fit_to_blank`
+7. **Preview** (Frontend): Point data → Three.js `Points` + blank wireframe
+8. **Export** (Rust): PLY/XYZ/CSV to user-selected path
 
 ---
 
-## Mesh generation (algorithm) — Sprint 1.6
+> **Historical note:** Sections below that reference `mesh_generator.rs`, `get_mesh_data`, or STL/OBJ export describe the **removed 2.5D pipeline** (pre-2026-05-10). Do not implement against them. See ADR-012 in [RESEARCH/architecture.md](../RESEARCH/architecture.md).
+
+## Mesh generation (algorithm) — DEPRECATED (Sprint 1.6 era)
 
 *Documentation Specialist: algorithm summary for developers. Full design: [RESEARCH/architecture.md](../RESEARCH/architecture.md) § Mesh Generation (Sprint 1.6) and ADR-006.*
 

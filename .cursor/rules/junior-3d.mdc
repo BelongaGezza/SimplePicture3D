@@ -1,11 +1,3 @@
----
-description: Junior Engineer 3D - mesh generation, Three.js preview, STL/OBJ export
-globs:
-  - "**/*.rs"
-  - "**/tests/**"
-alwaysApply: false
----
-
 # Junior Engineer 3D
 
-Follow the persona in `.agents/junior-engineer-3d.md`. Focus on mesh generation, Three.js 3D preview, and STL/OBJ export. Include validation tests and mesh examples. See `prd.md` F1.5, F1.6.
+Follow the persona in `.agents/junior-engineer-3d.md`. Focus on surface-map point cloud generation (ADR-012), Three.js point cloud preview, and PLY/XYZ/CSV export. Include validation tests. See `prd.md` F1.5, F1.6 and `ROADMAP.md`.

@@ -1,9 +1,9 @@
 # SimplePicture3D — Manual Testing Checklist
 
-This document provides a repeatable manual testing checklist for QA and beta testers. It aligns with [todo.md § Manual Testing Checklist](../todo.md) and [Sprint 1.11 Test Plan](../SPRINTS/Sprint_1_11/TEST_PLAN_1_11.md). Automated tests (Rust, frontend, Python) are documented in [Developer Guide](developer-guide.md#testing-and-linting) and [CONTRIBUTING.md](../CONTRIBUTING.md).
+This document provides a repeatable manual testing checklist for QA and beta testers. It reflects the **ADR-012 surface-map point cloud** workflow (PLY/XYZ/CSV export). Automated tests are documented in [Developer Guide](developer-guide.md#testing-and-linting) and [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 **Audience:** Quality Engineers, beta testers, developers before release.  
-**Phase 1 MVP:** Focus on Core Workflow and Export Verification below.
+**Active sprint:** Phase D validation — see [SPRINTS/Sprint_D/](../SPRINTS/Sprint_D/) and [ROADMAP.md](../ROADMAP.md).
 
 ---
 
@@ -16,15 +16,17 @@ Execute with the app running (`npm run tauri dev` or installed build).
 | 1 | **Load image** | File → Open or drag-drop PNG/JPG. Image appears in 2D view; no crash. Try small (e.g. 800×600) and large (e.g. 4K); >8K should downsample with notice. | ☐ |
 | 2 | **Generate depth** | Click Generate depth. Progress shows; depth map appears (grayscale: darker = closer). First run may trigger model download. | ☐ |
 | 3 | **Adjust depth** | Change Brightness, Contrast, Gamma, Invert; depth preview updates. Set depth range (min/max mm). Reset restores defaults. | ☐ |
-| 4 | **Generate mesh / 3D preview** | Mesh builds from depth; 3D preview shows. Rotate, zoom; no crash. Vertex count and dimensions reasonable for image size. | ☐ |
-| 5 | **Export STL** | Export → STL, choose path. File created; open in MeshLab (or Netfabb/Blender) and confirm mesh displays. | ☐ |
-| 6 | **Export OBJ** | Export → OBJ, choose path. File + MTL created; open in viewer and confirm mesh displays. | ☐ |
-| 7 | **Settings persistence** | Change a setting (e.g. depth range, target dimensions). Restart app; setting is restored. | ☐ |
+| 4 | **Set blank envelope** | In Export panel: set L×W×H mm and margin, or pick a preset (e.g. Standard 80×50×50). Values persist after restart. | ☐ |
+| 5 | **Set sampling params** | In Volumetric params: adjust pixel step and depth threshold; point count estimate updates. | ☐ |
+| 6 | **Generate point cloud / 3D preview** | Click "Load point cloud" in 3D preview. Points appear inside yellow blank wireframe; rotate/zoom; no crash. | ☐ |
+| 7 | **Export PLY** | Export → PLY, choose path. File created; verify in engraver software or a point cloud viewer. | ☐ |
+| 8 | **Export XYZ / CSV** | Export → XYZ and CSV; files created with expected column layout. | ☐ |
+| 9 | **Settings persistence** | Change blank dimensions, export format, depth range. Restart app; settings restored. | ☐ |
 
 **Edge cases (optional for quick pass):**
 
 - Load invalid/corrupt file → app shows error, no crash.
-- Load image with unusual aspect (very wide/tall) → depth and mesh generate; export succeeds.
+- Load image with unusual aspect (very wide/tall) → depth and point cloud generate; export succeeds.
 - Cancel depth generation mid-run (if supported) → app recovers.
 
 ---
@@ -33,19 +35,21 @@ Execute with the app running (`npm run tauri dev` or installed build).
 
 | # | Step | How to verify | Pass? |
 |---|------|----------------|-------|
-| 1 | **STL binary** | Exported STL opens in MeshLab; mesh is manifold (no obvious holes); normals consistent. | ☐ |
-| 2 | **OBJ + MTL** | Exported OBJ and MTL open in viewer; materials/textures as expected (if any). | ☐ |
-| 3 | **Target dimensions** | In Export settings, set Output size to **50×70 mm**. Export STL; open in MeshLab. Mesh XY bounds fit inside 50×70 mm; aspect ratio matches image (no stretch). | ☐ |
+| 1 | **PLY ASCII / binary** | Exported PLY opens in target engraver or CloudCompare/MeshLab; point count matches estimate (± stepping). | ☐ |
+| 2 | **XYZ format** | Three columns (x y z); units in mm; points within blank envelope bounds. | ☐ |
+| 3 | **CSV format** | Header row; comma-separated coordinates; imports cleanly. | ☐ |
+| 4 | **Engraver import (Phase D gate)** | Import into target engraver software; axis orientation and scale correct for engraving. Document settings in Sprint D report. | ☐ |
+| 5 | **Blank fit** | Points fit inside configured blank (L×W×H) with margin; no points outside wireframe in preview. | ☐ |
 
 ---
 
-## 3. Settings and target dimensions
+## 3. Settings and blank envelope
 
 | # | Step | How to verify | Pass? |
 |---|------|----------------|-------|
-| 1 | **Depth range (min/max mm)** | Set e.g. 2–10 mm; export; mesh Z range is in that range when measured in MeshLab. | ☐ |
-| 2 | **Target width/height presets** | Select preset (e.g. 50×70 mm); export; verify dimensions in external tool. | ☐ |
-| 3 | **Custom target dimensions** | Enter custom width × height (mm); export; verify. | ☐ |
+| 1 | **Depth range (min/max mm)** | Adjust depth range; regenerate point cloud; Z distribution shifts as expected in preview. | ☐ |
+| 2 | **Blank presets** | Select Standard / Cube / Large / Tall; dimensions update; wireframe resizes in preview. | ☐ |
+| 3 | **Custom blank dimensions** | Enter custom L×W×H; export; verify scale in external tool. | ☐ |
 | 4 | **Window/settings persist** | Resize window; change export format default; restart → settings restored. | ☐ |
 
 ---
@@ -81,9 +85,9 @@ Requires a depth map to be loaded (complete core workflow step 3 first).
 
 ---
 
-## 6. Platform-specific (Phase 3)
+## 6. Platform-specific (Phase F)
 
-Deferred to Phase 3; placeholder for:
+Deferred to Phase F; placeholder for:
 
 - Windows 10 / 11
 - macOS (Intel + Apple Silicon)
@@ -93,9 +97,9 @@ Deferred to Phase 3; placeholder for:
 
 ---
 
-## 7. Accessibility (Phase 4)
+## 7. Accessibility (Phase G)
 
-Deferred to Phase 4; placeholder for:
+Deferred to Phase G; placeholder for:
 
 - Keyboard navigation (Tab, Enter, Escape)
 - Screen reader (NVDA, VoiceOver)
@@ -105,6 +109,8 @@ Deferred to Phase 4; placeholder for:
 
 ## References
 
+- **Production roadmap:** [ROADMAP.md](../ROADMAP.md)
+- **Architect review:** [ARCHITECT_REVIEW_2026-05.md](ARCHITECT_REVIEW_2026-05.md)
 - **Automated tests:** [Developer Guide — Testing and Linting](developer-guide.md#testing-and-linting), [CONTRIBUTING.md](../CONTRIBUTING.md)
-- **Sprint 1.11:** [TEST_PLAN_1_11.md](../SPRINTS/Sprint_1_11/TEST_PLAN_1_11.md), [MANUAL_TEST_REPORT.md](../SPRINTS/Sprint_1_11/MANUAL_TEST_REPORT.md)
-- **Source checklist:** [todo.md — Manual Testing Checklist](../todo.md)
+- **Phase D validation:** [SPRINTS/Sprint_D/](../SPRINTS/Sprint_D/)
+- **Operational tasks:** [todo.md](../todo.md)

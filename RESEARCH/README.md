@@ -27,15 +27,23 @@
 
 See `.agents/researcher.md` for full responsibilities.
 
+## Canonical references (2026-05-19)
+
+| Document | Purpose |
+|----------|---------|
+| [../ROADMAP.md](../ROADMAP.md) | Production path and phases |
+| [architecture.md](architecture.md) | ADRs — **ADR-012 is canonical** |
+| [archive/](archive/) | Historical docs (2.5D pivot plan) |
+
 ## Research Files Index
 
 | File | Technologies | Last Updated |
 |------|--------------|--------------|
 | [AI_DEVELOPMENT_GUIDE.md](AI_DEVELOPMENT_GUIDE.md) | Multi-agent workflows, coordination | — |
-| [architecture.md](architecture.md) | SimplePicture3D system design, undo/redo & state ADR (Sprint 2.2) | 2026-03-01 |
+| [architecture.md](architecture.md) | System design, ADRs (ADR-012 surface-map canonical) | 2026-05-19 |
 | [3d-reconstruction.md](3d-reconstruction.md) | Single-image full 3D models (TripoSR, etc.); Phase 2 optional mode | 2026-02-22 |
 | [tauri.md](tauri.md) | Tauri framework, IPC | 2026-02-01 |
-| [rust-crates.md](rust-crates.md) | image, tokio, serde, anyhow; custom STL/OBJ writers — stl_io not used (ADR-008) | 2026-02-01 |
+| [rust-crates.md](rust-crates.md) | image, tokio, serde, anyhow; PLY/XYZ/CSV export writers | 2026-05-19 |
 | [python-ml.md](python-ml.md) | Python, PyTorch, depth estimation | 2026-02-01 |
 | [frontend.md](frontend.md) | Svelte 4, TypeScript, TailwindCSS (ADR-001) | 2026-02-07 |
 | [threejs.md](threejs.md) | Three.js, WebGL | 2026-02-01 |

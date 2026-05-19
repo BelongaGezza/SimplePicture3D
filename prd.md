@@ -2,7 +2,7 @@
 
 **Version:** 3.0
 **Date:** 2026-05-10
-**Status:** **RESTART** — Single-purpose 3D surface point cloud tool for internal UV laser engraving of crystal glass. 2.5D relief code removed. Surface-map algorithm (ADR-012) is canonical. See `todo.md` for sprint plan.
+**Status:** **RESTART** — Single-purpose 3D surface point cloud tool for internal UV laser engraving of crystal glass. 2.5D relief code removed. Surface-map algorithm (ADR-012) is canonical. See `ROADMAP.md` for production path and `todo.md` for active tasks.
 **License:** MIT
 
 ---
