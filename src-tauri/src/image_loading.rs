@@ -15,13 +15,23 @@ use anyhow::{ensure, Context};
 use image::imageops::FilterType;
 use image::{
     load_from_memory_with_format, DynamicImage, ExtendedColorType, GenericImageView, ImageEncoder,
-    ImageFormat,
+    ImageFormat, ImageReader,
 };
 use std::fs;
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
 
 /// Maximum dimension per PRD F1.1 (8192×8192).
 pub const MAX_DIMENSION: u32 = 8192;
+
+/// Maximum image file size (in bytes) accepted by the depth pipeline (SEC-D-03).
+///
+/// **Rationale:** A photographic 8K PNG is typically <50 MB, JPEG <15 MB. 128 MiB
+/// leaves headroom for high-bit-depth or noisy 8K content while preventing local DoS
+/// via pathological multi-GB files passed to the Python subprocess. Aligns with the
+/// `MAX_DIMENSION = 8192` policy and the <2 GB memory budget for 4K (PRD F1.1).
+/// Documented in `docs/threat-model.md` §2.4.
+pub const MAX_IMAGE_FILE_BYTES: u64 = 128 * 1024 * 1024;
 
 /// PNG magic bytes: 89 50 4E 47 0D 0A 1A 0A (docs/threat-model.md §2.4).
 const PNG_SIGNATURE: &[u8] = &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
@@ -50,50 +60,61 @@ fn validate_path(path: &str) -> anyhow::Result<PathBuf> {
         .context("path could not be resolved (missing or inaccessible)")?;
     ensure!(canonical.is_file(), "path is not a file");
     ensure!(
-        !is_blocklisted(&canonical),
+        !crate::path_security::is_blocklisted(&canonical),
         "access to system directories is not allowed"
     );
     Ok(canonical)
 }
 
-/// Returns true if the canonical path is under a blocklisted system directory (threat model §2.3).
-fn is_blocklisted(canonical: &Path) -> bool {
-    #[cfg(windows)]
-    {
-        let s = match canonical.to_str() {
-            Some(x) => x.to_uppercase(),
-            None => return true,
-        };
-        // Block system dirs; allow user dirs (e.g. C:\Users\..., D:\...).
-        s.starts_with("C:\\WINDOWS\\")
-            || s.starts_with("C:\\PROGRAM FILES\\")
-            || s.starts_with("C:\\PROGRAM FILES (X86)\\")
-            || s.starts_with("C:\\PROGRAMDATA\\")
-            || s == "C:\\WINDOWS"
-            || s == "C:\\PROGRAM FILES"
-            || s == "C:\\PROGRAM FILES (X86)"
-            || s == "C:\\PROGRAMDATA"
-    }
-    #[cfg(unix)]
-    {
-        let s = match canonical.to_str() {
-            Some(x) => x,
-            None => return true,
-        };
-        // macOS/iOS: /System, /usr; Linux etc: /usr, /etc
-        s.starts_with("/System/")
-            || s.starts_with("/usr/bin")
-            || s.starts_with("/usr/sbin")
-            || s.starts_with("/etc/")
-            || s == "/System"
-            || s == "/usr"
-            || s == "/etc"
-    }
-    #[cfg(not(any(windows, unix)))]
-    {
-        let _ = canonical;
-        false
-    }
+/// Enforces the maximum image file size before any read into RAM (SEC-D-03).
+///
+/// Uses `fs::metadata` to avoid loading a multi-GB attacker file into memory.
+fn enforce_max_file_size(canonical: &Path) -> anyhow::Result<u64> {
+    let meta = fs::metadata(canonical).context("read image metadata")?;
+    let size = meta.len();
+    ensure!(
+        size <= MAX_IMAGE_FILE_BYTES,
+        "image file too large: {} bytes exceeds {}-byte limit (~{} MiB)",
+        size,
+        MAX_IMAGE_FILE_BYTES,
+        MAX_IMAGE_FILE_BYTES / (1024 * 1024)
+    );
+    Ok(size)
+}
+
+/// Reads image dimensions from the file header without decoding pixel data (SEC-D-03).
+///
+/// `image::ImageReader::into_dimensions` parses only header chunks (PNG IHDR / JPEG SOF),
+/// avoiding decompression-bomb DoS.
+fn header_dimensions(bytes: &[u8]) -> anyhow::Result<(u32, u32)> {
+    let reader = ImageReader::new(Cursor::new(bytes))
+        .with_guessed_format()
+        .context("guess image format")?;
+    reader
+        .into_dimensions()
+        .context("read image dimensions from header")
+}
+
+/// Enforces the header-declared dimension cap (SEC-D-03). Aligns with `MAX_DIMENSION`.
+///
+/// Used by `read_image_bytes_for_depth` to reject oversized images **before** spawning
+/// the Python subprocess. `load_image_impl` continues to downsample (BACK-103).
+fn enforce_max_dimensions(w: u32, h: u32) -> anyhow::Result<()> {
+    ensure!(
+        w > 0 && h > 0,
+        "image has invalid header dimensions ({}×{})",
+        w,
+        h
+    );
+    ensure!(
+        w <= MAX_DIMENSION && h <= MAX_DIMENSION,
+        "image dimensions too large: {}×{} exceeds {}×{} limit",
+        w,
+        h,
+        MAX_DIMENSION,
+        MAX_DIMENSION
+    );
+    Ok(())
 }
 
 /// Validates magic bytes (SEC-102). Returns format for decode or error.
@@ -167,20 +188,39 @@ fn rgb_to_preview_base64(rgb: &image::RgbImage) -> anyhow::Result<String> {
     ))
 }
 
-/// Reads and validates an image file for depth estimation (BACK-301).
-/// Validates path (SEC-101) and magic bytes (SEC-102); returns raw bytes for Python bridge.
-/// Does not decode or downsample; use when passing image to generate_depth_map.
+/// Reads and validates an image file for depth estimation (BACK-301, SEC-D-03).
+///
+/// Validation order (fail-closed, cheapest first):
+/// 1. Path canonicalize + blocklist (SEC-101).
+/// 2. File size ≤ `MAX_IMAGE_FILE_BYTES` via `fs::metadata` — checked **before** reading
+///    bytes so a multi-GB hostile file cannot exhaust RAM (SEC-D-03 / threat model §2.4).
+/// 3. Magic bytes — PNG/JPEG only (SEC-102).
+/// 4. Header-declared dimensions ≤ `MAX_DIMENSION` — checked **before** the Python
+///    subprocess is spawned so decompression-bomb images never reach the AI worker
+///    (SEC-D-03). `ImageReader::into_dimensions` reads header chunks only and does
+///    not decode pixels.
+///
+/// Returns raw file bytes for the Python bridge. Does not decode or downsample.
 pub fn read_image_bytes_for_depth(path: &str) -> anyhow::Result<Vec<u8>> {
     let canonical = validate_path(path)?;
+    enforce_max_file_size(&canonical)?;
     let bytes = fs::read(&canonical).context("read image file")?;
     validate_magic_bytes(&bytes)?;
+    let (w, h) = header_dimensions(&bytes)?;
+    enforce_max_dimensions(w, h)?;
     Ok(bytes)
 }
 
 /// Full load_image implementation: validate path, read, magic-check, decode, downsample, RGB, response.
+///
+/// SEC-D-03: the same file-size cap as `read_image_bytes_for_depth` is enforced here
+/// to bound the worst-case `fs::read` allocation. Header-declared dimensions are not
+/// pre-checked because `downsample_if_needed` already enforces `MAX_DIMENSION` after
+/// decode (BACK-103).
 pub fn load_image_impl(path: String) -> anyhow::Result<LoadImageOut> {
     let start = std::time::Instant::now();
     let canonical = validate_path(&path)?;
+    enforce_max_file_size(&canonical)?;
     let bytes = fs::read(&canonical).context("read image file")?;
     let file_size_bytes = bytes.len() as u64;
     let format = validate_magic_bytes(&bytes)?;
@@ -363,6 +403,124 @@ mod tests {
         assert!(r.ok);
         assert_eq!(r.width, w);
         assert_eq!(r.height, h);
+    }
+
+    // SEC-D-03: max file size + dimension cap enforced before Python subprocess.
+
+    /// `enforce_max_file_size` accepts files at exactly the limit and rejects above it.
+    /// Uses a sparse file (`File::set_len`) so the test does not consume 128 MiB of disk.
+    #[test]
+    fn enforce_max_file_size_rejects_over_limit() {
+        use std::fs::File;
+        let temp = std::env::temp_dir().join("sec_d_03_oversize.bin");
+        let f = File::create(&temp).expect("create sparse file");
+        f.set_len(MAX_IMAGE_FILE_BYTES + 1)
+            .expect("set sparse length");
+        drop(f);
+        let result = enforce_max_file_size(&temp);
+        let _ = std::fs::remove_file(&temp);
+        let err = result.expect_err("file 1 byte over limit must be rejected");
+        let msg = err.to_string().to_lowercase();
+        assert!(
+            msg.contains("too large") && msg.contains("limit"),
+            "error message should describe size cap: {}",
+            err
+        );
+    }
+
+    /// `enforce_max_file_size` returns the file size for files at or under the limit.
+    #[test]
+    fn enforce_max_file_size_accepts_under_limit() {
+        let temp = std::env::temp_dir().join("sec_d_03_under_limit.bin");
+        std::fs::write(&temp, b"some bytes").expect("write small file");
+        let size = enforce_max_file_size(&temp).expect("under-limit file must be accepted");
+        let _ = std::fs::remove_file(&temp);
+        assert_eq!(size, b"some bytes".len() as u64);
+    }
+
+    /// `enforce_max_dimensions` rejects anything wider/taller than MAX_DIMENSION.
+    #[test]
+    fn enforce_max_dimensions_rejects_over_cap() {
+        assert!(enforce_max_dimensions(MAX_DIMENSION + 1, 1).is_err());
+        assert!(enforce_max_dimensions(1, MAX_DIMENSION + 1).is_err());
+        assert!(enforce_max_dimensions(MAX_DIMENSION + 1, MAX_DIMENSION + 1).is_err());
+        assert!(enforce_max_dimensions(0, 1).is_err());
+        assert!(enforce_max_dimensions(1, 0).is_err());
+    }
+
+    /// `enforce_max_dimensions` accepts dimensions at exactly the cap.
+    #[test]
+    fn enforce_max_dimensions_accepts_at_cap() {
+        assert!(enforce_max_dimensions(MAX_DIMENSION, MAX_DIMENSION).is_ok());
+        assert!(enforce_max_dimensions(1, 1).is_ok());
+    }
+
+    /// `header_dimensions` returns the header-declared size without decoding pixels.
+    #[test]
+    fn header_dimensions_reads_png_header_without_decoding() {
+        let (w, h) = (32u32, 17u32);
+        let img = image::ImageBuffer::from_fn(w, h, |_, _| image::Rgb([10u8, 20, 30]));
+        let bytes = rgb_to_png_bytes(&img).expect("encode PNG");
+        let (rw, rh) = header_dimensions(&bytes).expect("read header dims");
+        assert_eq!((rw, rh), (w, h));
+    }
+
+    /// `read_image_bytes_for_depth` rejects images whose header dimensions exceed MAX_DIMENSION.
+    /// Uses an 8193×10 PNG (just over the cap); ~250 KB on disk so the size cap does not fire first.
+    #[test]
+    fn read_image_bytes_for_depth_rejects_oversize_dimensions() {
+        let (w, h) = (MAX_DIMENSION + 1, 10u32);
+        let temp = std::env::temp_dir().join("sec_d_03_oversize_dims.png");
+        let img = image::ImageBuffer::from_fn(w, h, |x, _| {
+            image::Rgb([(x % 256) as u8, 0u8, 0u8])
+        });
+        img.save(&temp).expect("write oversize-width PNG");
+        let result = read_image_bytes_for_depth(&temp.to_string_lossy());
+        let _ = std::fs::remove_file(&temp);
+        let err = result.expect_err("8193×10 image must be rejected before Python");
+        let msg = err.to_string().to_lowercase();
+        assert!(
+            msg.contains("dimensions too large"),
+            "error must mention dimension cap: {}",
+            err
+        );
+    }
+
+    /// `read_image_bytes_for_depth` accepts in-bounds images and returns the raw file bytes
+    /// (validates the SEC-D-03 happy path: path + size + magic + dimensions all pass).
+    #[test]
+    fn read_image_bytes_for_depth_accepts_within_limits() {
+        let temp = std::env::temp_dir().join("sec_d_03_within_limits.png");
+        let img = image::ImageBuffer::from_fn(8u32, 8u32, |_, _| image::Rgb([42u8, 42, 42]));
+        img.save(&temp).expect("write small PNG");
+        let bytes =
+            read_image_bytes_for_depth(&temp.to_string_lossy()).expect("in-bounds PNG must pass");
+        let _ = std::fs::remove_file(&temp);
+        assert!(bytes.starts_with(PNG_SIGNATURE), "raw PNG bytes returned");
+        let (w, h) = header_dimensions(&bytes).expect("header readable");
+        assert_eq!((w, h), (8, 8));
+    }
+
+    /// `read_image_bytes_for_depth` rejects oversized files via the metadata-based size cap,
+    /// **before** any bytes are read into RAM. Uses a sparse file so disk usage is negligible.
+    #[test]
+    fn read_image_bytes_for_depth_rejects_oversize_file_via_metadata() {
+        use std::fs::File;
+        // Sparse file: length > limit, but no real bytes allocated.
+        let temp = std::env::temp_dir().join("sec_d_03_sparse_oversize.png");
+        let f = File::create(&temp).expect("create sparse file");
+        f.set_len(MAX_IMAGE_FILE_BYTES + 1)
+            .expect("set sparse length");
+        drop(f);
+        let result = read_image_bytes_for_depth(&temp.to_string_lossy());
+        let _ = std::fs::remove_file(&temp);
+        let err = result.expect_err("sparse file over size cap must be rejected");
+        let msg = err.to_string().to_lowercase();
+        assert!(
+            msg.contains("too large"),
+            "error should be the size-cap error (fired before magic/header): {}",
+            err
+        );
     }
 
     // JR2-103: Downsampling test — image >8K is downsampled, dimensions ≤ 8192, aspect ratio preserved.

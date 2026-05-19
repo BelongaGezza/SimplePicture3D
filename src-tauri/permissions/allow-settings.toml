@@ -1,0 +1,7 @@
+[[permission]]
+identifier = "allow-settings"
+description = "Enables get_settings and save_settings (SEC-D-06)."
+commands.allow = [
+    "get_settings",
+    "save_settings",
+]

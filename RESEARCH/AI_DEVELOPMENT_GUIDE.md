@@ -53,6 +53,7 @@ When Task A depends on Task B completion:
 
 ### Senior Engineer
 - **Review:** `RESEARCH/rust-crates.md`, `RESEARCH/tauri.md`, `RESEARCH/python-ml.md`
+- **Orchestrator:** When leading a sprint, read `.agents/senior-engineer.md` § Orchestrator mode; maintain `SPRINTS/Sprint_X_Y/ORCHESTRATION.md`; delegate via Task sub-agents. Cursor command: `.cursor/commands/senior-engineer-orchestrator.md`
 - **Creates:** Sprint tasking using `SPRINTS/SPRINT_TASKING_TEMPLATE.md` — see `todo.md` § Sprint Creation Process. Create `SPRINTS/Sprint_X_Y/` folder and `SPRINT_X_Y_Task_Assignment.md`; store all sprint artefacts in that folder.
 - **Record:** Gotchas in `RESEARCH/GOTCHAS.md` when debugging
 

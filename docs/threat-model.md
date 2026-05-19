@@ -49,7 +49,7 @@
 | Threat | Mitigation |
 |--------|------------|
 | Non-image files (e.g. executable) passed as “image” | **Validate image magic bytes** before decode; reject executable formats. PRD §8.2: “Validate magic bytes, reject executable formats.” |
-| Malformed or oversized images causing DoS | Enforce max dimensions (e.g. 8K) and size limits; decode in bounded memory; consider timeouts. |
+| Malformed or oversized images causing DoS | Enforce max dimensions (e.g. 8K) and size limits; decode in bounded memory; consider timeouts. **SEC-D-03 (Sprint D):** `image_loading::read_image_bytes_for_depth` enforces `MAX_IMAGE_FILE_BYTES = 128 MiB` (via `fs::metadata` before reading) and `MAX_DIMENSION = 8192` (via `ImageReader::into_dimensions`, header-only — no pixel decode) **before** the Python subprocess is spawned. The same 128 MiB file cap also applies to `load_image_impl`. Rationale: photographic 8K PNG is typically <50 MB, JPEG <15 MB; 128 MiB leaves headroom for high-bit-depth/noisy 8K content while bounding worst-case RAM and Python decode work. |
 | User text (filenames, presets) used in shell or file ops | **Sanitize filenames;** escape special characters; avoid passing user-controlled strings to shell. PRD §8.2: “Sanitize filenames, escape special characters.” |
 
 **Implementation (image magic bytes, SEC-102):** Before decoding image data (e.g. with the `image` crate), **validate magic bytes** from the first bytes of the file. Accept only: **PNG** — `89 50 4E 47 0D 0A 1A 0A`; **JPEG** — `FF D8 FF` (SOI). Reject any other signature (including executables, PDF, etc.) with a clear error (e.g. “Unsupported or invalid image format”). Perform this check on the raw file bytes before calling the decoder; do not rely on file extension. Documented in this threat model and `docs/security-checklist.md` §2.2.
@@ -70,8 +70,9 @@
 
 | Threat | Mitigation |
 |--------|------------|
-| Frontend invoking commands with arbitrary or oversized payloads | **Limit exposed commands** to those in capability config (e.g. `capabilities/default.json`). PRD and RESEARCH/tauri.md: only expose `load_image`, `export_stl`, etc. No generic “run script” or “read any file.” |
-| Large payloads over IPC (e.g. depth map, mesh) | Prefer **file-based or chunked transfer** (RESEARCH/tauri.md): e.g. Rust writes to temp file, frontend receives path or chunked data; avoid multi-MB JSON over IPC. |
+| Frontend invoking commands with arbitrary or oversized payloads | **Limit exposed commands** to those in capability config (`capabilities/default.json`). Sprint D (**SEC-D-06**): dedicated `allow-settings.toml` and `allow-model.toml` for settings and model commands. |
+| Large payloads over IPC (e.g. depth map, point cloud) | **SEC-D-04:** `generate_point_cloud` caps IPC responses at `MAX_IPC_POINT_CLOUD_POINTS` (1M). Preview mode subsamples; export mode omits points from IPC while caching the full cloud server-side for `export_ply`/`export_xyz`/`export_csv`. Hard generation cap: `MAX_POINT_CLOUD_GENERATION` (8M). |
+| Arbitrary file read via preset/mask import | **SEC-D-05:** `load_preset` (absolute path) and `load_mask_from_path` use `path_security::validate_import_file_path` — canonicalize, `.json` extension, unified system-dir blocklist (aligned with export). |
 | Deserialization or validation bugs in command args | Validate and bound all arguments (paths, options); use strong types and fail closed on invalid input. |
 
 ### 2.7 Dependency vulnerabilities
@@ -115,5 +116,5 @@
 
 ---
 
-**Document Version:** 1.2  
-**Status:** Initial review (Sprint 1.1, SEC-001); image loading implementation notes added (Sprint 1.2, SEC-101, SEC-102). Subprocess review criteria (SEC-201) and model download HTTPS/checksum (SEC-202) added (Sprint 1.3).
+**Document Version:** 1.3  
+**Status:** Initial review (Sprint 1.1, SEC-001); image loading implementation notes added (Sprint 1.2, SEC-101, SEC-102). Subprocess review criteria (SEC-201) and model download HTTPS/checksum (SEC-202) added (Sprint 1.3). SEC-D-03 (Sprint D, 2026-05-19): max image file size (128 MiB) and pre-Python header-dimension cap (8192) documented in §2.4.

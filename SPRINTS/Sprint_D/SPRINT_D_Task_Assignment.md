@@ -39,7 +39,7 @@
 | Role | Persona File | Status | Assigned Agent | Owned Tasks |
 |------|--------------|--------|----------------|-------------|
 | Security Specialist | `.agents/security-specialist.md` | Available | — | SEC-D-02, SEC-D-12, DOC-D-02, SECURITY_SIGNOFF |
-| Senior Engineer | `.agents/senior-engineer.md` | Available | — | SEC-D-03–SEC-D-11, SEC-D-01, SEC-D-06, BACK-D-01 |
+| Senior Engineer | `.agents/senior-engineer.md` | In Progress | Cursor-Orchestrator | SEC-D-03–SEC-D-11, SEC-D-01, SEC-D-06, BACK-D-01 |
 | System Architect | `.agents/system-architect.md` | Available | — | ARCH-D-01, ARCH-D-02 |
 | Quality Engineer | `.agents/quality-engineer.md` | Available | — | QA-D-01–QA-D-03 |
 | Documentation Specialist | `.agents/documentation-specialist.md` | Available | — | DOC-D-01, DOC-D-02 (with Security) |

@@ -18,6 +18,7 @@ sys.path.insert(0, str(_python_pkg / "python"))
 
 from model_downloader import (
     check_model_installed,
+    download_model,
     get_model_info,
     get_model_dir,
     load_expected_hashes,
@@ -167,9 +168,117 @@ class TestVerifyModelSha256:
             p.return_value = Path("/nonexistent/path/hashes.json")
             assert load_expected_hashes() == {}
 
+    def test_load_expected_hashes_skips_todo_placeholders(self, tmp_path):
+        """TODO placeholder hashes are ignored until real digests are committed (SEC-D-02)."""
+        hashes_file = tmp_path / "expected_model_hashes.json"
+        hashes_file.write_text(
+            json.dumps(
+                {
+                    "hashes": {
+                        "config.json": "TODO:REPLACE_WITH_SHA256_AFTER_TRUSTED_DOWNLOAD",
+                        "preprocessor_config.json": "a" * 64,
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        with patch("model_downloader._expected_hashes_path", return_value=hashes_file):
+            loaded = load_expected_hashes()
+        assert "config.json" not in loaded
+        assert loaded["preprocessor_config.json"] == "a" * 64
+
+    def test_load_expected_hashes_from_repo_stub_file(self):
+        """Committed stub file documents keys but does not enforce verification yet."""
+        loaded = load_expected_hashes()
+        assert loaded == {}
+
+
+class TestDownloadModelVerification:
+    """Integration tests for SEC-D-02 download_model SHA256 enforcement."""
+
+    def _setup_model_dir(self, tmp_path):
+        model_dir = tmp_path / "Depth-Anything-V2-Small-hf"
+        model_dir.mkdir(parents=True)
+        for f in REQUIRED_FILES:
+            (model_dir / f).write_text("{}")
+        return model_dir
+
+    def _mock_huggingface_hub(self, fake_snapshot_download):
+        """Inject a fake huggingface_hub module (optional dep in CI/dev)."""
+        mock_module = MagicMock()
+        mock_module.snapshot_download = fake_snapshot_download
+        return patch.dict(sys.modules, {"huggingface_hub": mock_module})
+
+    def test_download_fails_when_configured_hash_mismatch(self, tmp_path):
+        """download_model returns error when enforced hashes do not match files."""
+        model_dir = self._setup_model_dir(tmp_path)
+        (model_dir / "config.json").write_text('{"mismatch": true}')
+
+        def fake_snapshot_download(**kwargs):
+            return str(model_dir)
+
+        expected = {"config.json": "0" * 64}
+
+        with patch("model_downloader.MODELS_BASE_DIR", tmp_path), patch(
+            "model_downloader.load_expected_hashes", return_value=expected
+        ), self._mock_huggingface_hub(fake_snapshot_download):
+            result = download_model()
+
+        assert result["status"] == "error"
+        assert "integrity check failed" in result["error"].lower()
+        assert "mismatch" in result["error"].lower()
+
+    def test_download_succeeds_when_configured_hashes_match(self, tmp_path):
+        """download_model succeeds when enforced hashes match downloaded files."""
+        import hashlib
+
+        model_dir = self._setup_model_dir(tmp_path)
+        content = b'{"model": "ok"}'
+        (model_dir / "config.json").write_bytes(content)
+        expected = {"config.json": hashlib.sha256(content).hexdigest().lower()}
+
+        def fake_snapshot_download(**kwargs):
+            return str(model_dir)
+
+        with patch("model_downloader.MODELS_BASE_DIR", tmp_path), patch(
+            "model_downloader.load_expected_hashes", return_value=expected
+        ), self._mock_huggingface_hub(fake_snapshot_download):
+            result = download_model()
+
+        assert result["status"] == "success"
+        assert result["modelDir"] == str(model_dir)
+
+    def test_download_skips_verification_when_no_enforced_hashes(self, tmp_path):
+        """download_model skips SHA256 check when only stub/TODO hashes are present."""
+        model_dir = self._setup_model_dir(tmp_path)
+
+        def fake_snapshot_download(**kwargs):
+            return str(model_dir)
+
+        with patch("model_downloader.MODELS_BASE_DIR", tmp_path), patch(
+            "model_downloader.load_expected_hashes", return_value={}
+        ), self._mock_huggingface_hub(fake_snapshot_download):
+            result = download_model()
+
+        assert result["status"] == "success"
+
+
+class TestExpectedHashesJsonStructure:
+    """SEC-D-02: committed hash manifest structure."""
+
+    def test_repo_hash_file_has_required_keys(self):
+        """expected_model_hashes.json documents model id, revision, and file keys."""
+        path = Path(__file__).resolve().parent.parent / "python" / "expected_model_hashes.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        assert data.get("model_id") == DEFAULT_MODEL_ID
+        assert data.get("revision") == "main"
+        assert isinstance(data.get("hashes"), dict)
+        assert "config.json" in data["hashes"]
+        assert "preprocessor_config.json" in data["hashes"]
+        assert data.get("_hash_status") == "stub_pending_trusted_download"
+
 
 class TestJsonOutput:
-    """Tests for JSON serialization of outputs."""
 
     def test_check_model_json_serializable(self, tmp_path):
         """check_model_installed output must be JSON serializable."""

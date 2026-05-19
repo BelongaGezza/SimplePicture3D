@@ -28,6 +28,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -63,10 +64,20 @@ def _expected_hashes_path() -> Path:
     return Path(__file__).resolve().parent / "expected_model_hashes.json"
 
 
+_SHA256_HEX_RE = re.compile(r"^[0-9a-f]{64}$", re.IGNORECASE)
+
+
+def _is_valid_sha256_hex(value: str) -> bool:
+    """True when value is a 64-character hex SHA256 digest (SEC-202)."""
+    return bool(_SHA256_HEX_RE.match(value.strip()))
+
+
 def load_expected_hashes() -> dict:
     """
     Load expected SHA256 hashes from repo (SEC-202 trusted source).
-    Returns dict mapping relative file path -> hex SHA256. Empty dict if file missing or empty.
+    Returns dict mapping relative file path -> hex SHA256. Only entries with valid
+    64-char hex digests are returned; TODO/placeholder values are ignored until
+    maintainers run --write-hashes after a trusted download (SEC-D-02).
     """
     path = _expected_hashes_path()
     if not path.is_file():
@@ -75,7 +86,15 @@ def load_expected_hashes() -> dict:
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
         hashes = data.get("hashes") if isinstance(data, dict) else {}
-        return hashes if isinstance(hashes, dict) else {}
+        if not isinstance(hashes, dict):
+            return {}
+        enforced: dict[str, str] = {}
+        for rel_path, expected_hex in hashes.items():
+            if not isinstance(rel_path, str) or not isinstance(expected_hex, str):
+                continue
+            if _is_valid_sha256_hex(expected_hex):
+                enforced[rel_path] = expected_hex.strip().lower()
+        return enforced
     except (json.JSONDecodeError, OSError):
         return {}
 
@@ -136,6 +155,9 @@ def write_current_hashes(model_dir: Path, revision: str = "main") -> None:
     out_path = _expected_hashes_path()
     data = {
         "_comment": "SEC-202: Expected SHA256 for Depth-Anything-V2-Small-hf. Do not edit hashes by hand.",
+        "_hash_status": "enforced",
+        "_files_to_verify": sorted(hashes.keys()),
+        "model_id": DEFAULT_MODEL_ID,
         "revision": revision,
         "hashes": hashes,
     }
@@ -258,18 +280,28 @@ def download_model() -> dict:
 
         emit_stage("verifying")
         info = check_model_installed()
-        if info["installed"]:
-            emit_progress(100)
-            return {
-                "status": "success",
-                "modelDir": str(model_dir),
-                "sizeMb": info.get("sizeMb", 0),
-            }
-        else:
+        if not info["installed"]:
             return {
                 "status": "error",
                 "error": f"Save incomplete, missing files: {info['missingFiles']}",
             }
+
+        # SEC-202: SHA256 verification against trusted hashes in repo
+        expected = load_expected_hashes()
+        if expected:
+            ok, err = verify_model_sha256(model_dir, expected)
+            if not ok:
+                return {
+                    "status": "error",
+                    "error": f"Model integrity check failed: {err}",
+                }
+
+        emit_progress(100)
+        return {
+            "status": "success",
+            "modelDir": str(model_dir),
+            "sizeMb": info.get("sizeMb", 0),
+        }
 
     except ImportError:
         return {

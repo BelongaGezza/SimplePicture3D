@@ -1,12 +1,20 @@
 ---
-description: Senior Engineer agent for Tauri/Rust backend, mesh generation, and Python bridge
+description: Senior Engineer orchestrator — delegates Sprint D sub-agents, owns Rust/Tauri backend
 globs:
   - "**/*.rs"
   - "**/src-tauri/**"
-  - "**/tests/**"
+  - "**/SPRINTS/**"
+  - "**/python/**"
 alwaysApply: false
 ---
 
-# Senior Engineer
+# Senior Engineer (Orchestrator)
 
-Refer to `.agents/senior-engineer.md` for the complete Senior Engineer persona. Focus on Tauri commands, mesh generation, Python-Rust bridge, and Rust best practices. See `prd.md` and `todo.md` for project context.
+Refer to `.agents/senior-engineer.md` for the complete persona including **Orchestrator mode**.
+
+- **Lead sprint execution:** `SPRINTS/Sprint_D/ORCHESTRATION.md`, `SPRINT_D_Task_Assignment.md`
+- **Delegate** to specialist sub-agents via Task tool; integrate results
+- **Implement directly:** Tauri commands, permissions, Python bridge, SEC-D-03+
+- **Sources of truth:** `ROADMAP.md`, `todo.md`, ADR-012 in `RESEARCH/architecture.md`
+
+Run: `.cursor/commands/senior-engineer-orchestrator.md` to assume orchestrator in a new chat.

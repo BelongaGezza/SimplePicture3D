@@ -16,6 +16,7 @@ pub mod export;
 mod file_io;
 mod image_loading;
 pub mod mask;
+pub mod path_security;
 pub mod preset;
 mod python_bridge;
 pub mod settings;
@@ -33,7 +34,10 @@ use depth_adjust::{apply_adjustments, compute_histogram, DepthAdjustmentParams};
 use export::ExportMetadata;
 use preset::{get_builtin_preset, sanitize_preset_name, Preset};
 use undo::{SetDepthParamsCommand, SetMaskCommand, UndoRedoHistory, UndoableCommand};
-use volumetric::{validate_volumetric_params, VolumetricParams, VolumetricResult};
+use volumetric::{
+    subsample_points_for_ipc, validate_volumetric_params, VolumetricParams, VolumetricResult,
+    MAX_IPC_POINT_CLOUD_POINTS, MAX_POINT_CLOUD_GENERATION,
+};
 
 /// BACK-1202, BACK-1203: Apply depth adjustments with optional mask and feathering.
 /// When mask is None or dimensions don't match, returns full apply_adjustments(original, params).
@@ -89,40 +93,13 @@ fn validate_export_path(
         _ => return Err(format!("Export file must have .{} extension", extension)),
     }
 
-    let canonical_str = canonical.to_string_lossy();
-    #[cfg(target_os = "windows")]
-    {
-        let lower = canonical_str.to_lowercase();
-        let blocked = [
-            "c:\\windows",
-            "c:\\program files",
-            "c:\\program files (x86)",
-            "c:\\programdata",
-        ];
-        for prefix in &blocked {
-            if lower.starts_with(prefix) {
-                log::warn!(
-                    "SEC-401: Blocked export to system directory: {}",
-                    canonical_str
-                );
-                return Err("Cannot export to system directories".to_string());
-            }
-        }
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        let blocked = [
-            "/etc", "/usr", "/bin", "/sbin", "/boot", "/lib", "/proc", "/sys",
-        ];
-        for prefix in &blocked {
-            if canonical_str.starts_with(prefix) {
-                log::warn!(
-                    "SEC-401: Blocked export to system directory: {}",
-                    canonical_str
-                );
-                return Err("Cannot export to system directories".to_string());
-            }
-        }
+    let canonical_str = canonical_path.to_string_lossy();
+    if is_blocklisted(canonical_path.as_path()) {
+        log::warn!(
+            "SEC-401: Blocked export to system directory: {}",
+            canonical_str
+        );
+        return Err("Cannot export to system directories".to_string());
     }
 
     let parent = canonical_path.parent().unwrap_or(&canonical);
@@ -346,10 +323,37 @@ fn estimate_point_cloud_count(state: State<AppState>) -> Result<Option<usize>, S
 }
 
 #[tauri::command]
-fn generate_point_cloud(state: State<AppState>) -> Result<VolumetricResult, String> {
+fn generate_point_cloud(
+    for_preview: Option<bool>,
+    state: State<AppState>,
+) -> Result<VolumetricResult, String> {
     let result = generate_point_cloud_from_state(&state)?;
+    if result.point_count > MAX_POINT_CLOUD_GENERATION {
+        return Err(format!(
+            "Point cloud too large ({} points). Increase pixel step (step_x/step_y) — maximum generation limit is {} points.",
+            result.point_count, MAX_POINT_CLOUD_GENERATION
+        ));
+    }
     *state.last_point_cloud.lock().map_err(|e| e.to_string())? = Some(result.clone());
-    Ok(result)
+    let preview = for_preview.unwrap_or(false);
+    if preview && result.point_count > MAX_IPC_POINT_CLOUD_POINTS {
+        Ok(VolumetricResult {
+            points: subsample_points_for_ipc(&result.points, MAX_IPC_POINT_CLOUD_POINTS),
+            point_count: result.point_count,
+            fit_result: result.fit_result.clone(),
+            memory_bytes: result.memory_bytes,
+        })
+    } else if !preview && result.point_count > MAX_IPC_POINT_CLOUD_POINTS {
+        // Export workflow caches the full cloud; omit points from IPC payload (SEC-D-04).
+        Ok(VolumetricResult {
+            points: Vec::new(),
+            point_count: result.point_count,
+            fit_result: result.fit_result.clone(),
+            memory_bytes: result.memory_bytes,
+        })
+    } else {
+        Ok(result)
+    }
 }
 
 #[tauri::command]
@@ -453,9 +457,9 @@ fn save_preset(name: String, path: Option<String>, state: State<AppState>) -> Re
 #[tauri::command]
 fn load_preset(name_or_path: String, state: State<AppState>) -> Result<UndoRedoState, String> {
     let preset = if std::path::Path::new(&name_or_path).is_absolute() {
-        let path = std::path::PathBuf::from(&name_or_path);
-        let contents =
-            std::fs::read_to_string(&path).map_err(|e| format!("Failed to read preset: {}", e))?;
+        let path = validate_import_file_path(&name_or_path, "json")?;
+        let contents = std::fs::read_to_string(&path)
+            .map_err(|e| format!("Failed to read preset: {}", e))?;
         Preset::parse_and_validate_json(&contents)?
     } else if let Some(p) = get_builtin_preset(name_or_path.trim()) {
         p
@@ -1159,10 +1163,7 @@ fn save_mask_to_path(path: String, state: State<AppState>) -> Result<(), String>
 /// Load mask from a JSON file (JR1-1203). Dimensions must match current depth map.
 #[tauri::command]
 fn load_mask_from_path(path: String, state: State<AppState>) -> Result<UndoRedoState, String> {
-    let path_buf = std::path::Path::new(&path);
-    let canonical = path_buf
-        .canonicalize()
-        .map_err(|_| "File does not exist or is not accessible.".to_string())?;
+    let canonical = validate_import_file_path(&path, "json")?;
     let content =
         std::fs::read_to_string(&canonical).map_err(|e| format!("Could not read file: {}", e))?;
     let file: MaskFile =

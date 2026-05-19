@@ -1,5 +1,16 @@
 {
-  "_comment": "SEC-202: Expected SHA256 hashes for Depth-Anything-V2-Small-hf. To populate after a trusted download: python -m python.model_downloader --write-hashes. See RESEARCH/architecture.md ADR-003 SEC-202.",
+  "_comment": "SEC-202 / SEC-D-02: Expected SHA256 hashes for Depth-Anything-V2-Small-hf (revision main). Maintainers: after a trusted download run `python -m python.model_downloader --write-hashes` and commit the updated hashes. Until real 64-char hex digests are present, verification is skipped (see load_expected_hashes).",
+  "_hash_status": "stub_pending_trusted_download",
+  "_files_to_verify": [
+    "config.json",
+    "preprocessor_config.json",
+    "model.safetensors"
+  ],
+  "model_id": "depth-anything/Depth-Anything-V2-Small-hf",
   "revision": "main",
-  "hashes": {}
+  "hashes": {
+    "config.json": "TODO:REPLACE_WITH_SHA256_AFTER_TRUSTED_DOWNLOAD",
+    "preprocessor_config.json": "TODO:REPLACE_WITH_SHA256_AFTER_TRUSTED_DOWNLOAD",
+    "model.safetensors": "TODO:REPLACE_WITH_SHA256_AFTER_TRUSTED_DOWNLOAD"
+  }
 }
