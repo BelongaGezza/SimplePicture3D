@@ -1,7 +1,7 @@
 # SimplePicture3D — Program TODO and Sprint Roadmap
 
-**Version:** 4.1  
-**Last Updated:** 2026-05-18  
+**Version:** 4.2  
+**Last Updated:** 2026-05-19  
 **Owner:** System Architect  
 **Latest Commit:** `6bbe3da` — feat(ui): wire crystal blank, point cloud preview, and export
 
@@ -30,6 +30,7 @@ This roadmap reflects the deliberate restart decision (2026-05-10) plus two impl
 - **DOC-A-05:** `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md` not yet archived.
 - **QA-B-01 / QA-C-01:** Command-level export integration tests and manual full-workflow UX pass not yet recorded.
 - **Phase D:** No engraver software validation, performance benchmark, or permission granularity audit yet.
+- **Security (2026-05-19 review):** Model SHA256 table empty (`expected_model_hashes.json`); IPC DoS limits missing; `load_preset` absolute-path read; settings/model commands not in Tauri ACL — see Sprint D (`SEC-D-02`–`SEC-D-10`) and `SPRINTS/Sprint_D/SECURITY_REVIEW_2026-05.md`.
 - **Stale settings comments:** `settings.rs` still documents legacy `export_format` (stl/obj) alongside new `point_cloud_format`.
 
 ---
@@ -49,7 +50,12 @@ This roadmap reflects the deliberate restart decision (2026-05-10) plus two impl
 5. **P1: Validate output with real engraver software**
    - At least one confirmed end-to-end path before claiming v1.0.
 
-6. **P2: Defer Full 3D reconstruction (TripoSR)**
+6. **P1: Security hardening (2026-05-19 review)** — Sprint D
+   - **P0:** Populate model SHA256 hashes; enforce max image size before depth subprocess.
+   - **P1:** Cap IPC payloads; restrict preset/mask import paths; complete Tauri ACL for settings/model commands.
+   - **P2/P3:** Subprocess env allowlist, adjustment-param bounds, export TOCTOU fix, disable `withGlobalTauri` in release.
+
+7. **P2: Defer Full 3D reconstruction (TripoSR)**
    - Keep as a documented future option; do not interleave with core stabilisation.
 
 ---
@@ -92,7 +98,8 @@ This roadmap reflects the deliberate restart decision (2026-05-10) plus two impl
 **Exit Criteria**
 - At least one validated E2E path: image → point cloud → imported into engraver software with correct axis orientation and units.
 - Engraver charter documented: accepted formats, axis convention, unit expectations.
-- Capability permissions align with minimum-privilege intent; command/permission audit passes.
+- Capability permissions align with minimum-privilege intent; command/permission audit passes (`SEC-D-01`, `SEC-D-06`, `ARCH-D-02`).
+- **Security:** `expected_model_hashes.json` populated; download fails if SHA256 mismatch (`SEC-D-02`). Max image bytes/dimensions enforced before Python (`SEC-D-03`). IPC/preset/mask hardening tasks `SEC-D-04`–`SEC-D-05` complete or risk-accepted in `SECURITY_SIGNOFF.md`.
 - Performance: 4K image → point cloud in < 2 minutes on mid-range hardware.
 
 ---
@@ -156,21 +163,45 @@ All sprints are 1 week unless explicitly marked.
 ---
 
 ### Sprint D — Validate and Harden
-**Goal:** confirm engraver compatibility; tighten permissions; check performance.
+**Goal:** confirm engraver compatibility; tighten permissions; close findings from the 2026-05-19 security review.
 
-**Tasks**
+**Sprint package:** `SPRINTS/Sprint_D/` (`SPRINT_D_Task_Assignment.md`, `SECURITY_REVIEW_2026-05.md`, `SECURITY_PENTEST_CHECKLIST.md`).
+
+**Engraver & performance**
 - **ARCH-D-01:** Document engraver charter: axis convention (which app axis maps to laser X/Y/Z), units (mm), accepted formats, point ordering expectations.
 - **QA-D-01:** Export PLY and XYZ from a real image; import into target engraver software; verify axis orientation and point distribution.
 - **BACK-D-01:** Fix any compatibility defects found (axis flips, unit scaling, header metadata, decimal precision).
-- **SEC-D-01:** Split coarse permissions (`allow-generate-depth-map`) into least-privilege capability groups aligned with actual command groups.
-- **ARCH-D-02:** Re-run command registration/invocation consistency audit (`lib.rs` ↔ `tauri.ts` ↔ capability files).
 - **QA-D-02:** Performance check — time from image load to PLY export for a 4K image on a mid-range machine.
 - **DOC-D-01:** Publish interoperability notes and known-good engraver configuration in `docs/`.
 
+**Permissions & consistency**
+- **SEC-D-01:** Split coarse permissions (`allow-generate-depth-map`) into least-privilege capability groups aligned with actual command groups.
+- **SEC-D-06:** Add `allow-settings.toml` and `allow-model.toml`; grant `get_settings`, `save_settings`, `check_model`, `get_model_info`, `download_model` in `capabilities/default.json`.
+- **ARCH-D-02:** Re-run command registration/invocation consistency audit (`lib.rs` ↔ `tauri.ts` ↔ capability files).
+
+**Security review remediations (2026-05-19 — owner: Security Specialist + Senior Engineer)**
+
+| Priority | Task | Summary |
+|----------|------|---------|
+| P0 | **SEC-D-02** | Populate `python/python/expected_model_hashes.json` after trusted download; fail `download_model` when hashes are configured and verification fails (no silent skip in release). |
+| P0 | **SEC-D-03** | Enforce max image file size (e.g. 64–128 MB) and dimension cap on `read_image_bytes_for_depth` / before Python subprocess (align with 8K policy). |
+| P1 | **SEC-D-04** | Cap IPC payloads: avoid returning full 8K depth maps and multi-million-point clouds in one invoke; document limits in `docs/threat-model.md` §2.6. |
+| P1 | **SEC-D-05** | Restrict `load_preset` (absolute path) and `load_mask_from_path` to dialog-selected paths or app data dirs; apply export-style blocklist. |
+| P2 | **SEC-D-07** | Release builds: `Command::env_clear()` + allowlist for Python child (`PATH`, `HOME` only as needed); ignore `VIRTUAL_ENV` / strip `DEPTH_MODEL_PATH` unless app-controlled. |
+| P2 | **SEC-D-08** | Validate `DepthAdjustmentParams` on `set_depth_adjustment_params` (gamma/contrast ranges, max curve points, `feather_radius_px` cap). |
+| P2 | **SEC-D-09** | Harden export writes: canonicalize full target path; atomic write (temp + rename) or `O_NOFOLLOW` where available (extends TD-06). |
+| P2 | **SEC-D-10** | Align Linux `load_image` blocklist with export blocklist (`/bin`, `/sbin`, `/proc`, `/sys`, etc.). |
+| P3 | **SEC-D-11** | Set `withGlobalTauri: false` in release; disable devtools in production bundle; tighten CSP if needed. |
+| P3 | **QA-D-03** | Execute manual pentest checklist (`SPRINTS/Sprint_D/SECURITY_PENTEST_CHECKLIST.md`); record in `MANUAL_TEST_REPORT.md`. |
+| — | **SEC-D-12** | Sanitize PLY/CSV comment fields from `source_image` filename (newline/control chars). |
+| — | **DOC-D-02** | Update `docs/threat-model.md` and `docs/security-checklist.md` with Sprint D outcomes; Security Specialist sign-off in `SECURITY_SIGNOFF.md`. |
+
 **Exit Criteria**
 - At least one validated real-world engraver path documented with repeatable settings.
-- Capability model aligns with minimum-privilege intent.
+- Capability model aligns with minimum-privilege intent; all registered commands appear in ACL (`SEC-D-01`, `SEC-D-06`, `ARCH-D-02`).
+- **SEC-D-02** and **SEC-D-03** complete (P0); **SEC-D-04** and **SEC-D-05** complete or explicitly risk-accepted.
 - Performance target met or blocker documented with mitigation plan.
+- `SPRINTS/Sprint_D/SECURITY_SIGNOFF.md` signed for Sprint D scope.
 
 ---
 
@@ -189,8 +220,15 @@ All sprints are 1 week unless explicitly marked.
 | TD-14 | ~~Column-sweep algorithm~~ — **resolved**; surface-map (ADR-012) shipped in `17ae055` | ~~Critical~~ | Closed |
 | TD-11 | ~~Volumetric modules not wired~~ — **resolved** for backend + core UI; volumetric params UI still missing | ~~Critical~~ | UI-C-02 |
 | TD-13 | Command-permission granularity inconsistent | High | Sprint D — SEC-D-01 |
+| TD-15 | Model SHA256 hashes empty — verification skipped on download | High | Sprint D — SEC-D-02 |
+| TD-16 | IPC DoS: unbounded depth/mask/point-cloud payloads over Tauri | High | Sprint D — SEC-D-04 |
+| TD-17 | `load_preset` reads any absolute path via IPC | Medium | Sprint D — SEC-D-05 |
+| TD-18 | `load_mask_from_path` lacks system-dir blocklist | Medium | Sprint D — SEC-D-05 |
+| TD-19 | Settings/model Tauri commands missing ACL permission groups | Medium | Sprint D — SEC-D-06 |
+| TD-20 | Python subprocess inherits `VIRTUAL_ENV` / `DEPTH_MODEL_PATH` | Medium | Sprint D — SEC-D-07 |
 | TD-08 | `lib.rs` testability/coverage gap | High | Dedicated refactor slice in Phase D |
-| TD-06 | Export path TOCTOU write-test pattern | Medium | Sprint D security hardening |
+| TD-06 | Export path TOCTOU write-test pattern | Medium | Sprint D — SEC-D-09 |
+| TD-21 | `withGlobalTauri: true` widens webview compromise blast radius | Low | Sprint D — SEC-D-11 |
 | TD-09 | Accessibility issues in advanced controls | Medium | Post-Phase D polish |
 
 ---
@@ -210,6 +248,6 @@ When generating a sprint package:
 - This file is the operational source of truth for scheduling.
 - **Do not mark Phase B complete** until export integration tests pass and a real-image PLY/XYZ export is verified.
 - **Do not mark Phase C complete** until UI-C-02 (volumetric params panel) and QA-C-01 (manual UX pass) are done.
-- **Do not mark Phase D complete** until at least one engraver software import is validated end-to-end.
+- **Do not mark Phase D complete** until at least one engraver software import is validated end-to-end **and** P0 security tasks **SEC-D-02** / **SEC-D-03** are complete (or explicitly risk-accepted in `SPRINTS/Sprint_D/SECURITY_SIGNOFF.md`).
 - If scope changes, update this file and `prd.md` in the same change set to prevent drift.
 - **Linux dev setup on this machine (2026-05-18):** `npm`, Python venv/pytest, and Tauri GTK/WebKit/libsoup dev libs not installed — run `SETUP_NOTES.md` steps before local test/build.
