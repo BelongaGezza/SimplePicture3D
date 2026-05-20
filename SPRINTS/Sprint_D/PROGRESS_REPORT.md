@@ -67,6 +67,7 @@
 - **Review:** `docs/ARCHITECT_PROGRESS_REVIEW_2026-05-20.md` — Phase D gate not passed; feature freeze confirmed.
 - **Requirements sync:** `todo.md` v4.4, `ROADMAP.md` status diagram updated.
 - **Delegated:** SEC-D-01 (senior-engineer), QA-B-01 verify (shell), DOC-D-01/DOC-D-02 (docs).
+- **UI-D-01:** F2 volume warnings folded into plan (`docs/ARCHITECT_PROGRESS_REVIEW_2026-05-20.md` §7); implementation on disk, commit pending.
 
 ---
 

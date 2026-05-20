@@ -29,11 +29,13 @@ Validate engraver-compatible exports; close P0/P1 security gaps; align Tauri ACL
 | ARCH-D-02 | System Architect | Wave 4 sub-agent | Complete | `ARCH-D-02_COMMAND_AUDIT.md`; SEC-D-01 split recommended |
 | QA-D-01 | Quality Engineer | Wave 3 sub-agent | Ready | XTool Studio + F2 Ultra UV; run § D per procedure |
 | QA-D-02 | Quality Engineer | — | Available | 4K timing benchmark |
-| QA-D-03 | Quality Engineer | — | Available | Pentest checklist |
-| QA-B-01 | Senior Engineer | Wave 5 shell | Blocked | 9 tests in `lib.rs`; `cargo test` exit 101 — WebKit/soup dev libs; sudo required |
+| QA-D-03 | Quality Engineer | Wave 6 sub-agent | In Progress | Static review in MANUAL_TEST_REPORT; manual pentest pending |
+| SECURITY_SIGNOFF | Security Specialist | Wave 6 sub-agent | Review | Outcome table + waivers; signatures pending |
+| QA-B-01 | Senior Engineer | Wave 6 CI | CI-ready | 8 tests in `lib.rs`; verify via PR → Backend `cargo test` (local Linux blocked) |
 | BACK-D-01 | Senior Engineer | Orchestrator | Blocked | Awaiting QA-D-01 results |
 | DOC-D-01 | Documentation Specialist | Wave 5 sub-agent | Complete | `docs/engraver-interop.md`; README link |
-| DOC-D-02 | Security + Docs | — | Partial | Threat model §2.4/§2.6 updated Wave 2 |
+| DOC-D-02 | Security + Docs | Wave 6 sub-agent | Complete | `threat-model.md` + `security-checklist.md` v1.4; commit pending |
+| UI-D-01 | UI Designer | Wave 6 sub-agent | Complete | `585b71c`; 85 npm tests; pushed |
 
 **Status values:** `Available` | `Delegated` | `In Progress` | `Review` | `Complete` | `Blocked`
 
@@ -87,6 +89,9 @@ Validate engraver-compatible exports; close P0/P1 security gaps; align Tauri ACL
 | 2026-05-20 | System Architect | Wave 5 plan | `docs/ARCHITECT_PROGRESS_REVIEW_2026-05-20.md`; delegated SEC-D-01, DOC-D-01/02, QA-B-01 verify |
 | 2026-05-20 | shell | QA-B-01 verify | Blocked — WebKit/soup dev libs; sudo required on Linux host |
 | 2026-05-20 | senior-engineer | SEC-D-01 | Complete — four depth/mask permission TOMLs |
+| 2026-05-20 | ci-investigator | QA-B-01 | CI-ready — Backend `cargo test` with GTK/WebKit; open PR to verify |
+| 2026-05-20 | senior-engineer | UI-D-01 | Complete — `585b71c` pushed; 85 npm tests |
+| 2026-05-20 | Security + Docs | DOC-D-02 | Complete — threat-model + security-checklist v1.4 (uncommitted) |
 
 ---
 

@@ -93,6 +93,7 @@ Perform steps in order. Note **time** if also capturing QA-D-02 data.
 | **C1** | **Load image** — File → Open (or drag-drop) test image | Image in 2D view; status Loaded | ☐ |
 | **C2** | **Generate depth** — click **Generate Depth Map** (or equivalent) | Progress completes; grayscale depth visible; no crash. With `SP3D_USE_STUB=1`, deterministic gradient stub | ☐ |
 | **C3** | **Set blank** — Export panel → preset **50 × 50 × 80 (standard)** | L=50, W=50, H=80, margin=2 | ☐ |
+| **C3b** | **F2 volume warnings (UI-D-01)** — With standard preset, no amber/yellow warnings; temporarily set L=80 mm → amber exceed warning; restore preset | Warnings match charter limits | ☐ |
 | **C4** | **(Optional) Preview** — 3D view → **Load point cloud** | Points inside yellow wireframe; rotate/zoom OK | ☐ |
 | **C5** | **Export PLY (ASCII)** — Format PLY, **ASCII PLY** checked → **Export point cloud** → save `qa-d01-<image>.ply` | “Saved.”; file exists | ☐ |
 | **C6** | **Export XYZ** — Format XYZ → **Export point cloud** → save `qa-d01-<image>.xyz` | “Saved.”; file exists | ☐ |

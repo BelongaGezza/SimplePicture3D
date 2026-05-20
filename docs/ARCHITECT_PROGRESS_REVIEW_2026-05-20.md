@@ -12,7 +12,7 @@
 
 Sprint D is **~70% complete by task count** and **~40% complete by production gate**. Engineering velocity on security and architecture artefacts is strong; the **critical path is now human validation** (QA-D-01 engraver import) plus **SEC-D-01** ACL split and **Wave 5 closeout** (docs, sign-off, CI verification of QA-B-01).
 
-**Phase D gate status:** **Not passed** — engraver E2E not recorded; `SECURITY_SIGNOFF.md` unsigned; SEC-D-01 pending.
+**Phase D gate status:** **Not passed** — engraver E2E not recorded; `SECURITY_SIGNOFF.md` unsigned. SEC-D-01 complete; **UI-D-01** (F2 volume warnings) implemented locally, pending commit.
 
 **Recommendation:** Freeze feature scope. Execute Wave 5 in parallel: (1) Senior Engineer — SEC-D-01 + BACK-D-01 standby; (2) Quality Engineer — QA-D-01 on XTool Studio; (3) Documentation + Security — DOC-D-01/DOC-D-02 + sign-off; (4) CI/shell — confirm QA-B-01 via `cargo test` on Windows runner or after Linux GTK install.
 
@@ -28,7 +28,8 @@ Sprint D is **~70% complete by task count** and **~40% complete by production ga
 | Security P1 | SEC-D-04–SEC-D-06, SEC-D-12 | **Complete** | IPC caps, `path_security.rs`, settings/model ACL |
 | Export tests | QA-B-01 | **Review** | 8 command tests in `lib.rs`; `cargo test` blocked Linux GTK |
 | QA procedure | QA-D-01 | **Ready** | `QA-D-01_TEST_PROCEDURE.md`; execution blocked on hardware session |
-| ACL granularity | SEC-D-01 | **Available** | Split per ARCH-D-02 § SEC-D-01 recommendations |
+| ACL granularity | SEC-D-01 | **Complete** | Four depth/mask permission TOMLs |
+| F2 volume warnings | UI-D-01 | **Review** | `f2VolumeWarnings.ts` + UI; wired in Export/Preview; commit pending |
 | Defect fixes | BACK-D-01 | **Blocked** | Awaiting QA-D-01 results |
 | Interop docs | DOC-D-01 | **Available** | — |
 | Threat model | DOC-D-02 | **Partial** | Wave 2 updates; sign-off pending |
@@ -103,6 +104,24 @@ Threat model §2.6 must reflect these caps (DOC-D-02).
 
 Operational docs were stale on security gaps (pre-Wave 1). **Updated 2026-05-20** to reflect Waves 1–4 completion and remaining gate items.
 
+### 7. UI-D-01 — F2 Ultra UV volume warnings (new requirement)
+
+Proactive, **non-blocking** UI when the crystal blank or etch interior approaches the **xTool F2 Ultra UV** processing envelope documented in `docs/engraver-charter.md` §2.
+
+| Requirement | Specification |
+|-------------|----------------|
+| **Normative limits** | Crystal blank L/W/H each ≤ **70 × 70 × 150 mm** (processing volume); etch interior = blank − 2×margin per axis |
+| **Exceed (amber)** | Any blank dimension **>** limit — export may not fit the machine |
+| **Near edge (yellow)** | Etch interior within **5 mm** of limit on an axis where blank still fits |
+| **Placement** | Export panel (before export) and 3D preview overlay (`compact` mode) |
+| **Behaviour** | Informational only — does not block export or generation |
+| **Implementation** | `src/lib/f2VolumeWarnings.ts` (pure logic), `F2VolumeWarnings.svelte`, Vitest in `f2VolumeWarnings.test.ts` |
+| **Sync rule** | If charter limits change after QA-D-01, update **both** charter and `F2_ULTRA_UV_PROCESSING_MM` / `F2_EDGE_CLEARANCE_MM` |
+
+**Rationale:** Reduces failed engraver imports and support burden before QA-D-01 gate; supports charter check **V2** (units/mm, F2 central 70×70 mm).
+
+**Gate:** UI-D-01 is **not** a Phase D hard gate; it is **required for Sprint D closeout** once committed and `npm test` includes the new Vitest file.
+
 ---
 
 ## Risk register (updated)
@@ -123,7 +142,8 @@ Operational docs were stale on security gaps (pre-Wave 1). **Updated 2026-05-20*
 
 | Priority | Task | Sub-agent | Deliverable |
 |----------|------|-----------|-------------|
-| P0 | SEC-D-01 | `senior-engineer` | Four permission TOMLs; `default.json` updated; deprecate or remove old `allow-generate-depth-map.toml` |
+| P0 | SEC-D-01 | `senior-engineer` | ✅ Complete |
+| P1 | UI-D-01 | UI Designer / Senior Engineer | Commit F2 warning module + tests; confirm `npm test` green |
 | P0 | QA-B-01 verify | `shell` | `cargo test` green or CI log excerpt in PROGRESS_REPORT |
 | P1 | DOC-D-02 | `generalPurpose` + Security persona | `docs/threat-model.md` §2.4/§2.6; `docs/security-checklist.md` |
 | P1 | DOC-D-01 | `generalPurpose` + Docs persona | `docs/engraver-interop.md` + README link |

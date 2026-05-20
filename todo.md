@@ -1,6 +1,6 @@
 # SimplePicture3D — Program TODO and Sprint Roadmap
 
-**Version:** 4.4  
+**Version:** 4.5  
 **Last Updated:** 2026-05-20  
 **Owner:** System Architect  
 **Latest Commit:** see git log  
@@ -30,10 +30,12 @@ This roadmap reflects the deliberate restart decision (2026-05-10) plus two impl
 ### Remaining Gaps (next work — post Sprint D Waves 1–4)
 - **QA-D-01:** Engraver import validation — procedure ready; **execute** in XTool Studio (F2 Ultra UV); record in `MANUAL_TEST_REPORT.md`.
 - **BACK-D-01:** Blocked on QA-D-01 — axis/units/export defect fixes.
-- **SEC-D-01:** Split `allow-generate-depth-map` per `ARCH-D-02_COMMAND_AUDIT.md` (Wave 5).
+- **SEC-D-01:** ✅ Split `allow-generate-depth-map` per `ARCH-D-02_COMMAND_AUDIT.md` (Wave 5).
+- **UI-D-01:** F2 Ultra UV volume warnings — logic + Export/Preview UI; **commit pending** (`f2VolumeWarnings.ts`, `F2VolumeWarnings.svelte`, Vitest).
 - **QA-B-01:** Eight export tests in `lib.rs` — **review**; verify via CI or Windows `cargo test` (Linux blocked: GTK/WebKit).
 - **QA-C-01 / QA-D-02 / QA-D-03:** Manual UX pass, 4K timing benchmark, pentest checklist — not started.
-- **DOC-D-01 / DOC-D-02 / SECURITY_SIGNOFF:** Interop notes, threat model sync, sign-off — Wave 5.
+- **DOC-D-01:** ✅ `docs/engraver-interop.md` + README link.
+- **DOC-D-02 / SECURITY_SIGNOFF:** Threat model sync, sign-off — Wave 5.
 - **SEC-D-02 follow-up:** Real SHA256 digests after trusted model download (stub manifest in place).
 - **SEC-D-07–SEC-D-11:** P2/P3 — Phase E unless sign-off requires earlier.
 - **Stale settings comments:** `settings.rs` still documents legacy `export_format` (stl/obj) — Phase E cleanup.
@@ -174,7 +176,8 @@ All sprints are 1 week unless explicitly marked.
 **Sprint package:** `SPRINTS/Sprint_D/` (`SPRINT_D_Task_Assignment.md`, `SECURITY_REVIEW_2026-05.md`, `SECURITY_PENTEST_CHECKLIST.md`).
 
 **Engraver & performance**
-- **ARCH-D-01:** Document engraver charter: axis convention (which app axis maps to laser X/Y/Z), units (mm), accepted formats, point ordering expectations.
+- **ARCH-D-01:** ✅ Document engraver charter: axis convention, units (mm), formats, F2 work volume.
+- **UI-D-01:** F2 Ultra UV volume warnings — non-blocking exceed/near-edge alerts in Export panel and Preview3D; limits 70×70×150 mm, 5 mm clearance; see `docs/ARCHITECT_PROGRESS_REVIEW_2026-05-20.md` §7. **Review** (commit pending).
 - **QA-D-01:** Export PLY and XYZ from a real image; import into target engraver software; verify axis orientation and point distribution.
 - **BACK-D-01:** Fix any compatibility defects found (axis flips, unit scaling, header metadata, decimal precision).
 - **QA-D-02:** Performance check — time from image load to PLY export for a 4K image on a mid-range machine.
@@ -235,6 +238,7 @@ All sprints are 1 week unless explicitly marked.
 | TD-08 | `lib.rs` testability/coverage gap | High | Dedicated refactor slice in Phase D |
 | TD-06 | Export path TOCTOU write-test pattern | Medium | Sprint D — SEC-D-09 |
 | TD-21 | `withGlobalTauri: true` widens webview compromise blast radius | Low | Sprint D — SEC-D-11 |
+| TD-22 | F2 warnings hard-coded to one engraver envelope | Low | UI-D-01 ships F2-only; Phase E engraver matrix / selector |
 | TD-09 | Accessibility issues in advanced controls | Medium | Post-Phase D polish |
 
 ---

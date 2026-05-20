@@ -48,6 +48,8 @@ Full detail is in the [charter](engraver-charter.md). Summary:
 2. **Generate depth** — Click **Generate Depth Map**. Wait until the grayscale depth view appears. (For testing without downloading the AI model, use stub mode — see [SETUP_NOTES](../SETUP_NOTES.md).)
 3. **Tune depth (optional)** — Adjust brightness, contrast, gamma, or masks until the subject reads clearly in the depth preview.
 4. **Set the blank** — In the **Export** panel, choose preset **50 × 50 × 80 (standard)** (or enter L×W×H and margin to match your physical blank).
+   - If dimensions exceed the F2 Ultra UV processing volume (**70 × 70 × 150 mm**), an **amber** warning appears — export may not fit the machine.
+   - If the etch interior is within **5 mm** of a limit, a **yellow** “too close to the edge” warning appears. These are advisory; you can still export.
 5. **Check sampling** — In volumetric/sampling controls, leave **step 1** and **depth threshold 0.05** unless you need fewer points for a test run.
 6. **Preview (recommended)** — In the 3D view, click **Load point cloud**. Confirm points sit inside the yellow wireframe; rotate to recognise your subject.
 7. **Export PLY** — Export panel → format **PLY** → enable **ASCII PLY** → **Export point cloud** → save e.g. `my-engraving.ply`.
