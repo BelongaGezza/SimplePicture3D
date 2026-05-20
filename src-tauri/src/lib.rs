@@ -29,6 +29,8 @@ use std::time::Duration;
 use tauri::Emitter;
 use tauri::State;
 
+use path_security::{is_blocklisted, validate_import_file_path};
+
 use blank_envelope::BlankEnvelope;
 use depth_adjust::{apply_adjustments, compute_histogram, DepthAdjustmentParams};
 use export::ExportMetadata;
