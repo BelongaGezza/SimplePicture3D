@@ -5,7 +5,7 @@
 ## Requirements
 
 - **Python:** 3.10 or newer
-- **Dependencies:** `pip install -r requirements.txt` (see below)
+- **Dependencies:** `pip install -r requirements.txt` (ML inference); CI stub uses `requirements-stub.txt` (Pillow only)
 
 ## Setup
 
