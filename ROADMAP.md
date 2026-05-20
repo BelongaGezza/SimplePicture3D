@@ -43,9 +43,9 @@ The **2026-05-10 restart** replaced the 2.5D mesh pipeline with ADR-012 surface-
 │  ✅ Algorithm      ADR-012 surface-map in volumetric.rs          │
 │  ✅ Backend API    36 Tauri commands; PLY/XYZ/CSV export         │
 │  ✅ Frontend       Blank setup, params, preview, export UI       │
-│  ⏳ Validation     Real engraver import not yet signed off       │
-│  ⏳ Security       Sprint D remediations (P0–P3)                   │
-│  ⏳ Performance    Large IPC payloads; 4K timing not benchmarked │
+│  ⏳ Validation     QA-D-01 ready; XTool Studio import not run yet  │
+│  ⏳ Security       P0/P1 done; SEC-D-01 ACL split + sign-off open  │
+│  ⏳ Performance    IPC caps shipped; QA-D-02 4K benchmark pending    │
 │  ⬜ Release        Installers, docs, cross-platform packaging    │
 └─────────────────────────────────────────────────────────────────┘
 ```

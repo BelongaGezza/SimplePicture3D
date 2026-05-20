@@ -12,7 +12,7 @@
 
 ## QA-D-01 — Engraver import
 
-**Task status:** Procedure **ready** · Engraver execution **blocked** (target software TBD)  
+**Task status:** Procedure **ready** · Engraver execution **ready** (XTool Studio + xTool F2 Ultra UV)  
 **Charter:** [docs/engraver-charter.md](../../docs/engraver-charter.md) (draft, 2026-05-19)
 
 ### Environment (fill on execution)
@@ -22,17 +22,17 @@
 | Git commit (`git rev-parse --short HEAD`) | |
 | Build | `tauri dev` ☐ / release build ☐ |
 | OS + version | |
-| Engraver software + version | **TBD** |
+| Engraver software + version | **XTool Studio** (version: _____) · **xTool F2 Ultra UV** |
 | Stub depth (`SP3D_USE_STUB=1`) | Yes ☐ / No ☐ |
 | Test image (path + size) | e.g. `tests/fixtures/valid_small.png` |
-| Blank used | 80×50×50 mm, margin 2 mm ☐ (other: _____) |
+| Blank used | 50×50×80 mm, margin 2 mm ☐ (other: _____) |
 
 ### Prerequisites (summary)
 
 - Toolchain per `SETUP_NOTES.md`; `npm run tauri dev` runs.
 - Fixtures: `node scripts/gen_fixtures.mjs` if PNG fixtures missing.
 - Optional stub depth: `export SP3D_USE_STUB=1` before `npm run tauri dev` (no Hugging Face model).
-- Default blank: **80 × 50 × 50 mm**, margin **2 mm** (Standard preset).
+- Default blank: **50 × 50 × 80 mm**, margin **2 mm** (Standard preset).
 
 **Full steps:** [QA-D-01_TEST_PROCEDURE.md](./QA-D-01_TEST_PROCEDURE.md) § B–C (app), § D (engraver).
 
@@ -41,7 +41,7 @@
 | Phase | Scope | Result | Notes |
 |-------|--------|--------|-------|
 | App export (C1–C8) | Load → depth → blank → PLY ASCII + XYZ | Not run ☐ / Pass ☐ / Fail ☐ | |
-| Engraver import (D1–D7) | PLY + XYZ into target engraver | **Blocked** ☐ / Pass ☐ / Fail ☐ | Engraver: TBD |
+| Engraver import (D1–D7) | PLY into XTool Studio (Point Cloud Engraving) | Not run ☐ / Pass ☐ / Fail ☐ | XYZ: secondary if Studio supports |
 
 ### Format results
 
@@ -73,7 +73,7 @@
 |---------|-------------|
 | ☐ **Pass** | Engraver import Pass; V1–V7 Pass |
 | ☐ **Fail** | Wrong units/axes, import error, or bbox violation |
-| ☐ **Blocked** | Engraver software not available (sprint gate open) |
+| ☐ **Blocked** | XTool Studio or F2 Ultra UV unavailable |
 | ☐ **Partial** | App export Pass; engraver steps not run |
 
 ### Defect log (BACK-D-01 handoff)
@@ -116,4 +116,4 @@ See `SECURITY_PENTEST_CHECKLIST.md` — copy Pass/Fail column here or attach sum
 
 **Sprint D QA sign-off:** ☐ Pass ☐ Fail — **Date:** ___________
 
-**QA-D-01 blocker:** Target engraver software name/version not assigned; complete § D in [QA-D-01_TEST_PROCEDURE.md](./QA-D-01_TEST_PROCEDURE.md) when available.
+**QA-D-01 next step:** Run § C (app export) then § D (XTool Studio import) per [QA-D-01_TEST_PROCEDURE.md](./QA-D-01_TEST_PROCEDURE.md). Record Studio version and any axis/unit transforms in the defect log.

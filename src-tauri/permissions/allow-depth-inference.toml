@@ -1,0 +1,6 @@
+[[permission]]
+identifier = "allow-depth-inference"
+description = "Enables AI depth map inference via the Python subprocess (high-risk; SEC-D-01 isolated from read/adjust/mask)."
+commands.allow = [
+    "generate_depth_map",
+]

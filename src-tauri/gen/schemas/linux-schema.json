@@ -387,16 +387,34 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Enables depth map generation, retrieval, adjustment, undo/redo, and mask commands. Point cloud commands are in allow-point-cloud.toml.",
+          "description": "Enables in-memory depth adjustment, undo/redo, history, and reset commands (SEC-D-01).",
           "type": "string",
-          "const": "allow-generate-depth-map",
-          "markdownDescription": "Enables depth map generation, retrieval, adjustment, undo/redo, and mask commands. Point cloud commands are in allow-point-cloud.toml."
+          "const": "allow-depth-adjust",
+          "markdownDescription": "Enables in-memory depth adjustment, undo/redo, history, and reset commands (SEC-D-01)."
+        },
+        {
+          "description": "Enables AI depth map inference via the Python subprocess (high-risk; SEC-D-01 isolated from read/adjust/mask).",
+          "type": "string",
+          "const": "allow-depth-inference",
+          "markdownDescription": "Enables AI depth map inference via the Python subprocess (high-risk; SEC-D-01 isolated from read/adjust/mask)."
+        },
+        {
+          "description": "Enables read-only depth map and histogram retrieval (SEC-D-01).",
+          "type": "string",
+          "const": "allow-depth-read",
+          "markdownDescription": "Enables read-only depth map and histogram retrieval (SEC-D-01)."
         },
         {
           "description": "Enables the load_image command.",
           "type": "string",
           "const": "allow-load-image",
           "markdownDescription": "Enables the load_image command."
+        },
+        {
+          "description": "Enables mask get/set/clear plus file-backed save/load commands (SEC-D-01).",
+          "type": "string",
+          "const": "allow-mask",
+          "markdownDescription": "Enables mask get/set/clear plus file-backed save/load commands (SEC-D-01)."
         },
         {
           "description": "Enables AI model check, info, and download commands (SEC-D-06).",

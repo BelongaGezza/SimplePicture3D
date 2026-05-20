@@ -1,11 +1,12 @@
 # SimplePicture3D — Program TODO and Sprint Roadmap
 
-**Version:** 4.3  
-**Last Updated:** 2026-05-19  
+**Version:** 4.4  
+**Last Updated:** 2026-05-20  
 **Owner:** System Architect  
 **Latest Commit:** see git log  
 **Production path:** `ROADMAP.md`  
-**Takeover review:** `docs/ARCHITECT_REVIEW_2026-05.md`
+**Takeover review:** `docs/ARCHITECT_REVIEW_2026-05.md`  
+**Sprint D progress (2026-05-20):** `docs/ARCHITECT_PROGRESS_REVIEW_2026-05-20.md`
 
 ---
 
@@ -26,14 +27,16 @@ This roadmap reflects the deliberate restart decision (2026-05-10) plus two impl
 - `tauri.conf.json` bundle description updated for 3D surface point cloud purpose.
 - Python bridge contract unchanged: Rust `--input` temp file, Python emits JSON depth + `PROGRESS`/`STAGE` on stderr.
 
-### Remaining Gaps (next work)
-- **UI-C-02:** ✅ Volumetric params panel — pixel step, depth threshold, live point count estimate (`VolumetricParamsPanel.svelte`).
-- **DOC-A-02:** ✅ `README.md` updated for ADR-012 surface-map (2026-05-19).
-- **DOC-A-05:** ✅ `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md` archived to `RESEARCH/archive/`.
-- **QA-B-01 / QA-C-01:** Command-level export integration tests and manual full-workflow UX pass not yet recorded.
-- **Phase D:** No engraver software validation, performance benchmark, or permission granularity audit yet.
-- **Security (2026-05-19 review):** Model SHA256 table empty (`expected_model_hashes.json`); IPC DoS limits missing; `load_preset` absolute-path read; settings/model commands not in Tauri ACL — see Sprint D (`SEC-D-02`–`SEC-D-10`) and `SPRINTS/Sprint_D/SECURITY_REVIEW_2026-05.md`.
-- **Stale settings comments:** `settings.rs` still documents legacy `export_format` (stl/obj) alongside new `point_cloud_format`.
+### Remaining Gaps (next work — post Sprint D Waves 1–4)
+- **QA-D-01:** Engraver import validation — procedure ready; **execute** in XTool Studio (F2 Ultra UV); record in `MANUAL_TEST_REPORT.md`.
+- **BACK-D-01:** Blocked on QA-D-01 — axis/units/export defect fixes.
+- **SEC-D-01:** Split `allow-generate-depth-map` per `ARCH-D-02_COMMAND_AUDIT.md` (Wave 5).
+- **QA-B-01:** Eight export tests in `lib.rs` — **review**; verify via CI or Windows `cargo test` (Linux blocked: GTK/WebKit).
+- **QA-C-01 / QA-D-02 / QA-D-03:** Manual UX pass, 4K timing benchmark, pentest checklist — not started.
+- **DOC-D-01 / DOC-D-02 / SECURITY_SIGNOFF:** Interop notes, threat model sync, sign-off — Wave 5.
+- **SEC-D-02 follow-up:** Real SHA256 digests after trusted model download (stub manifest in place).
+- **SEC-D-07–SEC-D-11:** P2/P3 — Phase E unless sign-off requires earlier.
+- **Stale settings comments:** `settings.rs` still documents legacy `export_format` (stl/obj) — Phase E cleanup.
 
 ---
 
@@ -52,10 +55,11 @@ This roadmap reflects the deliberate restart decision (2026-05-10) plus two impl
 5. **P1: Validate output with real engraver software**
    - At least one confirmed end-to-end path before claiming v1.0.
 
-6. **P1: Security hardening (2026-05-19 review)** — Sprint D
-   - **P0:** Populate model SHA256 hashes; enforce max image size before depth subprocess.
-   - **P1:** Cap IPC payloads; restrict preset/mask import paths; complete Tauri ACL for settings/model commands.
-   - **P2/P3:** Subprocess env allowlist, adjustment-param bounds, export TOCTOU fix, disable `withGlobalTauri` in release.
+6. **P1: Security hardening (Sprint D)** — Waves 1–2 **complete**; Wave 5 remainder
+   - **P0 ✅:** SEC-D-03 max image size; SEC-D-02 stub hash manifest (real digests: maintainer action).
+   - **P1 ✅:** SEC-D-04 IPC caps; SEC-D-05 path policy; SEC-D-06 settings/model ACL; SEC-D-12 export sanitization.
+   - **P1 ✅:** SEC-D-01 split coarse `allow-generate-depth-map` (ARCH-D-02).
+   - **P2/P3:** SEC-D-07–SEC-D-11 — Phase E default; see `docs/ARCHITECT_PROGRESS_REVIEW_2026-05-20.md`.
 
 7. **P2: Defer Full 3D reconstruction (TripoSR)**
    - Keep as a documented future option; do not interleave with core stabilisation.

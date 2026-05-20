@@ -356,52 +356,61 @@ fn generate_point_cloud(
     }
 }
 
-#[tauri::command]
-fn export_ply(path: String, binary: bool, state: State<AppState>) -> Result<(), String> {
-    let (canonical_path, canonical_str) = validate_export_path(&path, "ply")?;
-    let points = {
-        let guard = state.last_point_cloud.lock().map_err(|e| e.to_string())?;
-        let Some(ref cached) = *guard else {
-            return Err("No point cloud generated; run generate_point_cloud first.".to_string());
-        };
-        cached.points.clone()
+/// Read cached point cloud points from state for an export command (ADR-012).
+///
+/// Extracted from the `export_*` commands so that integration tests (QA-B-01) can
+/// drive the same code paths without spinning up a Tauri runtime.
+fn take_cached_export_points(state: &AppState) -> Result<Vec<[f32; 3]>, String> {
+    let guard = state.last_point_cloud.lock().map_err(|e| e.to_string())?;
+    let Some(ref cached) = *guard else {
+        return Err("No point cloud generated; run generate_point_cloud first.".to_string());
     };
-    let metadata = build_export_metadata(&state)?;
+    Ok(cached.points.clone())
+}
+
+/// Implementation backing the `export_ply` Tauri command (QA-B-01 testable surface).
+fn export_ply_impl(path: &str, binary: bool, state: &AppState) -> Result<(), String> {
+    let (canonical_path, canonical_str) = validate_export_path(path, "ply")?;
+    let points = take_cached_export_points(state)?;
+    let metadata = build_export_metadata(state)?;
     export::export_ply(canonical_path.as_path(), &points, &metadata, binary)
         .map_err(|e| e.to_string())?;
-    persist_last_export_dir(&state, &canonical_str)?;
+    persist_last_export_dir(state, &canonical_str)?;
     Ok(())
+}
+
+/// Implementation backing the `export_xyz` Tauri command (QA-B-01 testable surface).
+fn export_xyz_impl(path: &str, state: &AppState) -> Result<(), String> {
+    let (canonical_path, canonical_str) = validate_export_path(path, "xyz")?;
+    let points = take_cached_export_points(state)?;
+    export::export_xyz(canonical_path.as_path(), &points).map_err(|e| e.to_string())?;
+    persist_last_export_dir(state, &canonical_str)?;
+    Ok(())
+}
+
+/// Implementation backing the `export_csv` Tauri command (QA-B-01 testable surface).
+fn export_csv_impl(path: &str, state: &AppState) -> Result<(), String> {
+    let (canonical_path, canonical_str) = validate_export_path(path, "csv")?;
+    let points = take_cached_export_points(state)?;
+    let metadata = build_export_metadata(state)?;
+    export::export_csv(canonical_path.as_path(), &points, &metadata).map_err(|e| e.to_string())?;
+    persist_last_export_dir(state, &canonical_str)?;
+    Ok(())
+}
+
+#[tauri::command]
+fn export_ply(path: String, binary: bool, state: State<AppState>) -> Result<(), String> {
+    export_ply_impl(&path, binary, &state)
 }
 
 #[tauri::command]
 fn export_xyz(path: String, state: State<AppState>) -> Result<(), String> {
-    let (canonical_path, canonical_str) = validate_export_path(&path, "xyz")?;
-    let points = {
-        let guard = state.last_point_cloud.lock().map_err(|e| e.to_string())?;
-        let Some(ref cached) = *guard else {
-            return Err("No point cloud generated; run generate_point_cloud first.".to_string());
-        };
-        cached.points.clone()
-    };
-    export::export_xyz(canonical_path.as_path(), &points).map_err(|e| e.to_string())?;
-    persist_last_export_dir(&state, &canonical_str)?;
-    Ok(())
+    export_xyz_impl(&path, &state)
 }
 
 #[tauri::command]
 fn export_csv(path: String, state: State<AppState>) -> Result<(), String> {
-    let (canonical_path, canonical_str) = validate_export_path(&path, "csv")?;
-    let points = {
-        let guard = state.last_point_cloud.lock().map_err(|e| e.to_string())?;
-        let Some(ref cached) = *guard else {
-            return Err("No point cloud generated; run generate_point_cloud first.".to_string());
-        };
-        cached.points.clone()
-    };
-    let metadata = build_export_metadata(&state)?;
-    export::export_csv(canonical_path.as_path(), &points, &metadata).map_err(|e| e.to_string())?;
-    persist_last_export_dir(&state, &canonical_str)?;
-    Ok(())
+    export_csv_impl(&path, &state)
 }
 
 // --- Sprint 2.3: Presets (BACK-1302) ---
@@ -1310,6 +1319,345 @@ mod tests {
         };
         let r = generate_point_cloud_from_state(&state).unwrap();
         assert_eq!(r.point_count, 16);
+    }
+
+    // =========================================================================
+    // QA-B-01: Command-level export integration tests (PLY / XYZ / CSV)
+    //
+    // These tests drive `export_*_impl` — the same code paths the Tauri command
+    // wrappers invoke — minus the IPC marshalling layer. They populate an
+    // `AppState` with a cached `VolumetricResult`, write to a temp directory,
+    // and verify the on-disk byte layout. Tauri command wrappers themselves are
+    // one-liner delegations to these `_impl` functions, so the IPC seam adds no
+    // additional behaviour that needs separate coverage in this Rust unit-test
+    // crate. Full IPC `invoke()` tests would require Tauri's `MockBuilder`
+    // runtime (see RESEARCH/tauri.md) and are best added in a CI-only test
+    // binary once the GTK/WebKit dev libs ship on the Linux runner.
+    //
+    // Side-effect note: `export_*_impl` calls `persist_last_export_dir`, which
+    // writes `last_export_dir` to `~/.simplepicture3d/settings.json`. This is
+    // pre-existing behaviour also exercised by `settings_save_and_load_roundtrip`
+    // in `settings.rs`. These tests do not assert on settings.json contents.
+    // =========================================================================
+
+    /// Build a unique temp directory for an export test, isolated from other tests.
+    ///
+    /// Returns the **canonical** path so that comparisons survive `/tmp` → `/private/tmp`
+    /// symlink resolution applied by `validate_export_path` on macOS.
+    fn qa_b01_temp_dir(suffix: &str) -> std::path::PathBuf {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let dir = std::env::temp_dir().join(format!("sp3d_qa_b01_{suffix}_{stamp}"));
+        std::fs::create_dir_all(&dir).expect("create temp export dir");
+        std::fs::canonicalize(&dir).expect("canonicalize temp export dir")
+    }
+
+    /// Build an `AppState` with a deterministic cached point cloud for export tests.
+    ///
+    /// Uses a 4×4 uniform-depth map and a default `BlankEnvelope` so the resulting
+    /// `VolumetricResult` is independent of any model output. `source_image_path`
+    /// is set so `build_export_metadata` records a `Source:` comment.
+    fn qa_b01_state_with_cached_cloud(source_image_path: Option<String>) -> AppState {
+        let depth = python_bridge::DepthMapOutput {
+            width: 4,
+            height: 4,
+            depth: vec![0.5f32; 16],
+        };
+        let app_settings = settings::AppSettings {
+            blank_envelope: Some(BlankEnvelope::default()),
+            volumetric_params: Some(VolumetricParams {
+                step_x: 1,
+                step_y: 1,
+                depth_threshold: 0.0,
+            }),
+            ..Default::default()
+        };
+        let state = AppState {
+            depth: Mutex::new(Some(depth)),
+            adjustment_params: Mutex::new(DepthAdjustmentParams::default()),
+            mask: Mutex::new(None),
+            source_image_path: Mutex::new(source_image_path),
+            app_settings: Mutex::new(app_settings),
+            undo_redo: Mutex::new(UndoRedoHistory::new()),
+            last_point_cloud: Mutex::new(None),
+        };
+        let result = generate_point_cloud_from_state(&state)
+            .expect("generate cached point cloud for QA-B-01 fixture");
+        *state
+            .last_point_cloud
+            .lock()
+            .expect("lock last_point_cloud") = Some(result);
+        state
+    }
+
+    /// QA-B-01: `export_ply` writes a valid ASCII PLY header and one line per point.
+    #[test]
+    fn export_ply_command_writes_ascii_on_disk() {
+        let dir = qa_b01_temp_dir("ply_ascii");
+        let path = dir.join("cloud.ply");
+        let state = qa_b01_state_with_cached_cloud(Some("/some/path/portrait.png".to_string()));
+
+        export_ply_impl(path.to_string_lossy().as_ref(), false, &state)
+            .expect("export_ply_impl should succeed");
+
+        let body = std::fs::read_to_string(&path).expect("read PLY back");
+        assert!(body.starts_with("ply\n"), "PLY must start with magic line");
+        assert!(body.contains("format ascii 1.0\n"));
+        assert!(body.contains("element vertex 16"), "4x4 uniform => 16 points");
+        assert!(body.contains("property float x\n"));
+        assert!(body.contains("property float y\n"));
+        assert!(body.contains("property float z\n"));
+        assert!(body.contains("end_header\n"));
+        assert!(body.contains("comment Generated by SimplePicture3D"));
+        assert!(body.contains("comment Source: portrait.png"));
+        assert!(body.contains("comment Blank: 50x50x80 mm, margin 2 mm"));
+
+        let vertex_lines: Vec<_> = body
+            .lines()
+            .skip_while(|l| *l != "end_header")
+            .skip(1)
+            .collect();
+        assert_eq!(vertex_lines.len(), 16, "one ASCII line per point");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// QA-B-01: `export_ply` with `binary=true` writes ASCII header + correct binary payload size.
+    #[test]
+    fn export_ply_command_writes_binary_on_disk() {
+        let dir = qa_b01_temp_dir("ply_bin");
+        let path = dir.join("cloud.ply");
+        let state = qa_b01_state_with_cached_cloud(None);
+
+        export_ply_impl(path.to_string_lossy().as_ref(), true, &state)
+            .expect("export_ply_impl(binary) should succeed");
+
+        let bytes = std::fs::read(&path).expect("read binary PLY back");
+        let header_end = bytes
+            .windows(11)
+            .position(|w| w == b"end_header\n")
+            .expect("binary PLY must contain end_header marker");
+        let header = String::from_utf8_lossy(&bytes[..header_end + 11]);
+        assert!(header.contains("format binary_little_endian 1.0"));
+        assert!(header.contains("element vertex 16"));
+
+        let payload_len = bytes.len() - (header_end + 11);
+        assert_eq!(
+            payload_len,
+            16 * 3 * 4,
+            "binary payload must be N points * 3 floats * 4 bytes"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// QA-B-01: `export_xyz` writes one space-separated `x y z` line per point with no header.
+    #[test]
+    fn export_xyz_command_writes_one_line_per_point() {
+        let dir = qa_b01_temp_dir("xyz");
+        let path = dir.join("cloud.xyz");
+        let state = qa_b01_state_with_cached_cloud(None);
+
+        export_xyz_impl(path.to_string_lossy().as_ref(), &state)
+            .expect("export_xyz_impl should succeed");
+
+        let body = std::fs::read_to_string(&path).expect("read XYZ back");
+        let lines: Vec<&str> = body.lines().collect();
+        assert_eq!(lines.len(), 16, "one line per point, no header");
+        for line in &lines {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            assert_eq!(parts.len(), 3, "each XYZ line is 'x y z': {line}");
+            for p in parts {
+                p.parse::<f32>()
+                    .unwrap_or_else(|_| panic!("XYZ component must parse as f32: {p}"));
+            }
+        }
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// QA-B-01: `export_csv` writes commented metadata, an `x,y,z` header, and N data rows.
+    #[test]
+    fn export_csv_command_writes_header_and_points() {
+        let dir = qa_b01_temp_dir("csv");
+        let path = dir.join("cloud.csv");
+        let state =
+            qa_b01_state_with_cached_cloud(Some("/some/dir/landscape.JPG".to_string()));
+
+        export_csv_impl(path.to_string_lossy().as_ref(), &state)
+            .expect("export_csv_impl should succeed");
+
+        let body = std::fs::read_to_string(&path).expect("read CSV back");
+        assert!(body.contains("# Generated by SimplePicture3D"));
+        assert!(body.contains("# Source: landscape.JPG"));
+        assert!(body.contains("# Blank: 50x50x80 mm, margin 2 mm"));
+
+        let header_idx = body
+            .lines()
+            .position(|l| l == "x,y,z")
+            .expect("CSV must contain x,y,z header row");
+        let data_lines: Vec<&str> = body.lines().skip(header_idx + 1).collect();
+        assert_eq!(data_lines.len(), 16, "CSV: one data row per point");
+        for line in &data_lines {
+            let parts: Vec<&str> = line.split(',').collect();
+            assert_eq!(parts.len(), 3, "CSV row must have 3 comma-separated values: {line}");
+            for p in parts {
+                p.parse::<f32>()
+                    .unwrap_or_else(|_| panic!("CSV component must parse as f32: {p}"));
+            }
+        }
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// QA-B-01: All three export commands must error before a point cloud is generated.
+    #[test]
+    fn export_commands_error_without_cached_point_cloud() {
+        let dir = qa_b01_temp_dir("no_cloud");
+        let state = AppState {
+            depth: Mutex::new(None),
+            adjustment_params: Mutex::new(DepthAdjustmentParams::default()),
+            mask: Mutex::new(None),
+            source_image_path: Mutex::new(None),
+            app_settings: Mutex::new(settings::AppSettings::default()),
+            undo_redo: Mutex::new(UndoRedoHistory::new()),
+            last_point_cloud: Mutex::new(None),
+        };
+
+        let ply_path = dir.join("nope.ply");
+        let xyz_path = dir.join("nope.xyz");
+        let csv_path = dir.join("nope.csv");
+
+        for (label, err) in [
+            (
+                "ply",
+                export_ply_impl(ply_path.to_string_lossy().as_ref(), false, &state).unwrap_err(),
+            ),
+            (
+                "xyz",
+                export_xyz_impl(xyz_path.to_string_lossy().as_ref(), &state).unwrap_err(),
+            ),
+            (
+                "csv",
+                export_csv_impl(csv_path.to_string_lossy().as_ref(), &state).unwrap_err(),
+            ),
+        ] {
+            assert!(
+                err.contains("No point cloud generated"),
+                "{label} expected helpful error, got: {err}"
+            );
+        }
+
+        assert!(!ply_path.exists(), "PLY must not be written on error");
+        assert!(!xyz_path.exists(), "XYZ must not be written on error");
+        assert!(!csv_path.exists(), "CSV must not be written on error");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// QA-B-01 + SEC-401: each export command rejects paths whose extension does not match.
+    #[test]
+    fn export_commands_reject_wrong_extension() {
+        let dir = qa_b01_temp_dir("bad_ext");
+        let state = qa_b01_state_with_cached_cloud(None);
+
+        // .txt is wrong for every export format.
+        let txt_path = dir.join("cloud.txt");
+        let ply_err =
+            export_ply_impl(txt_path.to_string_lossy().as_ref(), false, &state).unwrap_err();
+        assert!(
+            ply_err.contains(".ply extension"),
+            "export_ply should require .ply: {ply_err}"
+        );
+        let xyz_err = export_xyz_impl(txt_path.to_string_lossy().as_ref(), &state).unwrap_err();
+        assert!(
+            xyz_err.contains(".xyz extension"),
+            "export_xyz should require .xyz: {xyz_err}"
+        );
+        let csv_err = export_csv_impl(txt_path.to_string_lossy().as_ref(), &state).unwrap_err();
+        assert!(
+            csv_err.contains(".csv extension"),
+            "export_csv should require .csv: {csv_err}"
+        );
+
+        // Cross-extension swap: each impl rejects another export format's extension.
+        let xyz_swap = dir.join("cloud.xyz");
+        let err = export_ply_impl(xyz_swap.to_string_lossy().as_ref(), false, &state).unwrap_err();
+        assert!(err.contains(".ply extension"), "export_ply on .xyz: {err}");
+
+        assert!(!txt_path.exists(), "rejected path must not be created");
+        assert!(!xyz_swap.exists(), "rejected path must not be created");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// QA-B-01 + SEC-D-12: `source_image_path` containing newlines must not inject extra
+    /// comment lines in the PLY or CSV output (only the sanitized basename appears).
+    #[test]
+    fn export_commands_sanitize_source_image_filename() {
+        let dir = qa_b01_temp_dir("sanitize");
+        let ply_path = dir.join("cloud.ply");
+        let csv_path = dir.join("cloud.csv");
+        // Embedded newline / control char in the filename component of the path.
+        let dirty = "/tmp/evil\nimage\u{0007}.png".to_string();
+        let state = qa_b01_state_with_cached_cloud(Some(dirty));
+
+        export_ply_impl(ply_path.to_string_lossy().as_ref(), false, &state)
+            .expect("export_ply_impl should succeed");
+        export_csv_impl(csv_path.to_string_lossy().as_ref(), &state)
+            .expect("export_csv_impl should succeed");
+
+        let ply_body = std::fs::read_to_string(&ply_path).expect("read PLY");
+        let ply_source_lines: Vec<_> = ply_body
+            .lines()
+            .filter(|l| l.starts_with("comment Source:"))
+            .collect();
+        assert_eq!(
+            ply_source_lines.len(),
+            1,
+            "exactly one Source comment in PLY"
+        );
+        assert!(
+            ply_source_lines[0].contains("evilimage.png"),
+            "PLY source must be sanitized basename: {ply_source_lines:?}"
+        );
+
+        let csv_body = std::fs::read_to_string(&csv_path).expect("read CSV");
+        let csv_source_lines: Vec<_> = csv_body
+            .lines()
+            .filter(|l| l.starts_with("# Source:"))
+            .collect();
+        assert_eq!(
+            csv_source_lines.len(),
+            1,
+            "exactly one Source comment in CSV"
+        );
+        assert!(
+            csv_source_lines[0].contains("evilimage.png"),
+            "CSV source must be sanitized basename: {csv_source_lines:?}"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// QA-B-01: empty export path is rejected by all three commands.
+    #[test]
+    fn export_commands_reject_empty_path() {
+        let state = qa_b01_state_with_cached_cloud(None);
+        assert!(export_ply_impl("", false, &state)
+            .unwrap_err()
+            .to_lowercase()
+            .contains("non-empty"));
+        assert!(export_xyz_impl("", &state)
+            .unwrap_err()
+            .to_lowercase()
+            .contains("non-empty"));
+        assert!(export_csv_impl("", &state)
+            .unwrap_err()
+            .to_lowercase()
+            .contains("non-empty"));
     }
 
     #[test]

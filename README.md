@@ -131,6 +131,7 @@ Takeover review: [docs/ARCHITECT_REVIEW_2026-05.md](docs/ARCHITECT_REVIEW_2026-0
 | [RESEARCH/architecture.md](RESEARCH/architecture.md) | ADRs and system design |
 | [docs/developer-guide.md](docs/developer-guide.md) | Contributor setup |
 | [docs/testing.md](docs/testing.md) | Manual QA checklist |
+| [docs/engraver-interop.md](docs/engraver-interop.md) | XTool Studio import workflow (F2 Ultra UV) |
 
 ---
 

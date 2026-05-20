@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 /// that will be laser engraved. Points are scaled and translated to fit within
 /// these bounds while respecting the safety margin.
 ///
-/// **Default:** 80×50×50 mm with 2mm margin (common crystal blank size).
+/// **Default:** 50×50×80 mm with 2mm margin — XY fits xTool F2 Ultra UV 70×70 mm processing area; 80 mm on Z uses engraver height headroom.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlankEnvelope {
@@ -31,9 +31,9 @@ pub struct BlankEnvelope {
 impl Default for BlankEnvelope {
     fn default() -> Self {
         Self {
-            length_mm: 80.0,
+            length_mm: 50.0,
             width_mm: 50.0,
-            height_mm: 50.0,
+            height_mm: 80.0,
             margin_mm: 2.0,
         }
     }
@@ -100,24 +100,24 @@ impl BlankEnvelope {
 /// Common blank presets for quick selection.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum BlankPreset {
-    /// 80×50×50 mm - common rectangular crystal
+    /// 50×50×80 mm — default; tall Z for xTool F2 Ultra UV (70×70×150 mm work volume)
     Standard,
     /// 60×60×60 mm - cubic crystal
     Cube60,
     /// 100×60×60 mm - large rectangular crystal
     Large,
-    /// 50×50×80 mm - tall rectangular crystal
-    Tall,
+    /// 80×50×50 mm - wide rectangular crystal
+    Wide,
 }
 
 impl BlankPreset {
     /// Get the blank envelope for this preset (with default 2mm margin).
     pub fn to_envelope(self) -> BlankEnvelope {
         match self {
-            BlankPreset::Standard => BlankEnvelope::new(80.0, 50.0, 50.0, 2.0),
+            BlankPreset::Standard => BlankEnvelope::new(50.0, 50.0, 80.0, 2.0),
             BlankPreset::Cube60 => BlankEnvelope::cube(60.0, 2.0),
             BlankPreset::Large => BlankEnvelope::new(100.0, 60.0, 60.0, 2.0),
-            BlankPreset::Tall => BlankEnvelope::new(50.0, 50.0, 80.0, 2.0),
+            BlankPreset::Wide => BlankEnvelope::new(80.0, 50.0, 50.0, 2.0),
         }
     }
 }
@@ -269,9 +269,9 @@ mod tests {
     #[test]
     fn default_envelope() {
         let e = BlankEnvelope::default();
-        assert_eq!(e.length_mm, 80.0);
+        assert_eq!(e.length_mm, 50.0);
         assert_eq!(e.width_mm, 50.0);
-        assert_eq!(e.height_mm, 50.0);
+        assert_eq!(e.height_mm, 80.0);
         assert_eq!(e.margin_mm, 2.0);
     }
 
@@ -298,7 +298,9 @@ mod tests {
     #[test]
     fn preset_to_envelope() {
         let e = BlankPreset::Standard.to_envelope();
-        assert_eq!(e.length_mm, 80.0);
+        assert_eq!(e.length_mm, 50.0);
+        assert_eq!(e.width_mm, 50.0);
+        assert_eq!(e.height_mm, 80.0);
 
         let cube = BlankPreset::Cube60.to_envelope();
         assert_eq!(cube.length_mm, 60.0);

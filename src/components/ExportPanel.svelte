@@ -15,6 +15,7 @@
     exportXyz,
     exportCsv,
   } from "$lib/tauri";
+  import F2VolumeWarnings from "./F2VolumeWarnings.svelte";
 
   export let hasDepth = false;
   export let sourceFileName = "";
@@ -22,9 +23,9 @@
   export let effectiveTargetWidthMm: number | undefined = undefined;
   export let effectiveTargetHeightMm: number | undefined = undefined;
 
-  export let blankLengthMm = 80;
+  export let blankLengthMm = 50;
   export let blankWidthMm = 50;
-  export let blankHeightMm = 50;
+  export let blankHeightMm = 80;
   export let blankMarginMm = 2;
   export let stepX = 1;
   export let stepY = 1;
@@ -45,9 +46,9 @@
   function applyPreset(which: string) {
     switch (which) {
       case "standard":
-        blankLengthMm = 80;
+        blankLengthMm = 50;
         blankWidthMm = 50;
-        blankHeightMm = 50;
+        blankHeightMm = 80;
         blankMarginMm = 2;
         break;
       case "cube60":
@@ -62,10 +63,10 @@
         blankHeightMm = 60;
         blankMarginMm = 2;
         break;
-      case "tall":
-        blankLengthMm = 50;
+      case "wide":
+        blankLengthMm = 80;
         blankWidthMm = 50;
-        blankHeightMm = 80;
+        blankHeightMm = 50;
         blankMarginMm = 2;
         break;
       default:
@@ -125,7 +126,7 @@
 </script>
 
 <div
-  class="export-panel flex flex-wrap items-end gap-3"
+  class="export-panel flex flex-col gap-2 w-full min-w-0"
   role="region"
   aria-label="Crystal blank and point cloud export"
   data-has-depth={hasDepth}
@@ -133,6 +134,7 @@
   data-target-width-mm={effectiveTargetWidthMm ?? ""}
   data-target-height-mm={effectiveTargetHeightMm ?? ""}
 >
+  <div class="flex flex-wrap items-end gap-3">
   <div class="flex flex-col gap-1">
     <span class="text-xs font-medium text-slate-600" id="preset-label">Blank preset</span>
     <select
@@ -141,10 +143,10 @@
       on:change={onPresetSelect}
     >
       <option value="">Custom</option>
-      <option value="standard">80 × 50 × 50 (standard)</option>
+      <option value="standard">50 × 50 × 80 (standard)</option>
       <option value="cube60">60 cube</option>
       <option value="large">100 × 60 × 60</option>
-      <option value="tall">50 × 50 × 80</option>
+      <option value="wide">80 × 50 × 50</option>
     </select>
   </div>
   <div class="flex flex-wrap gap-2 items-end" role="group" aria-labelledby="dims-label">
@@ -236,4 +238,12 @@
       {exportMessage}
     </p>
   {/if}
+  </div>
+
+  <F2VolumeWarnings
+    lengthMm={blankLengthMm}
+    widthMm={blankWidthMm}
+    heightMm={blankHeightMm}
+    marginMm={blankMarginMm}
+  />
 </div>

@@ -11,6 +11,7 @@
   import * as THREE from "three";
   import { OrbitControls } from "three/addons/controls/OrbitControls.js";
   import { generatePointCloud, setBlankEnvelope, setVolumetricParams } from "$lib/tauri";
+  import F2VolumeWarnings from "./F2VolumeWarnings.svelte";
 
   let container: HTMLDivElement;
   /** Legacy target dimensions from App (depth / metadata). Surfaced as `data-` attributes. */
@@ -18,9 +19,9 @@
   export let targetHeightMm: number | undefined = undefined;
 
   /** Blank envelope dimensions (mm), matches Rust defaults until user edits footer. */
-  export let blankLengthMm = 80;
+  export let blankLengthMm = 50;
   export let blankWidthMm = 50;
-  export let blankHeightMm = 50;
+  export let blankHeightMm = 80;
   export let blankMarginMm = 2;
   export let stepX = 1;
   export let stepY = 1;
@@ -367,6 +368,15 @@
   data-blank-h={blankHeightMm}
   data-blank-margin={blankMarginMm}
 >
+  <div class="px-2 pt-2 flex flex-col gap-1">
+    <F2VolumeWarnings
+      lengthMm={blankLengthMm}
+      widthMm={blankWidthMm}
+      heightMm={blankHeightMm}
+      marginMm={blankMarginMm}
+      compact
+    />
+  </div>
   <!-- Canvas container: Three.js renderer appended here -->
   <div
     class="preview3d-canvas flex-1 min-h-[200px] relative flex items-center justify-center"
