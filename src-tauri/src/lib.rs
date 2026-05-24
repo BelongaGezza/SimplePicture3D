@@ -357,8 +357,8 @@ fn generate_point_cloud(
     }
 }
 
-#[tauri::command]
-fn export_ply(path: String, binary: bool, state: State<AppState>) -> Result<(), String> {
+/// QA-B-01: Export command body (shared by Tauri handler and integration tests).
+fn export_ply_from_state(state: &AppState, path: String, binary: bool) -> Result<(), String> {
     let (canonical_path, canonical_str) = validate_export_path(&path, "ply")?;
     let points = {
         let guard = state.last_point_cloud.lock().map_err(|e| e.to_string())?;
@@ -367,15 +367,15 @@ fn export_ply(path: String, binary: bool, state: State<AppState>) -> Result<(), 
         };
         cached.points.clone()
     };
-    let metadata = build_export_metadata(&state)?;
+    let metadata = build_export_metadata(state)?;
     export::export_ply(canonical_path.as_path(), &points, &metadata, binary)
         .map_err(|e| e.to_string())?;
-    persist_last_export_dir(&state, &canonical_str)?;
+    persist_last_export_dir(state, &canonical_str)?;
     Ok(())
 }
 
-#[tauri::command]
-fn export_xyz(path: String, state: State<AppState>) -> Result<(), String> {
+/// QA-B-01: Export command body (shared by Tauri handler and integration tests).
+fn export_xyz_from_state(state: &AppState, path: String) -> Result<(), String> {
     let (canonical_path, canonical_str) = validate_export_path(&path, "xyz")?;
     let points = {
         let guard = state.last_point_cloud.lock().map_err(|e| e.to_string())?;
@@ -385,12 +385,12 @@ fn export_xyz(path: String, state: State<AppState>) -> Result<(), String> {
         cached.points.clone()
     };
     export::export_xyz(canonical_path.as_path(), &points).map_err(|e| e.to_string())?;
-    persist_last_export_dir(&state, &canonical_str)?;
+    persist_last_export_dir(state, &canonical_str)?;
     Ok(())
 }
 
-#[tauri::command]
-fn export_csv(path: String, state: State<AppState>) -> Result<(), String> {
+/// QA-B-01: Export command body (shared by Tauri handler and integration tests).
+fn export_csv_from_state(state: &AppState, path: String) -> Result<(), String> {
     let (canonical_path, canonical_str) = validate_export_path(&path, "csv")?;
     let points = {
         let guard = state.last_point_cloud.lock().map_err(|e| e.to_string())?;
@@ -399,10 +399,25 @@ fn export_csv(path: String, state: State<AppState>) -> Result<(), String> {
         };
         cached.points.clone()
     };
-    let metadata = build_export_metadata(&state)?;
+    let metadata = build_export_metadata(state)?;
     export::export_csv(canonical_path.as_path(), &points, &metadata).map_err(|e| e.to_string())?;
-    persist_last_export_dir(&state, &canonical_str)?;
+    persist_last_export_dir(state, &canonical_str)?;
     Ok(())
+}
+
+#[tauri::command]
+fn export_ply(path: String, binary: bool, state: State<AppState>) -> Result<(), String> {
+    export_ply_from_state(&state, path, binary)
+}
+
+#[tauri::command]
+fn export_xyz(path: String, state: State<AppState>) -> Result<(), String> {
+    export_xyz_from_state(&state, path)
+}
+
+#[tauri::command]
+fn export_csv(path: String, state: State<AppState>) -> Result<(), String> {
+    export_csv_from_state(&state, path)
 }
 
 // --- Sprint 2.3: Presets (BACK-1302) ---
@@ -1267,8 +1282,128 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::blank_envelope::FitResult;
     use std::fs::File;
     use std::io::Write;
+    use std::path::PathBuf;
+
+    fn unique_temp_export_dir() -> PathBuf {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let dir = std::env::temp_dir().join(format!("sp3d_qa_b01_export_{stamp}"));
+        std::fs::create_dir_all(&dir).expect("create temp export dir");
+        dir
+    }
+
+    fn app_state_with_depth_and_settings() -> AppState {
+        let depth = python_bridge::DepthMapOutput {
+            width: 4,
+            height: 4,
+            depth: vec![0.5f32; 16],
+        };
+        let app_settings = settings::AppSettings {
+            blank_envelope: Some(BlankEnvelope::default()),
+            volumetric_params: Some(VolumetricParams {
+                step_x: 1,
+                step_y: 1,
+                depth_threshold: 0.0,
+            }),
+            ..Default::default()
+        };
+        AppState {
+            depth: Mutex::new(Some(depth)),
+            adjustment_params: Mutex::new(DepthAdjustmentParams::default()),
+            mask: Mutex::new(None),
+            source_image_path: Mutex::new(Some("fixture.png".to_string())),
+            app_settings: Mutex::new(app_settings),
+            undo_redo: Mutex::new(UndoRedoHistory::new()),
+            last_point_cloud: Mutex::new(None),
+        }
+    }
+
+    fn cached_point_cloud_result() -> VolumetricResult {
+        VolumetricResult {
+            points: vec![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]],
+            point_count: 2,
+            fit_result: FitResult {
+                scale: 1.0,
+                translation: [0.0, 0.0, 0.0],
+                point_count: 2,
+                outliers: 0,
+            },
+            memory_bytes: 24,
+        }
+    }
+
+    /// QA-B-01: export_ply command path — validate path, read cache, write PLY on disk.
+    #[test]
+    fn export_ply_command_path_writes_file() {
+        let state = app_state_with_depth_and_settings();
+        *state.last_point_cloud.lock().unwrap() = Some(cached_point_cloud_result());
+        let dir = unique_temp_export_dir();
+        let path = dir.join("out.ply").to_string_lossy().to_string();
+        export_ply_from_state(&state, path.clone(), false).expect("export_ply");
+        let content = std::fs::read_to_string(&path).expect("read PLY");
+        assert!(content.starts_with("ply\n"));
+        assert!(content.contains("element vertex 2\n"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// QA-B-01: export_xyz command path.
+    #[test]
+    fn export_xyz_command_path_writes_file() {
+        let state = app_state_with_depth_and_settings();
+        *state.last_point_cloud.lock().unwrap() = Some(cached_point_cloud_result());
+        let dir = unique_temp_export_dir();
+        let path = dir.join("out.xyz").to_string_lossy().to_string();
+        export_xyz_from_state(&state, path.clone()).expect("export_xyz");
+        let content = std::fs::read_to_string(&path).expect("read XYZ");
+        assert!(content.contains("1.000000 2.000000 3.000000"));
+        assert_eq!(content.lines().count(), 2);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// QA-B-01: export_csv command path.
+    #[test]
+    fn export_csv_command_path_writes_file() {
+        let state = app_state_with_depth_and_settings();
+        *state.last_point_cloud.lock().unwrap() = Some(cached_point_cloud_result());
+        let dir = unique_temp_export_dir();
+        let path = dir.join("out.csv").to_string_lossy().to_string();
+        export_csv_from_state(&state, path.clone()).expect("export_csv");
+        let content = std::fs::read_to_string(&path).expect("read CSV");
+        assert!(content.contains("x,y,z"));
+        assert!(content.contains("1.000000,2.000000,3.000000"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// QA-B-01: generate then export end-to-end through AppState helpers.
+    #[test]
+    fn export_after_generate_point_cloud_writes_ply() {
+        let state = app_state_with_depth_and_settings();
+        let generated = generate_point_cloud_from_state(&state).expect("generate");
+        assert!(generated.point_count > 0);
+        *state.last_point_cloud.lock().unwrap() = Some(generated);
+        let dir = unique_temp_export_dir();
+        let path = dir.join("generated.ply").to_string_lossy().to_string();
+        export_ply_from_state(&state, path.clone(), false).expect("export after generate");
+        let meta = std::fs::metadata(&path).expect("ply exists");
+        assert!(meta.len() > 0);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// QA-B-01: export commands reject missing cache.
+    #[test]
+    fn export_ply_errors_without_cached_point_cloud() {
+        let state = app_state_with_depth_and_settings();
+        let dir = unique_temp_export_dir();
+        let path = dir.join("empty.ply").to_string_lossy().to_string();
+        let err = export_ply_from_state(&state, path, false).unwrap_err();
+        assert!(err.contains("No point cloud"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn point_cloud_estimate_none_without_depth_map() {

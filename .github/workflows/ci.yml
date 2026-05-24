@@ -1,5 +1,6 @@
 # SimplePicture3D — CI (build, test, security audits)
 # QA-001: build + test; SEC-002: cargo audit + npm audit
+# CI-D-01: Windows backend job for primary shipping platform
 # Policy: see docs/threat-model.md § CI dependency audit policy
 
 name: CI
@@ -36,8 +37,40 @@ jobs:
         run: npm audit --audit-level=high
         # Policy: fail on high/critical. See docs/threat-model.md.
 
+  backend-windows:
+    name: Backend (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Create placeholder dist folder
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Set-Content -Path dist/index.html -Value '<!DOCTYPE html><html><body></body></html>'
+
+      - name: Build
+        run: cargo build --manifest-path src-tauri/Cargo.toml
+
+      - name: Test
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+        # CI-D-01: primary shipping platform; no GTK/WebKit required for unit tests.
+
   backend:
-    name: Backend
+    name: Backend (Linux)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

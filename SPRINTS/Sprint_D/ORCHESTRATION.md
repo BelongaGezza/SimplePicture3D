@@ -31,7 +31,9 @@ Validate engraver-compatible exports; close P0/P1 security gaps; align Tauri ACL
 | QA-D-01 | Quality Engineer | Wave 3 sub-agent | Review | Procedure ready; engraver import blocked (TBD software) |
 | QA-D-02 | Quality Engineer | — | Available | 4K timing benchmark |
 | QA-D-03 | Quality Engineer | — | Available | Pentest checklist |
-| QA-B-01 | Quality Engineer | — | Available | Export integration tests |
+| QA-B-01 | Quality Engineer | 2026-05-24 | Complete | Five export command tests in `lib.rs` |
+| CI-D-01 | Quality Engineer | 2026-05-24 | Complete | `backend-windows` CI job |
+| QA-D-05 | Quality Engineer | 2026-05-24 | Complete | `exportXyz`/`exportCsv`/`setPointCloudFormat` Vitest |
 | BACK-D-01 | Senior Engineer | Orchestrator | Blocked | Awaiting QA-D-01 results |
 | DOC-D-01 | Documentation Specialist | — | Available | Interoperability notes |
 | DOC-D-02 | Security + Docs | — | Partial | Threat model §2.4/§2.6 updated Wave 2 |

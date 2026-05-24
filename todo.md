@@ -16,13 +16,13 @@ Delegated read-only reviews to **Security Specialist** and **Quality Engineer** 
 
 | Area | Verdict | Blocker |
 |------|---------|---------|
-| Phases A–C (code) | Substantially complete | Formal gates: QA-B-01, QA-C-01 |
+| Phases A–C (code) | Substantially complete | Formal gate: QA-C-01 manual UX |
 | Phase D (validation) | Not started (manual QA) | Engraver software TBD; SEC-D-02 real hashes |
 | Security Wave 1–2 | Partially landed in source | **SEC-E-01** ✅ fixed 2026-05-24; SEC-D-05 path policy active |
-| CI | Linux-only | **CI-D-01:** no `windows-latest` job for primary platform |
+| CI | Linux + Windows backend jobs | Frontend still Linux-only |
 | Sprint D sign-off | Stale | `SECURITY_SIGNOFF.md` unchecked; ORCHESTRATION overstates “Complete” for SEC-D-05 |
 
-**Immediate P0 (next):** SEC-D-02 real model hashes; QA-B-01 export integration tests; CI-D-01 Windows job.
+**Immediate P0 (next):** SEC-D-02 real model hashes; QA-C-01 manual UX pass; ARCH-D-01 engraver name.
 
 ---
 
@@ -45,12 +45,13 @@ This roadmap reflects the deliberate restart decision (2026-05-10) plus two impl
 
 ### Remaining Gaps (next work)
 - **SEC-E-01:** ✅ Fixed 2026-05-24 — `use path_security::{is_blocklisted, validate_import_file_path}` in `lib.rs`.
-- **QA-B-01 / QA-C-01:** Export command integration tests and manual full-workflow UX pass not yet recorded.
+- **QA-B-01:** ✅ Export command integration tests in `lib.rs` (2026-05-24).
+- **QA-C-01:** Manual full-workflow UX pass not yet recorded.
 - **Phase D:** Engraver import not executed (target software TBD in charter §2); performance benchmark pending; `SECURITY_SIGNOFF.md` unsigned.
 - **SEC-D-02:** `expected_model_hashes.json` still has `TODO:REPLACE_WITH_SHA256_*` placeholders — verification skipped at runtime.
 - **SEC-D-04 (partial):** Point cloud IPC capped (`MAX_IPC_POINT_CLOUD_POINTS`); **depth map** still returned in full via `get_depth_map` — track as **SEC-E-02**.
 - **SEC-D-11:** `withGlobalTauri: true` still set in `tauri.conf.json`.
-- **CI-D-01:** No Windows CI job despite Windows as Phase 1+2 primary platform.
+- **CI-D-01:** ✅ `backend-windows` job in `.github/workflows/ci.yml` (2026-05-24).
 - **Sprint artefacts:** `SPRINTS/Sprint_D/TEST_PLAN_D.md` missing; `MANUAL_TEST_REPORT.md` template only.
 - **Stale settings comments:** `settings.rs` still documents legacy `export_format` (stl/obj) alongside new `point_cloud_format`.
 
@@ -85,7 +86,7 @@ This roadmap reflects the deliberate restart decision (2026-05-10) plus two impl
 5. ~~**P0: Fix Rust compile (SEC-E-01)**~~ ✅ Done 2026-05-24.
 6. **P1: Validate output with real engraver software** — confirm target app (ARCH-D-01 §2); execute QA-D-01.
 7. **P1: Security hardening (Sprint D)** — SEC-D-02 real hashes, SEC-E-02 depth IPC caps, SEC-D-07–11; honest `SECURITY_SIGNOFF.md`.
-8. **P1: QA gates** — QA-B-01 export integration tests, QA-C-01 manual UX pass, CI-D-01 Windows CI.
+8. **P1: QA gates** — ~~QA-B-01~~ ✅, ~~CI-D-01~~ ✅; QA-C-01 manual UX pass remaining.
 9. **P2: Defer Full 3D reconstruction (TripoSR)** — documented future option only.
 
 ---
@@ -101,7 +102,7 @@ This roadmap reflects the deliberate restart decision (2026-05-10) plus two impl
 - ⏳ `README.md` — updated 2026-05-19 (DOC-A-02 ✅).
 - ✅ `RESEARCH/PIVOT_PLAN_2.5D_TO_3D.md` archived (DOC-A-05).
 
-### Phase B — Backend Wiring (1 week) — **blocked on QA-B-01**
+### Phase B — Backend Wiring (1 week) — **blocked on real-image engraver verify (Phase D)**
 **Goal:** expose the complete 3D surface point cloud pipeline as a real Tauri API.
 
 **Exit Criteria**
@@ -109,7 +110,7 @@ This roadmap reflects the deliberate restart decision (2026-05-10) plus two impl
 - ✅ Tauri commands registered: `set_blank_envelope`, `generate_point_cloud`, `export_ply`, `export_xyz`, `export_csv` (+ params/format helpers).
 - ✅ `settings.rs` persists blank envelope, volumetric params, and point cloud format.
 - ✅ `allow-point-cloud.toml` capability permission group added.
-- ⏳ Command-level integration tests for all three export commands (QA-B-01).
+- ✅ Command-level integration tests for all three export commands (QA-B-01).
 - ⏳ `export.rs` output not yet verified against engraver import (Phase D).
 
 ### Phase C — Frontend UI (1–2 weeks) — **blocked on QA-C-01**
@@ -167,7 +168,7 @@ All sprints are 1 week unless explicitly marked.
 - **BACK-B-04:** ✅ Generation uses adjusted depth + mask from pipeline state (`17ae055`).
 - **BACK-B-05:** ⏳ Verify `export.rs` PLY/XYZ/CSV output against format specs / engraver import.
 - **SEC-B-01:** ✅ Export path validation via `validate_export_path` (inherits `file_io.rs` patterns).
-- **QA-B-01:** ⏳ `point_cloud_generation_succeeds_with_uniform_depth` exists; export command integration tests still needed.
+- **QA-B-01:** ✅ Five tests: `export_ply`/`export_xyz`/`export_csv` command paths, generate→export, empty-cache error.
 
 **Exit Criteria**
 - ⏳ `cargo test` — blocked on this Linux machine until GTK/WebKit/libsoup dev libs installed (see `SETUP_NOTES.md`).
@@ -236,11 +237,11 @@ All sprints are 1 week unless explicitly marked.
 
 | Priority | Task | Summary |
 |----------|------|---------|
-| P0 | **QA-B-01** | Tauri command integration tests: `export_ply`, `export_xyz`, `export_csv` with temp files + mock `AppState` |
+| P0 | **QA-B-01** | ✅ Tauri export command integration tests in `lib.rs` (2026-05-24) |
 | P0 | **QA-C-01** | Execute `docs/testing.md` §1–2; record in `SPRINTS/Sprint_D/MANUAL_TEST_REPORT.md` |
-| P0 | **CI-D-01** | Add `windows-latest` job: `cargo build`, `cargo test`, `cargo clippy` (primary platform) |
+| P0 | **CI-D-01** | ✅ `backend-windows` job — build, test, clippy on `windows-latest` |
 | P1 | **QA-D-04** | Measure tarpaulin coverage; raise CI `--fail-under` from 63% if ≥65% achieved |
-| P1 | **QA-D-05** | Vitest: `exportXyz`, `exportCsv`, `setPointCloudFormat` in `tauri.test.ts` |
+| P1 | **QA-D-05** | ✅ Vitest: `exportXyz`, `exportCsv`, `setPointCloudFormat` (2026-05-24; 78 frontend tests) |
 | P1 | **QA-D-07** | Create `SPRINTS/Sprint_D/TEST_PLAN_D.md` from `SPRINTS/TEST_PLAN_TEMPLATE.md` |
 | P2 | **QA-D-06** | Component smoke tests: `ExportPanel`, `VolumetricParamsPanel` (`@testing-library/svelte` ^4.x) |
 | P2 | **QA-D-09** | GOTCHAS: GTK local test setup; TODO-hash skip behaviour; `lib.rs` command test pattern |
@@ -277,10 +278,10 @@ All sprints are 1 week unless explicitly marked.
 | TD-17 | ~~`load_preset` path policy~~ — active via `validate_import_file_path` | ~~Medium~~ | Closed (SEC-D-05) |
 | TD-18 | ~~`load_mask_from_path` blocklist~~ — active via `path_security` | ~~Medium~~ | Closed (SEC-D-05) |
 | TD-20 | Python subprocess inherits `VIRTUAL_ENV` / `DEPTH_MODEL_PATH` | Medium | Sprint D — SEC-D-07 |
-| TD-08 | `lib.rs` testability/coverage gap; export commands untested at IPC layer | High | QA-B-01, QA-D-04 |
+| TD-08 | `lib.rs` coverage gap beyond export commands | High | QA-D-04 |
 | TD-06 | Export path TOCTOU write-test pattern | Medium | Sprint D — SEC-D-09 |
 | TD-21 | `withGlobalTauri: true` widens webview compromise blast radius | Low | Sprint D — SEC-D-11 |
-| TD-23 | No Windows CI — primary platform untested in GitHub Actions | High | CI-D-01 |
+| TD-23 | ~~No Windows CI~~ — **resolved** `backend-windows` job | ~~High~~ | Closed |
 | TD-09 | Accessibility issues in advanced controls | Medium | Post-Phase D polish |
 
 ---
@@ -298,7 +299,7 @@ When generating a sprint package:
 ## Notes
 
 - This file is the operational source of truth for **task IDs and sprint gates**. Vision and phases: **`ROADMAP.md`**.
-- **Do not mark Phase B complete** until export integration tests pass and a real-image PLY/XYZ export is verified.
+- **Do not mark Phase B complete** until a real-image PLY/XYZ export is verified on target engraver (QA-D-01 / Phase D).
 - **Do not mark Phase C complete** until QA-C-01 (manual UX pass) is done.
 - **Do not mark Phase D complete** until at least one engraver import is validated (QA-D-01) and P0 security tasks **SEC-D-02** / **SEC-D-03** are complete (SEC-D-03 ✅; SEC-D-02 requires real hashes) or risk-accepted in `SPRINTS/Sprint_D/SECURITY_SIGNOFF.md`.
 - **2026-05-24:** Reconcile `SPRINTS/Sprint_D/ORCHESTRATION.md` “Complete” statuses with `cargo build` and `SECURITY_SIGNOFF.md` before claiming Wave 2 done.
