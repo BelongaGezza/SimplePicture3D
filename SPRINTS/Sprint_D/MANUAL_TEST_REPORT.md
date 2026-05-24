@@ -75,7 +75,7 @@
 | 1 | PLY ASCII / binary | Opens in viewer/engraver; point count ≈ estimate | ☐ | |
 | 2 | XYZ format | Three columns; mm units; within blank bounds | ☐ | |
 | 3 | CSV format | Header row; comma-separated; imports cleanly | ☐ | |
-| 4 | Engraver import (Phase D gate) | Target engraver; axis + scale — **blocked until software named** | ☐ Blocked | See § QA-D-01 below |
+| 4 | Engraver import (Phase D gate) | **Xtool Studio** → **Xtool F2**; axis + scale | ☐ | See § QA-D-01 below |
 | 5 | Blank fit | Points inside wireframe / envelope with margin | ☐ | |
 
 ### QA-C-01 §2 summary
@@ -84,7 +84,7 @@
 |---------|-------------|
 | ☐ **Pass** | §2 rows 1–3 and 5 pass; row 4 Pass or tracked in QA-D-01 |
 | ☐ **Fail** | Export format or blank-fit failure |
-| ☐ **Blocked** | §2 row 4 only — engraver TBD |
+| ☐ **Blocked** | §2 row 4 only — Xtool Studio/F2 not available this session |
 
 **Overall QA-C-01 (§1 + §2):** ☐ Pass ☐ Fail ☐ Partial — **Date:** ___________
 
@@ -92,7 +92,7 @@
 
 ## QA-D-01 — Engraver import
 
-**Task status:** Procedure **ready** · Engraver execution **blocked** (target software TBD)  
+**Task status:** Procedure **ready** · Target: **Xtool Studio** + **Xtool F2** UV — execution pending  
 **Charter:** [docs/engraver-charter.md](../../docs/engraver-charter.md) (draft, 2026-05-19)
 
 ### Environment (fill on execution)
@@ -102,7 +102,7 @@
 | Git commit (`git rev-parse --short HEAD`) | |
 | Build | `tauri dev` ☐ / release build ☐ |
 | OS + version | |
-| Engraver software + version | **TBD** |
+| Engraver software + version | **Xtool Studio** (for **Xtool F2** UV) — version: |
 | Stub depth (`SP3D_USE_STUB=1`) | Yes ☐ / No ☐ |
 | Test image (path + size) | e.g. `tests/fixtures/valid_small.png` |
 | Blank used | 80×50×50 mm, margin 2 mm ☐ (other: _____) |
@@ -121,7 +121,7 @@
 | Phase | Scope | Result | Notes |
 |-------|--------|--------|-------|
 | App export (C1–C8) | Load → depth → blank → PLY ASCII + XYZ | Not run ☐ / Pass ☐ / Fail ☐ | |
-| Engraver import (D1–D7) | PLY + XYZ into target engraver | **Blocked** ☐ / Pass ☐ / Fail ☐ | Engraver: TBD |
+| Engraver import (D1–D7) | PLY + XYZ into Xtool Studio | Pass ☐ / Fail ☐ / Blocked ☐ | |
 
 ### Format results
 
@@ -196,4 +196,4 @@ See `SECURITY_PENTEST_CHECKLIST.md` — copy Pass/Fail column here or attach sum
 
 **Sprint D QA sign-off:** ☐ Pass ☐ Fail — **Date:** ___________
 
-**QA-D-01 blocker:** Target engraver software name/version not assigned; complete § D in [QA-D-01_TEST_PROCEDURE.md](./QA-D-01_TEST_PROCEDURE.md) when available.
+**QA-D-01:** Run § D in [QA-D-01_TEST_PROCEDURE.md](./QA-D-01_TEST_PROCEDURE.md) — import PLY/XYZ into **Xtool Studio** for **Xtool F2**; record Studio version and axis settings.

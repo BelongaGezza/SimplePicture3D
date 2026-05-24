@@ -1,6 +1,6 @@
 # Engraver interoperability charter
 
-**Status:** Draft — pending QA-D-01 validation on target engraver software  
+**Status:** Draft — target toolchain confirmed; QA-D-01 import validation pending  
 **Owner:** System Architect (ARCH-D-01) / Quality Engineer (QA-D-01)  
 **Canonical algorithm:** [ADR-012](../RESEARCH/architecture.md) (surface-map point cloud)  
 **Implementation:** `src-tauri/src/volumetric.rs`, `src-tauri/src/export.rs`, `src-tauri/src/blank_envelope.rs`
@@ -17,7 +17,20 @@ This document defines what SimplePicture3D **commits to** in exported point clou
 
 ---
 
-## 2. Coordinate system and units
+## 2. Target engraver toolchain (ARCH-D-01)
+
+| Field | Value |
+|-------|--------|
+| **Control software** | [Xtool Studio](https://www.xtool.com/) (import / job setup) |
+| **Hardware** | **Xtool F2** — UV laser engraver (internal crystal / glass / acrylic) |
+| **Primary platform** | Windows (Phase 1+2 shipping target) |
+| **Software version** | Record exact build in `SPRINTS/Sprint_D/MANUAL_TEST_REPORT.md` at QA-D-01 |
+
+SimplePicture3D exports **PLY (ASCII)** and **XYZ** point clouds for import into Xtool Studio. Accepted import formats in Studio must be confirmed during QA-D-01 (try PLY first, then XYZ).
+
+---
+
+## 3. Coordinate system and units
 
 | Axis | Meaning in SP3D | Blank field | Default range (Standard preset) |
 |------|-----------------|-------------|----------------------------------|
@@ -28,13 +41,13 @@ This document defines what SimplePicture3D **commits to** in exported point clou
 - **Units:** millimetres (`mm`) for all exported coordinates. No unit field in XYZ; PLY/CSV comments document mm.
 - **Origin:** Corner of the blank volume at \((0, 0, 0)\). After `fit_to_blank`, content is scaled uniformly and centred in the **interior** (inside `margin_mm` on all sides).
 - **Depth semantics (before fit):** `z = margin_mm + (1.0 - depth) × interior_height_mm` — foreground (depth → 1) near the **front** (higher Z); background near the **back** (lower Z).
-- **Engraver mapping (TBD):** Target engraver software name/version not yet chosen. QA-D-01 must record whether the engraver expects the same X/Y/Z handedness and which face is “front”. Update this section after first successful import.
+- **Engraver mapping (pending QA-D-01):** Confirm in Xtool Studio whether imported X/Y/Z match SP3D’s right-handed mm frame (§3 above) or require axis flip / scale. Record import dialog settings and which face Studio treats as “front” after first successful import.
 
 **Default blank (QA reference):** 80 × 50 × 50 mm, 2 mm margin (`BlankEnvelope::default()` / Export panel preset “80 × 50 × 50 (standard)”).
 
 ---
 
-## 3. Export formats
+## 4. Export formats
 
 | Format | Primary for QA-D-01 | Specification |
 |--------|---------------------|---------------|
@@ -63,7 +76,7 @@ end_header
 
 ---
 
-## 4. Point cloud content (ADR-012)
+## 5. Point cloud content (ADR-012)
 
 - **One point per sampled** \((x,y)\) where depth ≥ `depth_threshold` (default `0.05`).
 - **Density:** Controlled by `step_x` / `step_y` (default `1` = full resolution).
@@ -74,15 +87,15 @@ end_header
 
 ---
 
-## 5. Verification checklist (QA-D-01)
+## 6. Verification checklist (QA-D-01)
 
 Execute after export; record Pass/Fail in `MANUAL_TEST_REPORT.md`.
 
 | # | Check | Pass criterion |
 |---|--------|----------------|
-| V1 | **File opens** | PLY and XYZ import into engraver (or CloudCompare/MeshLab pre-check) without parse errors |
+| V1 | **File opens** | PLY and XYZ import into **Xtool Studio** (or CloudCompare/MeshLab pre-check) without parse errors |
 | V2 | **Units mm** | Model size matches blank order of magnitude (~80×50×50 mm), not metres or millimetres off by 1000× |
-| V3 | **Axis orientation** | Left/right and front/back match charter §2 (or documented engraver transform) |
+| V3 | **Axis orientation** | Left/right and front/back match charter §3 (or documented Xtool Studio transform) |
 | V4 | **Point count** | PLY `element vertex N` matches XYZ line count; N > 0; plausible vs image size and step |
 | V5 | **BBox inside blank** | All points within \([0, L] \times [0, W] \times [0, H]\) mm for configured blank; visually inside wireframe in app preview |
 | V6 | **Metadata** | PLY comments include generator and blank dimensions consistent with UI |
@@ -90,18 +103,18 @@ Execute after export; record Pass/Fail in `MANUAL_TEST_REPORT.md`.
 
 ---
 
-## 6. Known-good secondary tools (pre-engraver)
+## 7. Known-good secondary tools (pre-engraver)
 
 If target engraver software is unavailable, use for **format-only** checks (does not satisfy sprint gate):
 
 - [CloudCompare](https://www.cloudcompare.org/) — PLY/XYZ import, bbox, units
 - [MeshLab](https://www.meshlab.net/) — PLY import
 
-Sprint D gate **QA-D-01** still requires at least one **target engraver** import (see `SPRINT_D_Task_Assignment.md`).
+Sprint D gate **QA-D-01** still requires import into **Xtool Studio** for the **Xtool F2** workflow (see `SPRINT_D_Task_Assignment.md`).
 
 ---
 
-## 7. References
+## 8. References
 
 - `RESEARCH/architecture.md` — ADR-012
 - `docs/testing.md` — Core workflow checklist
@@ -115,3 +128,4 @@ Sprint D gate **QA-D-01** still requires at least one **target engraver** import
 | Date | Change |
 |------|--------|
 | 2026-05-19 | Initial draft from ADR-012 + `export.rs` (QE procedure phase; engraver TBD) |
+| 2026-05-24 | ARCH-D-01: target toolchain **Xtool Studio** + **Xtool F2** UV laser |

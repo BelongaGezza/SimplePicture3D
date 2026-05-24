@@ -1,0 +1,11 @@
+[[permission]]
+identifier = "allow-mask"
+description = "Enables mask get/set, region paint/erase, clear, and save/load to path (Sprint 2.5)."
+commands.allow = [
+    "get_mask",
+    "set_mask_region",
+    "set_mask",
+    "clear_mask",
+    "save_mask_to_path",
+    "load_mask_from_path",
+]

@@ -105,7 +105,7 @@ Canonical step tables live in **`docs/testing.md`**. Sprint D execution is recor
 | **Steps** | Full procedure: `SPRINTS/Sprint_D/QA-D-01_TEST_PROCEDURE.md` |
 | **Expected result** | Charter checks V1–V7 pass; import without scale/axis errors |
 | **Actual result** | *(fill during test)* |
-| **Pass / Fail** | [ ] Pass [ ] Fail [ ] **Blocked** (engraver TBD) |
+| **Pass / Fail** | [ ] Pass [ ] Fail [ ] Blocked (Xtool Studio / F2 unavailable) |
 
 #### Case D-02: Core + export workflow (QA-C-01)
 

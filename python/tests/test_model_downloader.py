@@ -263,6 +263,24 @@ class TestDownloadModelVerification:
         assert result["status"] == "success"
 
 
+class TestEnforceModelHashesStrictMode:
+    """SEC-D-02: optional strict CI when SP3D_ENFORCE_MODEL_HASHES=1."""
+
+    def test_enforce_model_hashes_rejects_todo_placeholders_when_env_set(self):
+        """Fails in strict mode until real SHA256 digests replace TODO placeholders."""
+        if os.environ.get("SP3D_ENFORCE_MODEL_HASHES") != "1":
+            pytest.skip("SP3D_ENFORCE_MODEL_HASHES not set (optional strict CI step)")
+
+        path = Path(__file__).resolve().parent.parent / "python" / "expected_model_hashes.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        hashes = data.get("hashes", {})
+        bad = {name: value for name, value in hashes.items() if "TODO:REPLACE" in str(value)}
+        assert not bad, (
+            "Replace stub model hashes after a trusted download before strict enforcement: "
+            f"{list(bad.keys())}"
+        )
+
+
 class TestExpectedHashesJsonStructure:
     """SEC-D-02: committed hash manifest structure."""
 

@@ -2,7 +2,7 @@
 
 **Purpose:** Initial threat model per PRD §8.1; documents threats and mitigations for file I/O, subprocess, and IPC.  
 **Owner:** Security Specialist  
-**Last Updated:** 2026-02-01
+**Last Updated:** 2026-05-24
 
 ---
 
@@ -42,6 +42,10 @@
 | Malicious path in IPC (e.g. `load_image`, `export_stl`) | **Input validation:** Validate and canonicalize all file paths in Tauri commands; reject path traversal sequences (`..`, symlinks outside allowed tree). |
 | Symlink attacks (e.g. export to symlink pointing to sensitive file) | Resolve symlinks and enforce same canonicalization rules; or disallow overwriting through symlinks. |
 
+**SEC-D-09 (Sprint D, 2026-05-24):** Export writes use `write_export_atomically()` in `export.rs`: body written to a temp file in the target directory, then `rename` to the final path after `validate_export_path` canonicalizes the destination. Reduces TOCTOU between path check and write (TD-06). PLY/XYZ/CSV writers share this path.
+
+**SEC-D-10 (Sprint D, 2026-05-24):** `path_security::is_blocklisted()` applies the same Unix system-directory blocklist to `load_image` and export/import paths (Linux parity with Windows/macOS policy).
+
 **Implementation (load_image path validation, SEC-101):** For `load_image`, the path comes from the user via file picker or drag-and-drop (Tauri dialog or frontend drop). (1) **Canonicalize** the path with `std::path::Path::canonicalize()` (or platform equivalent) so `..` and symlinks are resolved. (2) **Allowlist:** Accept only paths that resolve to a regular file under a user-accessible location; paths from the system file dialog or drop are inherently user-chosen. (3) **Blocklist:** Reject paths that resolve under system-sensitive directories (e.g. Windows: `C:\Windows\System32`, `C:\Program Files`; macOS: `/System`, `/usr/bin`; Linux: `/usr/bin`, `/etc`). Reject if canonicalization fails or path does not exist. Do not read before canonicalization. See `docs/security-checklist.md` §2.2 and Sprint 1.1 Security handover (path validation).
 
 ### 2.4 File I/O and input validation
@@ -66,14 +70,19 @@
 
 **SEC-201 completed 2026-02-03:** `src-tauri/src/python_bridge.rs` reviewed. No user input in argv; path from `file_io::write_temp_file` and `validate_input_path` (canonicalized, under temp dir); no shell. See `docs/security-checklist.md` §2.2 (SEC-201 Review).
 
+**SEC-D-07 (Sprint D, 2026-05-24):** `apply_hardened_subprocess_env()` calls `Command::env_clear()` then copies only an allowlisted set of variables (`ALLOWED_SUBPROCESS_ENV` in `python_bridge.rs`): on Unix `PATH` and `HOME`; on Windows `PATH`, `PATHEXT`, `SYSTEMROOT`, `WINDIR`, `USERPROFILE`, `HOMEDRIVE`, `HOMEPATH`, `TEMP`, `TMP`. **`VIRTUAL_ENV`**, **`DEPTH_MODEL_PATH`**, and other parent env are **not** passed through. Stub depth uses explicit `--no-model` via `stub_depth_cli_flag()` (parent `SP3D_USE_STUB` mapped at spawn time), not subprocess env inheritance.
+
 ### 2.6 IPC (Tauri commands) surface
 
 | Threat | Mitigation |
 |--------|------------|
 | Frontend invoking commands with arbitrary or oversized payloads | **Limit exposed commands** to those in capability config (`capabilities/default.json`). Sprint D (**SEC-D-06**): dedicated `allow-settings.toml` and `allow-model.toml` for settings and model commands. |
 | Large payloads over IPC (e.g. depth map, point cloud) | **SEC-D-04:** `generate_point_cloud` caps IPC responses at `MAX_IPC_POINT_CLOUD_POINTS` (1M). Preview mode subsamples; export mode omits points from IPC while caching the full cloud server-side for `export_ply`/`export_xyz`/`export_csv`. Hard generation cap: `MAX_POINT_CLOUD_GENERATION` (8M). |
-| Arbitrary file read via preset/mask import | **SEC-D-05:** `load_preset` (absolute path) and `load_mask_from_path` use `path_security::validate_import_file_path` — canonicalize, `.json` extension, unified system-dir blocklist (aligned with export). |
+| Large depth maps over IPC (DoS / memory pressure) | **SEC-E-02:** Depth maps returned to the frontend are downsampled for IPC while full resolution remains in backend state. Constants in `src-tauri/src/depth_adjust.rs`: `MAX_IPC_DEPTH_PIXELS` (1,048,576), `MAX_IPC_DEPTH_DIMENSION` (1024). `ipc_depth_dimensions()` and `subsample_depth_for_ipc()` preserve aspect ratio; `get_depth_map` and depth-bearing generate responses use the subsampled buffer only. |
+| Arbitrary file read via preset/mask import | **SEC-D-05 / SEC-E-01:** `load_preset` (absolute path) and `load_mask_from_path` use `path_security::validate_import_file_path` — canonicalize, `.json` extension, unified system-dir blocklist (aligned with export). |
+| Unbounded depth-adjustment parameters from IPC | **SEC-D-08:** `validate_depth_adjustment_params()` at the Tauri boundary rejects out-of-range gamma, curve points, and related fields before processing. |
 | Deserialization or validation bugs in command args | Validate and bound all arguments (paths, options); use strong types and fail closed on invalid input. |
+| Webview XSS amplifying access to all Tauri APIs | **SEC-D-11:** `tauri.conf.json` sets `app.withGlobalTauri: false` so `window.__TAURI__` is not injected globally; IPC remains available only via explicit `@tauri-apps/api` imports in application code. Devtools remain disabled in release builds per existing bundle policy. |
 
 ### 2.7 Dependency vulnerabilities
 
@@ -116,5 +125,5 @@
 
 ---
 
-**Document Version:** 1.3  
-**Status:** Initial review (Sprint 1.1, SEC-001); image loading implementation notes added (Sprint 1.2, SEC-101, SEC-102). Subprocess review criteria (SEC-201) and model download HTTPS/checksum (SEC-202) added (Sprint 1.3). SEC-D-03 (Sprint D, 2026-05-19): max image file size (128 MiB) and pre-Python header-dimension cap (8192) documented in §2.4.
+**Document Version:** 1.4  
+**Status:** Sprint D hardening wave (2026-05-24): §2.4 SEC-D-03; §2.5 SEC-D-07 subprocess env allowlist; §2.6 SEC-D-04/05/06/08/11 and SEC-E-02 depth IPC caps; §2.3 SEC-D-09 atomic export, SEC-D-10 blocklist parity. SEC-D-02 model hashes remain stub (`TODO:REPLACE_*`) until trusted download — see `SPRINTS/Sprint_D/SECURITY_SIGNOFF.md`.

@@ -144,6 +144,12 @@ jobs:
         run: python -m pip install --upgrade pip && python -m pip install pytest pytest-cov Pillow
         # Stub mode only: no torch/model download (SP3D_USE_STUB=1).
 
+      - name: Reject placeholder model hashes in CI
+        run: |
+          if grep -q 'TODO:REPLACE_WITH_SHA256' python/python/expected_model_hashes.json; then
+            echo "::warning::Model SHA256 placeholders present — verification skipped until trusted download (SEC-D-02)"
+          fi
+
       - name: Run pytest (stub mode, with coverage)
         env:
           SP3D_USE_STUB: "1"

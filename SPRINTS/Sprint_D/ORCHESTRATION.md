@@ -1,7 +1,7 @@
 # Sprint D — Sub-Agent Orchestration Board
 
 **Orchestrator:** Senior Engineer  
-**Last Updated:** 2026-05-24 (SEC-E-01 compile fix landed)  
+**Last Updated:** 2026-05-24 (Wave 4 delegated)  
 **Sprint:** Validate and Harden (Phase D)  
 **Roadmap:** `ROADMAP.md` — do not mark Phase D complete until QA-D-01 + SEC-D-02/03 pass
 
@@ -23,12 +23,12 @@ Validate engraver-compatible exports; close P0/P1 security gaps; align Tauri ACL
 | SEC-D-05 | Senior Engineer | Orchestrator Wave 2 | Complete | `path_security.rs`; preset/mask import validation; **SEC-E-01** import fix 2026-05-24 |
 | SEC-E-01 | Senior Engineer | 2026-05-24 | Complete | `use path_security::{is_blocklisted, validate_import_file_path}` in `lib.rs` |
 | SEC-D-06 | Senior Engineer | Orchestrator Wave 2 | Complete | `allow-settings.toml`, `allow-model.toml` in capabilities |
-| SEC-D-01 | Senior Engineer | — | Available | Split coarse permissions |
-| SEC-D-07–11 | Senior Engineer | — | Available | P2/P3 — see task assignment |
+| SEC-D-01 | Senior Engineer | Wave 4 | Complete | `allow-depth-map` + `allow-mask`; removed coarse file |
+| SEC-D-07–11 | Senior Engineer | Wave 3 | Complete | 2026-05-24 sub-agents |
 | SEC-D-12 | Security Specialist | Wave 1 sub-agent | Complete | PLY/CSV comment sanitization |
 | ARCH-D-01 | System Architect | Wave 3 sub-agent | Complete | `docs/engraver-charter.md` |
-| ARCH-D-02 | System Architect | — | Available | Command ↔ ACL audit |
-| QA-D-01 | Quality Engineer | Wave 3 sub-agent | Review | Procedure ready; engraver import blocked (TBD software) |
+| ARCH-D-02 | System Architect | Wave 4 | Complete | `ARCH-D-02_AUDIT.md` |
+| QA-D-01 | Quality Engineer | — | Ready | Target: **Xtool Studio** + **Xtool F2** UV — execute procedure |
 | QA-D-07 | Quality Engineer | 2026-05-24 | Complete | `TEST_PLAN_D.md` from template |
 | QA-D-08 | Quality Engineer | 2026-05-24 | Complete | `SPRINT_2_6_CANCELLED.md` |
 | QA-D-09 | Quality Engineer | 2026-05-24 | Complete | Three entries in `RESEARCH/GOTCHAS.md` |
@@ -39,7 +39,9 @@ Validate engraver-compatible exports; close P0/P1 security gaps; align Tauri ACL
 | QA-D-05 | Quality Engineer | 2026-05-24 | Complete | `exportXyz`/`exportCsv`/`setPointCloudFormat` Vitest |
 | BACK-D-01 | Senior Engineer | Orchestrator | Blocked | Awaiting QA-D-01 results |
 | DOC-D-01 | Documentation Specialist | — | Available | Interoperability notes |
-| DOC-D-02 | Security + Docs | — | Partial | Threat model §2.4/§2.6 updated Wave 2 |
+| DOC-D-02 | Security Specialist | Wave 4 | Complete | Threat model, checklist, sign-off, CI hash warning |
+| QA-D-06 | UI Designer / QE | Wave 4 | Complete | ExportPanel + VolumetricParamsPanel tests (82 Vitest) |
+| DOC-D-01 | Documentation | Orchestrator | Draft | `docs/engraver-interoperability.md` structure |
 
 **Status values:** `Available` | `Delegated` | `In Progress` | `Review` | `Complete` | `Blocked`
 
@@ -95,7 +97,7 @@ Validate engraver-compatible exports; close P0/P1 security gaps; align Tauri ACL
 |---------|-------|------------|
 | Linux Tauri build needs GTK/WebKit | Dev env | `SETUP_NOTES.md` |
 | Real model SHA256 digests | Security / Maintainer | Trusted HF download + `--write-hashes` |
-| Target engraver software TBD | Product / QE | Name in ARCH-D-01 before QA-D-01 |
+| ~~Target engraver software TBD~~ | — | **Resolved:** Xtool Studio + Xtool F2 (2026-05-24) |
 
 ---
 

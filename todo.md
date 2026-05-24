@@ -22,7 +22,7 @@ Delegated read-only reviews to **Security Specialist** and **Quality Engineer** 
 | CI | Linux + Windows backend jobs | Frontend still Linux-only |
 | Sprint D sign-off | Stale | `SECURITY_SIGNOFF.md` unchecked; ORCHESTRATION overstates “Complete” for SEC-D-05 |
 
-**Immediate P0 (next):** SEC-D-02 real model hashes; QA-C-01 manual UX pass; ARCH-D-01 engraver name; DOC-D-02 + `SECURITY_SIGNOFF.md`.
+**Immediate P0 (next):** SEC-D-02 real model hashes; **QA-D-01** Xtool Studio import; QA-C-01 manual UX pass.
 
 ---
 
@@ -87,7 +87,7 @@ This roadmap reflects the deliberate restart decision (2026-05-10) plus two impl
    - ✅ Volumetric params panel (XY step, depth threshold, live point count estimate)
 
 5. ~~**P0: Fix Rust compile (SEC-E-01)**~~ ✅ Done 2026-05-24.
-6. **P1: Validate output with real engraver software** — confirm target app (ARCH-D-01 §2); execute QA-D-01.
+6. **P1: Validate output with real engraver software** — ✅ Target: **Xtool Studio** / **Xtool F2**; execute QA-D-01.
 7. **P1: Security hardening (Sprint D)** — SEC-D-02 real hashes, SEC-E-02 depth IPC caps, SEC-D-07–11; honest `SECURITY_SIGNOFF.md`.
 8. **P1: QA gates** — ~~QA-B-01~~ ✅, ~~CI-D-01~~ ✅; QA-C-01 manual UX pass remaining.
 9. **P2: Defer Full 3D reconstruction (TripoSR)** — documented future option only.
@@ -206,16 +206,16 @@ All sprints are 1 week unless explicitly marked.
 - **SEC-E-01:** ✅ Complete 2026-05-24 — `path_security` imports; 172 tests pass; clippy clean (also fixed `div_ceil` in `volumetric.rs`).
 
 **Engraver & performance**
-- **ARCH-D-01:** ✅ Draft charter at `docs/engraver-charter.md` — **remaining:** record target engraver software name/version (§2 TBD).
-- **QA-D-01:** Export PLY and XYZ from a real image; import into target engraver software; verify axis orientation and point distribution. **Blocked:** engraver product TBD.
+- **ARCH-D-01:** ✅ Target toolchain documented — **Xtool Studio** + **Xtool F2** UV (`docs/engraver-charter.md` §2).
+- **QA-D-01:** ⏳ Export PLY/XYZ → import into **Xtool Studio**; verify axes/units per `QA-D-01_TEST_PROCEDURE.md`.
 - **BACK-D-01:** Fix any compatibility defects found (axis flips, unit scaling, header metadata, decimal precision).
 - **QA-D-02:** Performance check — time from image load to PLY export for a 4K image on a mid-range machine.
-- **DOC-D-01:** Publish interoperability notes and known-good engraver configuration in `docs/`.
+- **DOC-D-01:** ⏳ `docs/engraver-interoperability.md` — Xtool Studio/F2 named; known-good settings after QA-D-01.
 
 **Permissions & consistency**
-- **SEC-D-01:** Split coarse permissions (`allow-generate-depth-map`) into least-privilege capability groups aligned with actual command groups.
+- **SEC-D-01:** ✅ Split into `allow-depth-map.toml` + `allow-mask.toml` (2026-05-24 Wave 4).
 - **SEC-D-06:** Add `allow-settings.toml` and `allow-model.toml`; grant `get_settings`, `save_settings`, `check_model`, `get_model_info`, `download_model` in `capabilities/default.json`.
-- **ARCH-D-02:** Re-run command registration/invocation consistency audit (`lib.rs` ↔ `tauri.ts` ↔ capability files).
+- **ARCH-D-02:** ✅ Audit in `SPRINTS/Sprint_D/ARCH-D-02_AUDIT.md` (2026-05-24).
 
 **Security review remediations (2026-05-19 — owner: Security Specialist + Senior Engineer)**
 
@@ -234,7 +234,7 @@ All sprints are 1 week unless explicitly marked.
 | P3 | **SEC-D-11** | ✅ `withGlobalTauri: false`. |
 | P3 | **QA-D-03** | Execute manual pentest checklist (`SPRINTS/Sprint_D/SECURITY_PENTEST_CHECKLIST.md`); record in `MANUAL_TEST_REPORT.md`. |
 | — | **SEC-D-12** | Sanitize PLY/CSV comment fields from `source_image` filename (newline/control chars). |
-| — | **DOC-D-02** | Update `docs/threat-model.md` and `docs/security-checklist.md` with Sprint D outcomes; Security Specialist sign-off in `SECURITY_SIGNOFF.md`. |
+| — | **DOC-D-02** | ✅ Threat model, security-checklist, SECURITY_SIGNOFF updated (2026-05-24 Wave 4) |
 
 **QA & CI (from 2026-05-24 QE review)**
 
@@ -246,7 +246,7 @@ All sprints are 1 week unless explicitly marked.
 | P1 | **QA-D-04** | Measure tarpaulin coverage; raise CI `--fail-under` from 63% if ≥65% achieved |
 | P1 | **QA-D-05** | ✅ Vitest: `exportXyz`, `exportCsv`, `setPointCloudFormat` (2026-05-24; 78 frontend tests) |
 | P1 | **QA-D-07** | ✅ `SPRINTS/Sprint_D/TEST_PLAN_D.md` |
-| P2 | **QA-D-06** | Component smoke tests: `ExportPanel`, `VolumetricParamsPanel` (`@testing-library/svelte` ^4.x) |
+| P2 | **QA-D-06** | ✅ `ExportPanel.test.ts`, `VolumetricParamsPanel.test.ts` (82 Vitest total) |
 | P2 | **QA-D-09** | ✅ Three GOTCHAS entries (GTK, TODO hashes, `*_from_state` tests) |
 | P3 | **QA-D-08** | ✅ `SPRINT_2_6_CANCELLED.md` |
 

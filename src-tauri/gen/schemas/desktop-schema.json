@@ -387,16 +387,22 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Enables depth map generation, retrieval, adjustment, undo/redo, and mask commands. Point cloud commands are in allow-point-cloud.toml.",
+          "description": "Enables depth map generation, retrieval, histogram, adjustment, undo/redo, and reset. Mask commands are in allow-mask.toml.",
           "type": "string",
-          "const": "allow-generate-depth-map",
-          "markdownDescription": "Enables depth map generation, retrieval, adjustment, undo/redo, and mask commands. Point cloud commands are in allow-point-cloud.toml."
+          "const": "allow-depth-map",
+          "markdownDescription": "Enables depth map generation, retrieval, histogram, adjustment, undo/redo, and reset. Mask commands are in allow-mask.toml."
         },
         {
           "description": "Enables the load_image command.",
           "type": "string",
           "const": "allow-load-image",
           "markdownDescription": "Enables the load_image command."
+        },
+        {
+          "description": "Enables mask get/set, region paint/erase, clear, and save/load to path (Sprint 2.5).",
+          "type": "string",
+          "const": "allow-mask",
+          "markdownDescription": "Enables mask get/set, region paint/erase, clear, and save/load to path (Sprint 2.5)."
         },
         {
           "description": "Enables AI model check, info, and download commands (SEC-D-06).",

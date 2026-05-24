@@ -4,7 +4,7 @@
 **Goal:** Export PLY (ASCII) and XYZ from SimplePicture3D and import into target engraver software; validate against [engraver charter](../../docs/engraver-charter.md).  
 **Results:** Record in [MANUAL_TEST_REPORT.md](./MANUAL_TEST_REPORT.md) (summary + defect log).
 
-**Execution status (procedure phase):** Steps 1–8 and pre-engraver checks can run without engraver software. **Step 9 (engraver import) is blocked** until target engraver name/version is confirmed.
+**Execution status:** Target toolchain confirmed — **Xtool Studio** controlling **Xtool F2** UV laser. Steps C1–C8 (pre-engraver) and **D (engraver import)** may proceed; record Studio version in §A.
 
 ---
 
@@ -21,7 +21,7 @@
 | **GPU** (optional, depth only) | |
 | **Python** | `python --version`; venv active ☐ |
 | **Stub depth** | `SP3D_USE_STUB=1` ☐ (no model download) / real model ☐ |
-| **Target engraver** | Name: **TBD** — Version: |
+| **Target engraver** | **Xtool Studio** (for **Xtool F2** UV) — Version: |
 | **Secondary viewer** (optional) | CloudCompare / MeshLab version: |
 
 ---
@@ -103,7 +103,7 @@ Perform steps in order. Note **time** if also capturing QA-D-02 data.
 
 ---
 
-## D. Procedure (engraver import) — **blocked until engraver TBD**
+## D. Procedure (engraver import) — Xtool Studio + F2
 
 | Step | Action | Expected result | Pass? |
 |------|--------|-----------------|-------|

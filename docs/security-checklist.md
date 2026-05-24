@@ -103,5 +103,31 @@ CI runs `cargo audit`, `npm audit`, and `pip-audit` on every push/PR (see .githu
 
 ---
 
-**Document Version:** 1.3  
-**Status:** Sprint 1.1, SEC-003; image loading (path + magic bytes) items added (Sprint 1.2, SEC-101, SEC-102). Subprocess review (SEC-201) and model download (SEC-202) added (Sprint 1.3). §5 Phase 2 / pip-audit in CI (Sprint 1.11).
+---
+
+## 6. Sprint D verification (2026-05-24 hardening wave)
+
+Use when signing off Phase D security (`SPRINTS/Sprint_D/SECURITY_SIGNOFF.md`, DOC-D-02).
+
+| Task | Verify | Primary evidence |
+|------|--------|------------------|
+| SEC-D-02 | Model SHA256 manifest structure; real digests committed after trusted download | `python/python/expected_model_hashes.json`, `python/python/model_downloader.py`, `python/tests/test_model_downloader.py`; CI warning step in `.github/workflows/ci.yml` |
+| SEC-D-03 | Max file size + header dimension cap before Python | `src-tauri/src/image_loading.rs` (`MAX_IMAGE_FILE_BYTES`, `MAX_DIMENSION`) |
+| SEC-D-04 | Point cloud IPC cap + export cache | `src-tauri/src/volumetric.rs` (`MAX_IPC_POINT_CLOUD_POINTS`, `MAX_POINT_CLOUD_GENERATION`), `src-tauri/src/lib.rs` (`generate_point_cloud`) |
+| SEC-E-02 | Depth map IPC subsampling | `src-tauri/src/depth_adjust.rs` (`MAX_IPC_DEPTH_PIXELS`, `ipc_depth_dimensions`) |
+| SEC-D-05 / SEC-E-01 | Preset/mask import path policy | `src-tauri/src/path_security.rs`, `lib.rs` (`validate_import_file_path`) |
+| SEC-D-06 | Settings/model ACL permissions | `src-tauri/permissions/allow-settings.toml`, `allow-model.toml`, `capabilities/default.json` |
+| SEC-D-07 | Subprocess env allowlist | `src-tauri/src/python_bridge.rs` (`apply_hardened_subprocess_env`) |
+| SEC-D-08 | Depth adjustment param bounds | `src-tauri/src/depth_adjust.rs` (`validate_depth_adjustment_params`) |
+| SEC-D-09 | Atomic export writes | `src-tauri/src/export.rs` (`write_export_atomically`) |
+| SEC-D-10 | Linux load blocklist parity | `src-tauri/src/path_security.rs`, `image_loading.rs` tests |
+| SEC-D-11 | `withGlobalTauri` disabled | `src-tauri/tauri.conf.json` (`withGlobalTauri: false`) |
+| SEC-D-12 | Export comment sanitization | `src-tauri/src/export.rs` (`sanitize_export_comment_field`) |
+| QA-D-03 | Manual pentest checklist | `SPRINTS/Sprint_D/SECURITY_PENTEST_CHECKLIST.md` |
+
+**Strict model-hash CI (optional):** set `SP3D_ENFORCE_MODEL_HASHES=1` on the Python job to run `test_enforce_model_hashes_rejects_todo_placeholders_when_env_set` (fails until stub `TODO:REPLACE_*` values are replaced).
+
+---
+
+**Document Version:** 1.4  
+**Status:** Sprint 1.1, SEC-003; image loading (Sprint 1.2); subprocess/model (Sprint 1.3); §5 Phase 2 / pip-audit (Sprint 1.11). §6 Sprint D verification matrix (2026-05-24).
