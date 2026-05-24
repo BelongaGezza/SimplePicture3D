@@ -29,6 +29,9 @@ Validate engraver-compatible exports; close P0/P1 security gaps; align Tauri ACL
 | ARCH-D-01 | System Architect | Wave 3 sub-agent | Complete | `docs/engraver-charter.md` |
 | ARCH-D-02 | System Architect | — | Available | Command ↔ ACL audit |
 | QA-D-01 | Quality Engineer | Wave 3 sub-agent | Review | Procedure ready; engraver import blocked (TBD software) |
+| QA-D-07 | Quality Engineer | 2026-05-24 | Complete | `TEST_PLAN_D.md` from template |
+| QA-D-08 | Quality Engineer | 2026-05-24 | Complete | `SPRINT_2_6_CANCELLED.md` |
+| QA-D-09 | Quality Engineer | 2026-05-24 | Complete | Three entries in `RESEARCH/GOTCHAS.md` |
 | QA-D-02 | Quality Engineer | — | Available | 4K timing benchmark |
 | QA-D-03 | Quality Engineer | — | Available | Pentest checklist |
 | QA-B-01 | Quality Engineer | 2026-05-24 | Complete | Five export command tests in `lib.rs` |
@@ -74,6 +77,7 @@ Validate engraver-compatible exports; close P0/P1 security gaps; align Tauri ACL
 | 2026-05-19 | Orchestrator (direct) | SEC-D-04, SEC-D-05, SEC-D-06 | Complete — permissions, path_security, IPC caps |
 | 2026-05-19 | System Architect | ARCH-D-01 | Complete — `docs/engraver-charter.md` |
 | 2026-05-19 | Quality Engineer | QA-D-01 | Procedure complete — `QA-D-01_TEST_PROCEDURE.md`, MANUAL_TEST_REPORT expanded; engraver run blocked |
+| 2026-05-24 | Quality Engineer | QA-D-07, QA-D-08, QA-D-09 | `TEST_PLAN_D.md`, `SPRINT_2_6_CANCELLED.md`, GOTCHAS ×3; MANUAL_TEST_REPORT QA-C-01 sections |
 
 ---
 

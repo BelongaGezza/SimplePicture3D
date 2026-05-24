@@ -30,7 +30,10 @@ use tauri::Emitter;
 use tauri::State;
 
 use blank_envelope::BlankEnvelope;
-use depth_adjust::{apply_adjustments, compute_histogram, DepthAdjustmentParams};
+use depth_adjust::{
+    apply_adjustments, compute_histogram, subsample_depth_for_ipc, subsample_mask_for_ipc,
+    validate_depth_adjustment_params, DepthAdjustmentParams,
+};
 use export::ExportMetadata;
 use path_security::{is_blocklisted, validate_import_file_path};
 use preset::{get_builtin_preset, sanitize_preset_name, Preset};
@@ -781,11 +784,13 @@ fn generate_depth_map(
     // Leave adjustment_params unchanged (user may have presets); reset is explicit (BACK-405).
     let params = state.adjustment_params.lock().map_err(|e| e.to_string())?;
     let adjusted = apply_adjustments(&depth.depth, &params);
+    let (ipc_w, ipc_h, ipc_depth) =
+        subsample_depth_for_ipc(&adjusted, depth.width, depth.height).map_err(|e| e.to_string())?;
     let stages = python_bridge::stages_from_stderr(&stderr_lines);
     Ok(GenerateDepthMapResponse {
-        width: depth.width,
-        height: depth.height,
-        depth: adjusted,
+        width: ipc_w,
+        height: ipc_h,
+        depth: ipc_depth,
         progress: 100,
         stages,
     })
@@ -850,10 +855,12 @@ fn get_depth_map(state: State<AppState>) -> Result<Option<python_bridge::DepthMa
         &params,
         mask_guard.as_ref(),
     );
+    let (ipc_w, ipc_h, ipc_depth) = subsample_depth_for_ipc(&adjusted, original.width, original.height)
+        .map_err(|e| e.to_string())?;
     Ok(Some(python_bridge::DepthMapOutput {
-        width: original.width,
-        height: original.height,
-        depth: adjusted,
+        width: ipc_w,
+        height: ipc_h,
+        depth: ipc_depth,
     }))
 }
 
@@ -864,6 +871,7 @@ fn set_depth_adjustment_params(
     params: DepthAdjustmentParams,
     state: State<AppState>,
 ) -> Result<UndoRedoState, String> {
+    validate_depth_adjustment_params(&params)?;
     let previous = state
         .adjustment_params
         .lock()
@@ -993,19 +1001,18 @@ fn get_mask(state: State<AppState>) -> Result<Option<MaskOut>, String> {
     };
     drop(guard);
     let mask_guard = state.mask.lock().map_err(|e| e.to_string())?;
-    let out = match mask_guard.as_ref() {
-        Some(m) if m.dimensions_match(width, height) => MaskOut {
-            width,
-            height,
-            data: m.to_bool_vec(),
-        },
-        _ => MaskOut {
-            width,
-            height,
-            data: mask::MaskBitmap::all_false(width, height).to_bool_vec(),
-        },
+    let (ipc_w, ipc_h) = depth_adjust::ipc_depth_dimensions(width, height);
+    let full_data = match mask_guard.as_ref() {
+        Some(m) if m.dimensions_match(width, height) => m.to_bool_vec(),
+        _ => mask::MaskBitmap::all_false(width, height).to_bool_vec(),
     };
-    Ok(Some(out))
+    let ipc_data =
+        subsample_mask_for_ipc(&full_data, width, height, ipc_w, ipc_h).map_err(|e| e.to_string())?;
+    Ok(Some(MaskOut {
+        width: ipc_w,
+        height: ipc_h,
+        data: ipc_data,
+    }))
 }
 
 /// Set a rectangular region of the mask (BACK-1201). Creates mask if none; pushes to undo stack.
@@ -1797,5 +1804,21 @@ mod tests {
         assert!((out[0] - 0.0).abs() < 1e-6, "unmasked stays 0");
         assert!((out[1] - 0.7).abs() < 1e-5, "masked 0.5+0.2=0.7");
         assert!((out[2] - 1.0).abs() < 1e-6, "unmasked stays 1");
+    }
+
+    /// SEC-E-02: Large depth maps are downsampled for IPC while full resolution stays in state.
+    #[test]
+    fn ipc_depth_subsample_caps_4k_payload() {
+        use depth_adjust::{ipc_depth_dimensions, MAX_IPC_DEPTH_PIXELS};
+        let width = 4096u32;
+        let height = 4096u32;
+        let depth: Vec<f32> = vec![0.5; (width * height) as usize];
+        let (ipc_w, ipc_h, ipc_depth) =
+            depth_adjust::subsample_depth_for_ipc(&depth, width, height).unwrap();
+        assert_eq!(ipc_depth.len(), (ipc_w as usize) * (ipc_h as usize));
+        assert!((ipc_w as usize) * (ipc_h as usize) <= MAX_IPC_DEPTH_PIXELS);
+        assert!(ipc_w < width || ipc_h < height);
+        let (tw, th) = ipc_depth_dimensions(width, height);
+        assert_eq!((ipc_w, ipc_h), (tw, th));
     }
 }

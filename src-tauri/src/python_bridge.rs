@@ -13,10 +13,47 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, Read};
-use std::process::Stdio;
+use std::process::{Command, Stdio};
 use std::time::Duration;
 
 use crate::file_io;
+
+/// Environment variable names copied into hardened Python subprocesses (SEC-D-07).
+#[cfg(windows)]
+const ALLOWED_SUBPROCESS_ENV: &[&str] = &[
+    "PATH", "PATHEXT", "SYSTEMROOT", "WINDIR", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "TEMP",
+    "TMP",
+];
+
+#[cfg(unix)]
+const ALLOWED_SUBPROCESS_ENV: &[&str] = &["PATH", "HOME"];
+
+/// Clears inherited environment and sets an allowlisted minimum for Python children (SEC-D-07).
+///
+/// Does not pass through `VIRTUAL_ENV`, `DEPTH_MODEL_PATH`, or other parent env that could
+/// redirect model loading. Use [`stub_depth_cli_flag`] + `--no-model` instead of `SP3D_USE_STUB`.
+pub fn apply_hardened_subprocess_env(cmd: &mut Command) {
+    cmd.env_clear();
+    for key in ALLOWED_SUBPROCESS_ENV {
+        if let Ok(val) = std::env::var(key) {
+            if !val.is_empty() {
+                cmd.env(key, val);
+            }
+        }
+    }
+}
+
+/// True when the parent process requests stub depth (maps to `--no-model`, not env passthrough).
+fn stub_depth_cli_flag() -> bool {
+    std::env::var("SP3D_USE_STUB")
+        .map(|v| {
+            matches!(
+                v.to_lowercase().as_str(),
+                "1" | "true" | "yes"
+            )
+        })
+        .unwrap_or(false)
+}
 
 /// Default timeout for depth estimation (e.g. 5 minutes for 4K per BACK-204).
 const DEFAULT_TIMEOUT_SECS: u64 = 300;
@@ -162,12 +199,16 @@ fn run_depth_estimation_inner(
     };
     let input_arg = input_path.to_string_lossy().to_string();
 
-    let mut cmd = std::process::Command::new(&python);
+    let mut cmd = Command::new(&python);
     cmd.arg("-m")
         .arg("python.depth_estimator")
         .arg("--input")
-        .arg(&input_arg)
-        .current_dir(&work_dir)
+        .arg(&input_arg);
+    if stub_depth_cli_flag() {
+        cmd.arg("--no-model");
+    }
+    apply_hardened_subprocess_env(&mut cmd);
+    cmd.current_dir(&work_dir)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
@@ -286,5 +327,40 @@ mod tests {
         let lines = vec!["STAGE ".to_string(), "STAGE  ".to_string()];
         let stages = stages_from_stderr(&lines);
         assert!(stages.is_empty());
+    }
+
+    /// SEC-D-07: hardened env keeps allowlist only; strips hijack vars.
+    #[test]
+    fn apply_hardened_subprocess_env_allowlists_and_strips_hijack_vars() {
+        let mut cmd = Command::new("python3");
+        cmd.env("VIRTUAL_ENV", "/tmp/evil-venv");
+        cmd.env("DEPTH_MODEL_PATH", "/tmp/evil-model");
+        cmd.env("LD_PRELOAD", "/tmp/evil.so");
+        if let Ok(path) = std::env::var("PATH") {
+            cmd.env("PATH", &path);
+        }
+        #[cfg(unix)]
+        if let Ok(home) = std::env::var("HOME") {
+            cmd.env("HOME", &home);
+        }
+        #[cfg(windows)]
+        if let Ok(profile) = std::env::var("USERPROFILE") {
+            cmd.env("USERPROFILE", &profile);
+        }
+
+        apply_hardened_subprocess_env(&mut cmd);
+
+        assert!(
+            cmd.get_envs()
+                .all(|(k, _)| ALLOWED_SUBPROCESS_ENV.iter().any(|allowed| k == *allowed)),
+            "only allowlisted env keys may be set"
+        );
+        assert!(
+            cmd.get_envs().any(|(k, _)| k == "PATH"),
+            "PATH must be present for Python discovery"
+        );
+        assert!(cmd.get_envs().find(|(k, _)| *k == "VIRTUAL_ENV").is_none());
+        assert!(cmd.get_envs().find(|(k, _)| *k == "DEPTH_MODEL_PATH").is_none());
+        assert!(cmd.get_envs().find(|(k, _)| *k == "LD_PRELOAD").is_none());
     }
 }

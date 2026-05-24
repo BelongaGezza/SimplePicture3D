@@ -16,6 +16,191 @@
 
 use serde::{Deserialize, Serialize};
 
+// --- SEC-E-02: IPC depth map payload limits (threat model §2.6; see SEC-D-04 point cloud caps) ---
+
+/// Maximum depth map pixels returned over Tauri IPC (~4 MiB f32 at 1M pixels).
+pub const MAX_IPC_DEPTH_PIXELS: usize = 1_024 * 1_024;
+
+/// Maximum width or height for a depth map sent over IPC.
+pub const MAX_IPC_DEPTH_DIMENSION: u32 = 1024;
+
+// --- SEC-D-08: DepthAdjustmentParams IPC validation ranges ---
+
+pub const GAMMA_MIN: f32 = 0.1;
+pub const GAMMA_MAX: f32 = 5.0;
+pub const CONTRAST_MIN: f32 = 0.0;
+pub const CONTRAST_MAX: f32 = 3.0;
+pub const BRIGHTNESS_MIN: f32 = -1.0;
+pub const BRIGHTNESS_MAX: f32 = 1.0;
+pub const MAX_CURVE_CONTROL_POINTS: usize = 32;
+pub const FEATHER_RADIUS_MIN: f32 = 0.0;
+pub const FEATHER_RADIUS_MAX: f32 = 100.0;
+
+/// Target IPC dimensions for a depth map, preserving aspect ratio within [`MAX_IPC_DEPTH_PIXELS`]
+/// and [`MAX_IPC_DEPTH_DIMENSION`].
+pub fn ipc_depth_dimensions(width: u32, height: u32) -> (u32, u32) {
+    if width == 0 || height == 0 {
+        return (width, height);
+    }
+    let pixels = (width as u64).saturating_mul(height as u64);
+    let max_pixels = MAX_IPC_DEPTH_PIXELS as u64;
+    let max_dim = MAX_IPC_DEPTH_DIMENSION as u64;
+    if pixels <= max_pixels && width <= MAX_IPC_DEPTH_DIMENSION && height <= MAX_IPC_DEPTH_DIMENSION {
+        return (width, height);
+    }
+    let mut tw = width as u64;
+    let mut th = height as u64;
+    let max_side = tw.max(th);
+    if max_side > max_dim {
+        let scale = max_dim as f64 / max_side as f64;
+        tw = ((tw as f64) * scale).floor().max(1.0) as u64;
+        th = ((th as f64) * scale).floor().max(1.0) as u64;
+    }
+    while tw.saturating_mul(th) > max_pixels {
+        if tw >= th && tw > 1 {
+            tw -= 1;
+        } else if th > 1 {
+            th -= 1;
+        } else {
+            break;
+        }
+    }
+    (tw as u32, th as u32)
+}
+
+/// Nearest-neighbour downsample of a row-major depth buffer for IPC preview (SEC-E-02).
+pub fn subsample_depth_for_ipc(
+    depth: &[f32],
+    width: u32,
+    height: u32,
+) -> Result<(u32, u32, Vec<f32>), String> {
+    let expected = (width as usize)
+        .checked_mul(height as usize)
+        .ok_or_else(|| "Depth map dimensions overflow".to_string())?;
+    if depth.len() != expected {
+        return Err(format!(
+            "Depth length {} does not match {}x{}",
+            depth.len(),
+            width,
+            height
+        ));
+    }
+    let (tw, th) = ipc_depth_dimensions(width, height);
+    if tw == width && th == height {
+        return Ok((width, height, depth.to_vec()));
+    }
+    let mut out = Vec::with_capacity((tw as usize).saturating_mul(th as usize));
+    for dy in 0..th {
+        let sy = (dy as u64 * height as u64 / th as u64) as u32;
+        for dx in 0..tw {
+            let sx = (dx as u64 * width as u64 / tw as u64) as u32;
+            let idx = (sy as usize)
+                .saturating_mul(width as usize)
+                .saturating_add(sx as usize);
+            out.push(depth.get(idx).copied().unwrap_or(0.0));
+        }
+    }
+    Ok((tw, th, out))
+}
+
+/// Nearest-neighbour downsample of row-major bool mask to match IPC depth preview dimensions.
+pub fn subsample_mask_for_ipc(
+    data: &[bool],
+    width: u32,
+    height: u32,
+    target_width: u32,
+    target_height: u32,
+) -> Result<Vec<bool>, String> {
+    let expected = (width as usize)
+        .checked_mul(height as usize)
+        .ok_or_else(|| "Mask dimensions overflow".to_string())?;
+    if data.len() != expected {
+        return Err(format!(
+            "Mask length {} does not match {}x{}",
+            data.len(),
+            width,
+            height
+        ));
+    }
+    if target_width == width && target_height == height {
+        return Ok(data.to_vec());
+    }
+    let mut out = Vec::with_capacity(
+        (target_width as usize).saturating_mul(target_height as usize),
+    );
+    for dy in 0..target_height {
+        let sy = (dy as u64 * height as u64 / target_height as u64) as u32;
+        for dx in 0..target_width {
+            let sx = (dx as u64 * width as u64 / target_width as u64) as u32;
+            let idx = (sy as usize)
+                .saturating_mul(width as usize)
+                .saturating_add(sx as usize);
+            out.push(data.get(idx).copied().unwrap_or(false));
+        }
+    }
+    Ok(out)
+}
+
+/// Validate depth adjustment parameters at the Tauri IPC boundary (SEC-D-08).
+pub fn validate_depth_adjustment_params(params: &DepthAdjustmentParams) -> Result<(), String> {
+    if !params.gamma.is_finite() || params.gamma < GAMMA_MIN || params.gamma > GAMMA_MAX {
+        return Err(format!(
+            "gamma must be between {} and {}",
+            GAMMA_MIN, GAMMA_MAX
+        ));
+    }
+    if !params.contrast.is_finite()
+        || params.contrast < CONTRAST_MIN
+        || params.contrast > CONTRAST_MAX
+    {
+        return Err(format!(
+            "contrast must be between {} and {}",
+            CONTRAST_MIN, CONTRAST_MAX
+        ));
+    }
+    if !params.brightness.is_finite()
+        || params.brightness < BRIGHTNESS_MIN
+        || params.brightness > BRIGHTNESS_MAX
+    {
+        return Err(format!(
+            "brightness must be between {} and {}",
+            BRIGHTNESS_MIN, BRIGHTNESS_MAX
+        ));
+    }
+    if !params.feather_radius_px.is_finite()
+        || params.feather_radius_px < FEATHER_RADIUS_MIN
+        || params.feather_radius_px > FEATHER_RADIUS_MAX
+    {
+        return Err(format!(
+            "featherRadiusPx must be between {} and {}",
+            FEATHER_RADIUS_MIN, FEATHER_RADIUS_MAX
+        ));
+    }
+    if let Some(ref pts) = params.curve_control_points {
+        if pts.len() > MAX_CURVE_CONTROL_POINTS {
+            return Err(format!(
+                "curveControlPoints must have at most {} points",
+                MAX_CURVE_CONTROL_POINTS
+            ));
+        }
+        for (i, p) in pts.iter().enumerate() {
+            if !p.x.is_finite() || p.x < 0.0 || p.x > 1.0 {
+                return Err(format!(
+                    "curveControlPoints[{}].x must be in [0, 1]",
+                    i
+                ));
+            }
+            if !p.y.is_finite() || p.y < 0.0 || p.y > 1.0 {
+                return Err(format!(
+                    "curveControlPoints[{}].y must be in [0, 1]",
+                    i
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Clamp value to [0, 1].
 #[inline]
 fn clamp01(v: f32) -> f32 {
@@ -531,5 +716,76 @@ mod tests {
         let h = compute_histogram(&depth, 256);
         assert_eq!(h.len(), 256);
         assert!(h.iter().all(|&c| c <= 4)); // roughly 1000/256 per bin
+    }
+
+    // --- SEC-E-02: IPC depth subsampling ---
+
+    #[test]
+    fn ipc_depth_dimensions_within_limit_unchanged() {
+        assert_eq!(ipc_depth_dimensions(640, 480), (640, 480));
+        assert_eq!(ipc_depth_dimensions(1024, 1024), (1024, 1024));
+    }
+
+    #[test]
+    fn ipc_depth_dimensions_scales_8k_to_cap() {
+        let (w, h) = ipc_depth_dimensions(8192, 8192);
+        assert!(w <= MAX_IPC_DEPTH_DIMENSION);
+        assert!(h <= MAX_IPC_DEPTH_DIMENSION);
+        assert!((w as usize) * (h as usize) <= MAX_IPC_DEPTH_PIXELS);
+    }
+
+    #[test]
+    fn subsample_depth_for_ipc_reduces_large_map() {
+        let width = 2048u32;
+        let height = 2048u32;
+        let depth: Vec<f32> = (0..((width * height) as usize))
+            .map(|i| (i % 1000) as f32 / 1000.0)
+            .collect();
+        let (tw, th, out) = subsample_depth_for_ipc(&depth, width, height).unwrap();
+        assert!(tw < width);
+        assert!(th < height);
+        assert_eq!(out.len(), (tw as usize) * (th as usize));
+    }
+
+    #[test]
+    fn subsample_depth_for_ipc_identity_when_small() {
+        let depth = vec![0.1, 0.2, 0.3, 0.4];
+        let (w, h, out) = subsample_depth_for_ipc(&depth, 2, 2).unwrap();
+        assert_eq!((w, h), (2, 2));
+        assert_eq!(out, depth);
+    }
+
+    // --- SEC-D-08: IPC param validation ---
+
+    #[test]
+    fn validate_depth_adjustment_params_accepts_defaults() {
+        assert!(validate_depth_adjustment_params(&DepthAdjustmentParams::default()).is_ok());
+    }
+
+    #[test]
+    fn validate_depth_adjustment_params_rejects_bad_gamma() {
+        let mut p = DepthAdjustmentParams::default();
+        p.gamma = 0.05;
+        assert!(validate_depth_adjustment_params(&p).unwrap_err().contains("gamma"));
+        p.gamma = 6.0;
+        assert!(validate_depth_adjustment_params(&p).is_err());
+    }
+
+    #[test]
+    fn validate_depth_adjustment_params_rejects_too_many_curve_points() {
+        let mut p = DepthAdjustmentParams::default();
+        p.curve_control_points = Some(vec![CurvePoint { x: 0.0, y: 0.0 }; 33]);
+        assert!(validate_depth_adjustment_params(&p)
+            .unwrap_err()
+            .contains("curveControlPoints"));
+    }
+
+    #[test]
+    fn validate_depth_adjustment_params_rejects_bad_feather() {
+        let mut p = DepthAdjustmentParams::default();
+        p.feather_radius_px = 101.0;
+        assert!(validate_depth_adjustment_params(&p)
+            .unwrap_err()
+            .contains("featherRadiusPx"));
     }
 }

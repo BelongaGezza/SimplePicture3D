@@ -1,7 +1,7 @@
 # SimplePicture3D — Program TODO and Sprint Roadmap
 
-**Version:** 4.4  
-**Last Updated:** 2026-05-24  
+**Version:** 4.5  
+**Last Updated:** 2026-05-24 (sub-agent wave)  
 **Owner:** System Architect  
 **Latest Commit:** see git log  
 **Production path:** `ROADMAP.md`  
@@ -22,7 +22,7 @@ Delegated read-only reviews to **Security Specialist** and **Quality Engineer** 
 | CI | Linux + Windows backend jobs | Frontend still Linux-only |
 | Sprint D sign-off | Stale | `SECURITY_SIGNOFF.md` unchecked; ORCHESTRATION overstates “Complete” for SEC-D-05 |
 
-**Immediate P0 (next):** SEC-D-02 real model hashes; QA-C-01 manual UX pass; ARCH-D-01 engraver name.
+**Immediate P0 (next):** SEC-D-02 real model hashes; QA-C-01 manual UX pass; ARCH-D-01 engraver name; DOC-D-02 + `SECURITY_SIGNOFF.md`.
 
 ---
 
@@ -49,10 +49,10 @@ This roadmap reflects the deliberate restart decision (2026-05-10) plus two impl
 - **QA-C-01:** Manual full-workflow UX pass not yet recorded.
 - **Phase D:** Engraver import not executed (target software TBD in charter §2); performance benchmark pending; `SECURITY_SIGNOFF.md` unsigned.
 - **SEC-D-02:** `expected_model_hashes.json` still has `TODO:REPLACE_WITH_SHA256_*` placeholders — verification skipped at runtime.
-- **SEC-D-04 (partial):** Point cloud IPC capped (`MAX_IPC_POINT_CLOUD_POINTS`); **depth map** still returned in full via `get_depth_map` — track as **SEC-E-02**.
-- **SEC-D-11:** `withGlobalTauri: true` still set in `tauri.conf.json`.
+- **SEC-D-04 / SEC-E-02:** ✅ Point cloud + depth map IPC capped (`MAX_IPC_DEPTH_PIXELS`, subsample for `get_depth_map` / generate response).
+- **SEC-D-07–11:** ✅ Subprocess env allowlist, param validation, atomic export, blocklist parity, `withGlobalTauri: false` (2026-05-24 sub-agents).
 - **CI-D-01:** ✅ `backend-windows` job in `.github/workflows/ci.yml` (2026-05-24).
-- **Sprint artefacts:** `SPRINTS/Sprint_D/TEST_PLAN_D.md` missing; `MANUAL_TEST_REPORT.md` template only.
+- **Sprint artefacts:** ✅ `TEST_PLAN_D.md`, expanded `MANUAL_TEST_REPORT.md`, `SPRINT_2_6_CANCELLED.md` (QA-D-07/08/09).
 - **Stale settings comments:** `settings.rs` still documents legacy `export_format` (stl/obj) alongside new `point_cloud_format`.
 
 ### Security implementation status (2026-05-24 code review)
@@ -61,12 +61,15 @@ This roadmap reflects the deliberate restart decision (2026-05-10) plus two impl
 |------|--------|-------|
 | SEC-D-02 | ⏳ | Stub manifest only; real SHA256 pending trusted download |
 | SEC-D-03 | ✅ | `MAX_IMAGE_FILE_BYTES` + header dimension cap in `image_loading.rs` |
-| SEC-D-04 | ⏳ | Point cloud IPC capped; depth map IPC unbounded (**SEC-E-02**) |
-| SEC-D-05 | ✅ | `path_security.rs` + imports in `lib.rs` (2026-05-24) |
-| SEC-D-06 | ✅ | `allow-settings.toml`, `allow-model.toml` in `capabilities/default.json` |
-| SEC-D-07–09 | ⏳ | Not implemented |
-| SEC-D-10 | ⏳ | Verify `path_security` blocklist parity with export |
-| SEC-D-11 | ⏳ | `withGlobalTauri: true` |
+| SEC-D-04 | ✅ | Point cloud + depth IPC capped (SEC-E-02) |
+| SEC-D-05 | ✅ | `path_security.rs` + imports in `lib.rs` |
+| SEC-D-06 | ✅ | `allow-settings.toml`, `allow-model.toml` |
+| SEC-D-07 | ✅ | `python_bridge` env_clear + allowlist |
+| SEC-D-08 | ✅ | `validate_depth_adjustment_params` at IPC boundary |
+| SEC-D-09 | ✅ | Atomic export writes in `export.rs` |
+| SEC-D-10 | ✅ | Blocklist parity tests in `path_security` / `image_loading` |
+| SEC-D-11 | ✅ | `withGlobalTauri: false` in `tauri.conf.json` |
+| SEC-E-02 | ✅ | `MAX_IPC_DEPTH_PIXELS` subsampling in `depth_adjust.rs` |
 | SEC-D-12 | ✅ | PLY/CSV comment sanitization in `export.rs` |
 
 ---
@@ -220,15 +223,15 @@ All sprints are 1 week unless explicitly marked.
 |----------|------|---------|
 | P0 | **SEC-D-02** | Populate `python/python/expected_model_hashes.json` after trusted download; fail `download_model` when hashes are configured and verification fails (no silent skip in release). |
 | P0 | **SEC-D-03** | Enforce max image file size (e.g. 64–128 MB) and dimension cap on `read_image_bytes_for_depth` / before Python subprocess (align with 8K policy). |
-| P1 | **SEC-D-04** | Cap IPC payloads: point cloud preview capped ✅; **remaining:** depth map via `get_depth_map` (**SEC-E-02**); document limits in `docs/threat-model.md` §2.6. |
-| P0 | **SEC-E-01** | ✅ Fix `path_security` imports in `lib.rs` (2026-05-24). |
-| P1 | **SEC-E-02** | Cap or tile `get_depth_map` / depth IPC responses at 8K (subsampling or max dimension policy). |
-| P1 | **SEC-D-05** | Restrict `load_preset` (absolute path) and `load_mask_from_path` to dialog-selected paths or app data dirs; apply export-style blocklist. |
-| P2 | **SEC-D-07** | Release builds: `Command::env_clear()` + allowlist for Python child (`PATH`, `HOME` only as needed); ignore `VIRTUAL_ENV` / strip `DEPTH_MODEL_PATH` unless app-controlled. |
-| P2 | **SEC-D-08** | Validate `DepthAdjustmentParams` on `set_depth_adjustment_params` (gamma/contrast ranges, max curve points, `feather_radius_px` cap). |
-| P2 | **SEC-D-09** | Harden export writes: canonicalize full target path; atomic write (temp + rename) or `O_NOFOLLOW` where available (extends TD-06). |
-| P2 | **SEC-D-10** | Align Linux `load_image` blocklist with export blocklist (`/bin`, `/sbin`, `/proc`, `/sys`, etc.). |
-| P3 | **SEC-D-11** | Set `withGlobalTauri: false` in release; disable devtools in production bundle; tighten CSP if needed. |
+| P1 | **SEC-D-04** | ✅ IPC caps (point cloud + depth); document in `docs/threat-model.md` (DOC-D-02). |
+| P0 | **SEC-E-01** | ✅ `path_security` imports in `lib.rs`. |
+| P1 | **SEC-E-02** | ✅ Depth IPC subsampling (`MAX_IPC_DEPTH_PIXELS`). |
+| P1 | **SEC-D-05** | ✅ Preset/mask path policy via `path_security`. |
+| P2 | **SEC-D-07** | ✅ Python subprocess `env_clear` + allowlist. |
+| P2 | **SEC-D-08** | ✅ `validate_depth_adjustment_params` at IPC. |
+| P2 | **SEC-D-09** | ✅ Atomic export writes. |
+| P2 | **SEC-D-10** | ✅ Blocklist parity tests. |
+| P3 | **SEC-D-11** | ✅ `withGlobalTauri: false`. |
 | P3 | **QA-D-03** | Execute manual pentest checklist (`SPRINTS/Sprint_D/SECURITY_PENTEST_CHECKLIST.md`); record in `MANUAL_TEST_REPORT.md`. |
 | — | **SEC-D-12** | Sanitize PLY/CSV comment fields from `source_image` filename (newline/control chars). |
 | — | **DOC-D-02** | Update `docs/threat-model.md` and `docs/security-checklist.md` with Sprint D outcomes; Security Specialist sign-off in `SECURITY_SIGNOFF.md`. |
@@ -242,10 +245,10 @@ All sprints are 1 week unless explicitly marked.
 | P0 | **CI-D-01** | ✅ `backend-windows` job — build, test, clippy on `windows-latest` |
 | P1 | **QA-D-04** | Measure tarpaulin coverage; raise CI `--fail-under` from 63% if ≥65% achieved |
 | P1 | **QA-D-05** | ✅ Vitest: `exportXyz`, `exportCsv`, `setPointCloudFormat` (2026-05-24; 78 frontend tests) |
-| P1 | **QA-D-07** | Create `SPRINTS/Sprint_D/TEST_PLAN_D.md` from `SPRINTS/TEST_PLAN_TEMPLATE.md` |
+| P1 | **QA-D-07** | ✅ `SPRINTS/Sprint_D/TEST_PLAN_D.md` |
 | P2 | **QA-D-06** | Component smoke tests: `ExportPanel`, `VolumetricParamsPanel` (`@testing-library/svelte` ^4.x) |
-| P2 | **QA-D-09** | GOTCHAS: GTK local test setup; TODO-hash skip behaviour; `lib.rs` command test pattern |
-| P3 | **QA-D-08** | `SPRINTS/Sprint_2_6/SPRINT_2_6_CANCELLED.md` — document 2026-05-10 restart supersession |
+| P2 | **QA-D-09** | ✅ Three GOTCHAS entries (GTK, TODO hashes, `*_from_state` tests) |
+| P3 | **QA-D-08** | ✅ `SPRINT_2_6_CANCELLED.md` |
 
 **Exit Criteria**
 - At least one validated real-world engraver path documented with repeatable settings.
@@ -274,13 +277,13 @@ All sprints are 1 week unless explicitly marked.
 | TD-22 | ~~`lib.rs` missing `path_security` imports~~ — **resolved** 2026-05-24 | ~~Critical~~ | Closed |
 | TD-13 | Command-permission granularity inconsistent | High | Sprint D — SEC-D-01 |
 | TD-15 | Model SHA256 hashes empty — verification skipped on download | High | Sprint D — SEC-D-02 |
-| TD-16 | IPC DoS: depth map still unbounded over Tauri; point cloud capped | High | SEC-E-02 + SEC-D-04 |
+| TD-16 | ~~IPC DoS depth/point cloud~~ — capped (SEC-E-02, SEC-D-04) | ~~High~~ | Closed |
 | TD-17 | ~~`load_preset` path policy~~ — active via `validate_import_file_path` | ~~Medium~~ | Closed (SEC-D-05) |
 | TD-18 | ~~`load_mask_from_path` blocklist~~ — active via `path_security` | ~~Medium~~ | Closed (SEC-D-05) |
 | TD-20 | Python subprocess inherits `VIRTUAL_ENV` / `DEPTH_MODEL_PATH` | Medium | Sprint D — SEC-D-07 |
 | TD-08 | `lib.rs` coverage gap beyond export commands | High | QA-D-04 |
-| TD-06 | Export path TOCTOU write-test pattern | Medium | Sprint D — SEC-D-09 |
-| TD-21 | `withGlobalTauri: true` widens webview compromise blast radius | Low | Sprint D — SEC-D-11 |
+| TD-06 | ~~Export TOCTOU~~ — atomic write + canonicalize (SEC-D-09) | ~~Medium~~ | Closed |
+| TD-21 | ~~`withGlobalTauri: true`~~ — set false (SEC-D-11) | ~~Low~~ | Closed |
 | TD-23 | ~~No Windows CI~~ — **resolved** `backend-windows` job | ~~High~~ | Closed |
 | TD-09 | Accessibility issues in advanced controls | Medium | Post-Phase D polish |
 
