@@ -32,6 +32,7 @@ use tauri::State;
 use blank_envelope::BlankEnvelope;
 use depth_adjust::{apply_adjustments, compute_histogram, DepthAdjustmentParams};
 use export::ExportMetadata;
+use path_security::{is_blocklisted, validate_import_file_path};
 use preset::{get_builtin_preset, sanitize_preset_name, Preset};
 use undo::{SetDepthParamsCommand, SetMaskCommand, UndoRedoHistory, UndoableCommand};
 use volumetric::{

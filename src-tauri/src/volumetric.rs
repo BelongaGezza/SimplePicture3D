@@ -91,7 +91,7 @@ pub fn subsample_points_for_ipc(points: &[[f32; 3]], max_points: usize) -> Vec<[
     if points.len() <= max_points {
         return points.to_vec();
     }
-    let stride = (points.len() + max_points - 1) / max_points;
+    let stride = points.len().div_ceil(max_points);
     points
         .iter()
         .step_by(stride.max(1))
