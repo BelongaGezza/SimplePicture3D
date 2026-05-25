@@ -53,7 +53,7 @@ This roadmap reflects the deliberate restart decision (2026-05-10) plus two impl
 - **SEC-D-07–11:** ✅ Subprocess env allowlist, param validation, atomic export, blocklist parity, `withGlobalTauri: false` (2026-05-24 sub-agents).
 - **CI-D-01:** ✅ `backend-windows` job in `.github/workflows/ci.yml` (2026-05-24).
 - **Sprint artefacts:** ✅ `TEST_PLAN_D.md`, expanded `MANUAL_TEST_REPORT.md`, `SPRINT_2_6_CANCELLED.md` (QA-D-07/08/09).
-- **Stale settings comments:** `settings.rs` still documents legacy `export_format` (stl/obj) alongside new `point_cloud_format`.
+- **Mask IPC scaling:** ✅ `set_mask_region` / `set_mask` map preview coords to full-res mask (2026-05-24).
 
 ### Security implementation status (2026-05-24 code review)
 

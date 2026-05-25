@@ -141,6 +141,78 @@ pub fn subsample_mask_for_ipc(
     Ok(out)
 }
 
+/// Upsample a preview (IPC) mask to full depth-map resolution (inverse of [`subsample_mask_for_ipc`]).
+pub fn upsample_mask_from_ipc(
+    data: &[bool],
+    ipc_width: u32,
+    ipc_height: u32,
+    full_width: u32,
+    full_height: u32,
+) -> Result<Vec<bool>, String> {
+    let expected = (ipc_width as usize)
+        .checked_mul(ipc_height as usize)
+        .ok_or_else(|| "Mask dimensions overflow".to_string())?;
+    if data.len() != expected {
+        return Err(format!(
+            "Mask length {} does not match {}x{}",
+            data.len(),
+            ipc_width,
+            ipc_height
+        ));
+    }
+    if ipc_width == full_width && ipc_height == full_height {
+        return Ok(data.to_vec());
+    }
+    let mut out = vec![false; (full_width as usize).saturating_mul(full_height as usize)];
+    for fy in 0..full_height {
+        let iy = (fy as u64 * ipc_height as u64 / full_height as u64) as u32;
+        for fx in 0..full_width {
+            let ix = (fx as u64 * ipc_width as u64 / full_width as u64) as u32;
+            let ipc_idx = (iy as usize)
+                .saturating_mul(ipc_width as usize)
+                .saturating_add(ix as usize);
+            if data.get(ipc_idx).copied().unwrap_or(false) {
+                let full_idx = (fy as usize)
+                    .saturating_mul(full_width as usize)
+                    .saturating_add(fx as usize);
+                if let Some(cell) = out.get_mut(full_idx) {
+                    *cell = true;
+                }
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Map a rectangular mask region from IPC/preview coordinates to full depth-map space.
+pub fn scale_mask_region_to_full(
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+    ipc_dims: (u32, u32),
+    full_dims: (u32, u32),
+) -> (u32, u32, u32, u32) {
+    let (ipc_width, ipc_height) = ipc_dims;
+    let (full_width, full_height) = full_dims;
+    if ipc_width == full_width && ipc_height == full_height {
+        return (x, y, width, height);
+    }
+    let scale_x = |v: u32| -> u32 {
+        ((v as u64).saturating_mul(full_width as u64) / ipc_width as u64) as u32
+    };
+    let scale_y = |v: u32| -> u32 {
+        ((v as u64).saturating_mul(full_height as u64) / ipc_height as u64) as u32
+    };
+    let x0 = scale_x(x);
+    let y0 = scale_y(y);
+    let x1 = scale_x(x.saturating_add(width).min(ipc_width));
+    let y1 = scale_y(y.saturating_add(height).min(ipc_height));
+    let w = x1.saturating_sub(x0).max(1);
+    let h = y1.saturating_sub(y0).max(1);
+    (x0, y0, w, h)
+}
+
 /// Validate depth adjustment parameters at the Tauri IPC boundary (SEC-D-08).
 pub fn validate_depth_adjustment_params(params: &DepthAdjustmentParams) -> Result<(), String> {
     if !params.gamma.is_finite() || params.gamma < GAMMA_MIN || params.gamma > GAMMA_MAX {
@@ -753,6 +825,39 @@ mod tests {
         let (w, h, out) = subsample_depth_for_ipc(&depth, 2, 2).unwrap();
         assert_eq!((w, h), (2, 2));
         assert_eq!(out, depth);
+    }
+
+    #[test]
+    fn subsample_mask_for_ipc_roundtrip_via_upsample() {
+        let full_w = 2048u32;
+        let full_h = 2048u32;
+        let (ipc_w, ipc_h) = ipc_depth_dimensions(full_w, full_h);
+        let mut full = vec![false; (full_w * full_h) as usize];
+        full[(1024 * full_w + 1024) as usize] = true;
+        let ipc = subsample_mask_for_ipc(&full, full_w, full_h, ipc_w, ipc_h).unwrap();
+        let restored = upsample_mask_from_ipc(&ipc, ipc_w, ipc_h, full_w, full_h).unwrap();
+        assert!(
+            restored.iter().any(|&b| b),
+            "center stamp should survive IPC down/up sample"
+        );
+    }
+
+    #[test]
+    fn scale_mask_region_to_full_expands_preview_rect() {
+        let (ipc_w, ipc_h) = ipc_depth_dimensions(2048, 2048);
+        let (x, y, w, h) = scale_mask_region_to_full(10, 10, 4, 4, (ipc_w, ipc_h), (2048, 2048));
+        assert!(x > 10 || w > 4);
+        assert!(y > 10 || h > 4);
+        assert!(x + w <= 2048);
+        assert!(y + h <= 2048);
+    }
+
+    #[test]
+    fn scale_mask_region_identity_when_no_ipc_downscale() {
+        assert_eq!(
+            scale_mask_region_to_full(5, 6, 20, 20, (512, 512), (512, 512)),
+            (5, 6, 20, 20)
+        );
     }
 
     // --- SEC-D-08: IPC param validation ---

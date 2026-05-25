@@ -38,6 +38,7 @@ Validate engraver-compatible exports; close P0/P1 security gaps; align Tauri ACL
 | CI-D-01 | Quality Engineer | 2026-05-24 | Complete | `backend-windows` CI job |
 | QA-D-05 | Quality Engineer | 2026-05-24 | Complete | `exportXyz`/`exportCsv`/`setPointCloudFormat` Vitest |
 | BACK-D-01 | Senior Engineer | Orchestrator | Blocked | Awaiting QA-D-01 results |
+| SEC-E-02-mask | Senior Engineer | 2026-05-24 | Complete | IPC→full mask coord scaling in `depth_adjust.rs` |
 | DOC-D-01 | Documentation Specialist | — | Available | Interoperability notes |
 | DOC-D-02 | Security Specialist | Wave 4 | Complete | Threat model, checklist, sign-off, CI hash warning |
 | QA-D-06 | UI Designer / QE | Wave 4 | Complete | ExportPanel + VolumetricParamsPanel tests (82 Vitest) |

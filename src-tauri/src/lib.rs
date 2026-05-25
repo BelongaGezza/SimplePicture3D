@@ -31,7 +31,8 @@ use tauri::State;
 
 use blank_envelope::BlankEnvelope;
 use depth_adjust::{
-    apply_adjustments, compute_histogram, subsample_depth_for_ipc, subsample_mask_for_ipc,
+    apply_adjustments, compute_histogram, scale_mask_region_to_full, subsample_depth_for_ipc,
+    subsample_mask_for_ipc, upsample_mask_from_ipc,
     validate_depth_adjustment_params, DepthAdjustmentParams,
 };
 use export::ExportMetadata;
@@ -1037,6 +1038,15 @@ fn set_mask_region(
     if !previous.dimensions_match(depth_w, depth_h) {
         return Err("Mask dimensions do not match depth map.".to_string());
     }
+    let (ipc_w, ipc_h) = depth_adjust::ipc_depth_dimensions(depth_w, depth_h);
+    let (x, y, width, height) = scale_mask_region_to_full(
+        x,
+        y,
+        width,
+        height,
+        (ipc_w, ipc_h),
+        (depth_w, depth_h),
+    );
     let mut new_mask = previous.clone();
     new_mask.set_region(x, y, width, height, value);
     let cmd = SetMaskCommand {
@@ -1124,14 +1134,19 @@ fn set_mask(
             .ok_or_else(|| "No depth map loaded. Generate a depth map first.".to_string())?;
         (d.width, d.height)
     };
-    if width != depth_w || height != depth_h {
+    let (ipc_w, ipc_h) = depth_adjust::ipc_depth_dimensions(depth_w, depth_h);
+    let full_data = if width == depth_w && height == depth_h {
+        data
+    } else if width == ipc_w && height == ipc_h {
+        upsample_mask_from_ipc(&data, ipc_w, ipc_h, depth_w, depth_h)?
+    } else {
         return Err(format!(
-            "Mask dimensions {}x{} do not match depth map {}x{}.",
-            width, height, depth_w, depth_h
+            "Mask dimensions {}x{} do not match depth map {}x{} or preview {}x{}.",
+            width, height, depth_w, depth_h, ipc_w, ipc_h
         ));
-    }
+    };
     let new_mask =
-        mask::MaskBitmap::from_bool_vec(width, height, &data).map_err(|e| e.to_string())?;
+        mask::MaskBitmap::from_bool_vec(depth_w, depth_h, &full_data).map_err(|e| e.to_string())?;
     let previous = state.mask.lock().map_err(|e| e.to_string())?.clone();
     let previous = previous.unwrap_or_else(|| mask::MaskBitmap::all_false(depth_w, depth_h));
     let cmd = SetMaskCommand {
@@ -1804,6 +1819,27 @@ mod tests {
         assert!((out[0] - 0.0).abs() < 1e-6, "unmasked stays 0");
         assert!((out[1] - 0.7).abs() < 1e-5, "masked 0.5+0.2=0.7");
         assert!((out[2] - 1.0).abs() < 1e-6, "unmasked stays 1");
+    }
+
+    /// SEC-E-02: Mask paint in IPC preview coords maps to full-resolution mask bitmap.
+    #[test]
+    fn mask_region_scaling_paints_full_res_center() {
+        use depth_adjust::ipc_depth_dimensions;
+        let depth_w = 2048u32;
+        let depth_h = 2048u32;
+        let (ipc_w, ipc_h) = ipc_depth_dimensions(depth_w, depth_h);
+        let cx = ipc_w / 2;
+        let cy = ipc_h / 2;
+        let (x, y, w, h) =
+            scale_mask_region_to_full(cx, cy, 2, 2, (ipc_w, ipc_h), (depth_w, depth_h));
+        let mut mask = mask::MaskBitmap::all_false(depth_w, depth_h);
+        mask.set_region(x, y, w, h, true);
+        let full_cx = (cx as u64 * depth_w as u64 / ipc_w as u64) as u32;
+        let full_cy = (cy as u64 * depth_h as u64 / ipc_h as u64) as u32;
+        assert!(
+            mask.get(full_cx, full_cy),
+            "center IPC stamp should set full-res mask near image centre"
+        );
     }
 
     /// SEC-E-02: Large depth maps are downsampled for IPC while full resolution stays in state.

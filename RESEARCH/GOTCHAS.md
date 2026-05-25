@@ -150,6 +150,11 @@ These capture recurring cross-cutting rules that apply to all sprints. Unlike th
 **Cause:** `python/python/expected_model_hashes.json` contains `TODO:REPLACE_WITH_SHA256_*` (or other non–64-char hex) values. `load_expected_hashes()` in `model_downloader.py` treats invalid/placeholder entries as “no hashes configured” and **silently skips** `verify_model_sha256`.  
 **Fix:** After a **trusted** Hugging Face download, run `python -m python.model_downloader --write-hashes` and commit real 64-character SHA256 digests. Until then, document stub status in security sign-off (`SPRINTS/Sprint_D/SECURITY_REVIEW_2026-05.md`, SEC-D-02). Tests in `python/tests/test_model_downloader.py` cover loader behaviour with temp manifests.
 
+### 2026-05-24 — Mask / IPC — Brush paint on 4K depth preview did not affect full-resolution mask
+**Symptom:** Mask brush, lasso, and selection appear to do nothing (or only affect a tiny corner) when the depth map is larger than the IPC preview cap (~1024×1024 or 1M pixels).  
+**Cause:** The UI paints in **IPC preview coordinates** (`get_depth_map` / `generate_depth_map` return subsampled width/height), but `set_mask_region` and `set_mask` previously wrote directly to the **full-resolution** mask in backend state without scaling.  
+**Fix:** `scale_mask_region_to_full` and `upsample_mask_from_ipc` in `depth_adjust.rs`; `set_mask_region` scales rectangles before `set_region`; `set_mask` accepts IPC-sized buffers and upsamples when dimensions match `ipc_depth_dimensions(full_w, full_h)`. `get_mask` already subsamples for overlay (unchanged).
+
 ### 2026-05-24 — Rust / Tauri — Test Tauri commands via `*_from_state` helpers, not IPC
 **Symptom:** Adding `#[test]` that calls Tauri `#[tauri::command]` handlers directly is awkward (needs `AppHandle`, runtime, or mocking).  
 **Cause:** Command functions are thin wrappers around stateful logic; integration tests should exercise the same body as production without spinning Tauri.  
