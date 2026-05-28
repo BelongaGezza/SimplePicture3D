@@ -620,4 +620,55 @@ mod tests {
         assert_eq!(loaded.step_y, 3);
         assert!((loaded.depth_threshold - 0.25).abs() < f32::EPSILON);
     }
+
+    /// QA-D-02: Record Rust-only 4K pipeline timing (no Python depth). Run:
+    /// `cargo test qa_d02_4k_rust_pipeline_timing --manifest-path src-tauri/Cargo.toml -- --ignored --nocapture`
+    #[test]
+    #[ignore = "QA-D-02 manual performance; prints timing to stdout"]
+    fn qa_d02_4k_rust_pipeline_timing() {
+        use std::time::Instant;
+
+        const WIDTH: u32 = 3840;
+        const HEIGHT: u32 = 2160;
+        let len = (WIDTH as usize).saturating_mul(HEIGHT as usize);
+        let depth: Vec<f32> = (0..len)
+            .map(|i| (i % 1000) as f32 / 1000.0)
+            .collect();
+        let envelope = BlankEnvelope::default();
+        let params = VolumetricParams {
+            step_x: 1,
+            step_y: 1,
+            depth_threshold: DEFAULT_DEPTH_THRESHOLD,
+        };
+
+        let t0 = Instant::now();
+        let result =
+            generate_volumetric_points(&depth, WIDTH, HEIGHT, &params, &envelope).unwrap();
+        let gen_ms = t0.elapsed().as_secs_f64() * 1000.0;
+
+        let t1 = Instant::now();
+        let dir = std::env::temp_dir().join(format!("sp3d_qa_d02_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let ply_path = dir.join("qa_d02_4k.ply");
+        let metadata = crate::export::ExportMetadata {
+            source_image: Some("qa_d02_4k.png".to_string()),
+            blank_envelope: Some(envelope),
+            ..crate::export::ExportMetadata::new()
+        };
+        crate::export::export_ply(&ply_path, &result.points, &metadata, false).unwrap();
+        let export_ms = t1.elapsed().as_secs_f64() * 1000.0;
+        let ply_bytes = std::fs::metadata(&ply_path).map(|m| m.len()).unwrap_or(0);
+        let _ = std::fs::remove_dir_all(&dir);
+
+        let total_s = (gen_ms + export_ms) / 1000.0;
+        eprintln!("QA-D-02 Rust-only (synthetic 4K depth, step=1):");
+        eprintln!("  point_count: {}", result.point_count);
+        eprintln!("  generate:    {gen_ms:.0} ms");
+        eprintln!("  export PLY:  {export_ms:.0} ms ({ply_bytes} bytes)");
+        eprintln!("  total:       {total_s:.2} s (PRD E2E target < 120 s includes Python depth)");
+        assert!(
+            total_s < 120.0,
+            "Rust 4K generate+export should stay under 120s on dev hardware"
+        );
+    }
 }

@@ -32,17 +32,16 @@ Validate engraver-compatible exports; close P0/P1 security gaps; align Tauri ACL
 | QA-D-07 | Quality Engineer | 2026-05-24 | Complete | `TEST_PLAN_D.md` from template |
 | QA-D-08 | Quality Engineer | 2026-05-24 | Complete | `SPRINT_2_6_CANCELLED.md` |
 | QA-D-09 | Quality Engineer | 2026-05-24 | Complete | Three entries in `RESEARCH/GOTCHAS.md` |
-| QA-D-02 | Quality Engineer | — | Available | 4K timing benchmark |
+| QA-D-02 | Quality Engineer | 2026-05-24 | Complete | `QA-D-02_BENCHMARK.md`, criterion bench, ignored timing test |
 | QA-D-03 | Quality Engineer | — | Available | Pentest checklist |
 | QA-B-01 | Quality Engineer | 2026-05-24 | Complete | Five export command tests in `lib.rs` |
 | CI-D-01 | Quality Engineer | 2026-05-24 | Complete | `backend-windows` CI job |
 | QA-D-05 | Quality Engineer | 2026-05-24 | Complete | `exportXyz`/`exportCsv`/`setPointCloudFormat` Vitest |
 | BACK-D-01 | Senior Engineer | Orchestrator | Blocked | Awaiting QA-D-01 results |
 | SEC-E-02-mask | Senior Engineer | 2026-05-24 | Complete | IPC→full mask coord scaling in `depth_adjust.rs` |
-| DOC-D-01 | Documentation Specialist | — | Available | Interoperability notes |
+| DOC-D-01 | Documentation Specialist | 2026-05-24 | Complete | `docs/engraver-interoperability.md` |
 | DOC-D-02 | Security Specialist | Wave 4 | Complete | Threat model, checklist, sign-off, CI hash warning |
 | QA-D-06 | UI Designer / QE | Wave 4 | Complete | ExportPanel + VolumetricParamsPanel tests (82 Vitest) |
-| DOC-D-01 | Documentation | Orchestrator | Draft | `docs/engraver-interoperability.md` structure |
 
 **Status values:** `Available` | `Delegated` | `In Progress` | `Review` | `Complete` | `Blocked`
 

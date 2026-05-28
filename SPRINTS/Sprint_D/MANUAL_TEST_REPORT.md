@@ -168,13 +168,15 @@ _Add rows from [QA-D-01_TEST_PROCEDURE.md](./QA-D-01_TEST_PROCEDURE.md) § G dur
 
 ## QA-D-02 — Performance (4K image)
 
+**Automated Rust slice (dev reference, 2026-05-24):** `cargo test qa_d02_4k_rust_pipeline_timing --manifest-path src-tauri/Cargo.toml -- --ignored --nocapture` — synthetic 3840×2160 depth, step 1: ~0.6 s generate, ~3.0 s PLY export (~233 MB file). See `QA-D-02_BENCHMARK.md`.
+
 | Step | Time | Notes |
 |------|------|-------|
 | Load image | | |
 | Generate depth | | |
 | Generate point cloud | | |
 | Export PLY | | |
-| **Total** | | Target: &lt; 2 min (PRD) |
+| **Total** | | Target: &lt; 2 min (PRD) E2E including Python |
 
 ---
 

@@ -209,8 +209,8 @@ All sprints are 1 week unless explicitly marked.
 - **ARCH-D-01:** ✅ Target toolchain documented — **Xtool Studio** + **Xtool F2** UV (`docs/engraver-charter.md` §2).
 - **QA-D-01:** ⏳ Export PLY/XYZ → import into **Xtool Studio**; verify axes/units per `QA-D-01_TEST_PROCEDURE.md`.
 - **BACK-D-01:** Fix any compatibility defects found (axis flips, unit scaling, header metadata, decimal precision).
-- **QA-D-02:** Performance check — time from image load to PLY export for a 4K image on a mid-range machine.
-- **DOC-D-01:** ⏳ `docs/engraver-interoperability.md` — Xtool Studio/F2 named; known-good settings after QA-D-01.
+- **QA-D-02:** ✅ Rust bench + `QA-D-02_BENCHMARK.md`; manual E2E timing still required in `MANUAL_TEST_REPORT.md`.
+- **DOC-D-01:** ✅ `docs/engraver-interoperability.md` — known-good table pending QA-D-01 results.
 
 **Permissions & consistency**
 - **SEC-D-01:** ✅ Split into `allow-depth-map.toml` + `allow-mask.toml` (2026-05-24 Wave 4).
