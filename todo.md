@@ -232,7 +232,7 @@ All sprints are 1 week unless explicitly marked.
 | P2 | **SEC-D-09** | ✅ Atomic export writes. |
 | P2 | **SEC-D-10** | ✅ Blocklist parity tests. |
 | P3 | **SEC-D-11** | ✅ `withGlobalTauri: false`. |
-| P3 | **QA-D-03** | Execute manual pentest checklist (`SPRINTS/Sprint_D/SECURITY_PENTEST_CHECKLIST.md`); record in `MANUAL_TEST_REPORT.md`. |
+| P3 | **QA-D-03** | Automated pentest tests (`qa_d03_*`); manual WebView/model/release items in `MANUAL_TEST_REPORT.md`. |
 | — | **SEC-D-12** | Sanitize PLY/CSV comment fields from `source_image` filename (newline/control chars). |
 | — | **DOC-D-02** | ✅ Threat model, security-checklist, SECURITY_SIGNOFF updated (2026-05-24 Wave 4) |
 

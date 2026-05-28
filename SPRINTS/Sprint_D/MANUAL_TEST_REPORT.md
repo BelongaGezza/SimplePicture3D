@@ -182,15 +182,15 @@ _Add rows from [QA-D-01_TEST_PROCEDURE.md](./QA-D-01_TEST_PROCEDURE.md) § G dur
 
 ## QA-D-03 — Security pentest checklist
 
-See `SECURITY_PENTEST_CHECKLIST.md` — copy Pass/Fail column here or attach summary:
+**Automated (2026-05-24):** `cargo test qa_d03 --manifest-path src-tauri/Cargo.toml` — see `QA-D-03_AUTOMATED_COVERAGE.md` for mapping to checklist #1–18.
 
-| Section | Pass | Fail | Skipped |
-|---------|------|------|---------|
-| IPC fuzzing | | | |
-| Filesystem | | | |
-| Model & subprocess | | | |
-| WebView / ACL | | | |
-| DoS (lab) | | | |
+| Section | Pass | Fail | Skipped | Notes |
+|---------|------|------|---------|-------|
+| IPC fuzzing | Auto | | Manual UI | Tests #1–7 |
+| Filesystem | Auto | | #9 symlink | Tests #8, #10 |
+| Model & subprocess | | | Manual | #11–13 |
+| WebView / ACL | | | Manual | #14–16 release build |
+| DoS (lab) | Auto | | #18 E2E | #17–18 partial |
 
 ---
 

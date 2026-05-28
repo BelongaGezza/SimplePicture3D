@@ -327,18 +327,24 @@ fn estimate_point_cloud_count(state: State<AppState>) -> Result<Option<usize>, S
     estimate_point_cloud_count_from_state(&state)
 }
 
+fn reject_oversized_point_cloud(result: &VolumetricResult) -> Result<(), String> {
+    if result.point_count > MAX_POINT_CLOUD_GENERATION {
+        Err(format!(
+            "Point cloud too large ({} points). Increase pixel step (step_x/step_y) — maximum generation limit is {} points.",
+            result.point_count, MAX_POINT_CLOUD_GENERATION
+        ))
+    } else {
+        Ok(())
+    }
+}
+
 #[tauri::command]
 fn generate_point_cloud(
     for_preview: Option<bool>,
     state: State<AppState>,
 ) -> Result<VolumetricResult, String> {
     let result = generate_point_cloud_from_state(&state)?;
-    if result.point_count > MAX_POINT_CLOUD_GENERATION {
-        return Err(format!(
-            "Point cloud too large ({} points). Increase pixel step (step_x/step_y) — maximum generation limit is {} points.",
-            result.point_count, MAX_POINT_CLOUD_GENERATION
-        ));
-    }
+    reject_oversized_point_cloud(&result)?;
     *state.last_point_cloud.lock().map_err(|e| e.to_string())? = Some(result.clone());
     let preview = for_preview.unwrap_or(false);
     if preview && result.point_count > MAX_IPC_POINT_CLOUD_POINTS {
@@ -914,9 +920,7 @@ fn get_depth_adjustment_params(state: State<AppState>) -> Result<DepthAdjustment
         .map(|guard| guard.clone())
 }
 
-/// Returns undo/redo state for UI (can_undo, can_redo, current params). Use after load or to sync buttons.
-#[tauri::command]
-fn get_undo_redo_state(state: State<AppState>) -> Result<UndoRedoState, String> {
+fn undo_redo_snapshot(state: &AppState) -> Result<UndoRedoState, String> {
     let params = state
         .adjustment_params
         .lock()
@@ -928,6 +932,12 @@ fn get_undo_redo_state(state: State<AppState>) -> Result<UndoRedoState, String> 
         can_redo: hist.can_redo(),
         params,
     })
+}
+
+/// Returns undo/redo state for UI (can_undo, can_redo, current params). Use after load or to sync buttons.
+#[tauri::command]
+fn get_undo_redo_state(state: State<AppState>) -> Result<UndoRedoState, String> {
+    undo_redo_snapshot(&state)
 }
 
 /// Undo last action (depth or mask) (BACK-1404, ARCH-502). Restores previous state; returns new state for UI.
@@ -1120,12 +1130,11 @@ fn reset_depth_adjustments(state: State<AppState>) -> Result<UndoRedoState, Stri
 }
 
 /// Set the full mask from row-major bool data (JR1-1203 load, JR1-1202 lasso fill). Pushes to undo stack.
-#[tauri::command]
-fn set_mask(
+fn set_mask_on_state(
+    state: &AppState,
     width: u32,
     height: u32,
     data: Vec<bool>,
-    state: State<AppState>,
 ) -> Result<UndoRedoState, String> {
     let (depth_w, depth_h) = {
         let guard = state.depth.lock().map_err(|e| e.to_string())?;
@@ -1158,7 +1167,17 @@ fn set_mask(
         let mut hist = state.undo_redo.lock().map_err(|e| e.to_string())?;
         hist.push(UndoableCommand::Mask(cmd));
     }
-    get_undo_redo_state(state)
+    undo_redo_snapshot(state)
+}
+
+#[tauri::command]
+fn set_mask(
+    width: u32,
+    height: u32,
+    data: Vec<bool>,
+    state: State<AppState>,
+) -> Result<UndoRedoState, String> {
+    set_mask_on_state(&state, width, height, data)
 }
 
 /// Mask file format (JR1-1203). JSON: { "width", "height", "data": boolean[] } row-major.
@@ -1357,6 +1376,86 @@ mod tests {
             },
             memory_bytes: 24,
         }
+    }
+
+    // --- QA-D-03: Automated coverage for SECURITY_PENTEST_CHECKLIST.md ---
+
+    #[test]
+    fn qa_d03_export_empty_path_rejected() {
+        let err = validate_export_path("", "ply").unwrap_err();
+        assert!(err.contains("non-empty"), "got: {err}");
+    }
+
+    #[test]
+    fn qa_d03_export_blocklisted_system_path_rejected() {
+        let err = validate_export_path("/etc/sp3d_evil.ply", "ply").unwrap_err();
+        assert!(
+            err.contains("system") || err.contains("accessible"),
+            "got: {err}"
+        );
+    }
+
+    #[test]
+    fn qa_d03_preset_import_blocklisted_path_rejected() {
+        let err = validate_import_file_path("/etc/evil_preset.json", "json").unwrap_err();
+        assert!(
+            err.contains("system") || err.contains("Cannot") || err.contains("accessible"),
+            "got: {err}"
+        );
+    }
+
+    #[test]
+    fn qa_d03_set_mask_wrong_buffer_length_rejected() {
+        let err = mask::MaskBitmap::from_bool_vec(4, 4, &[true; 10]).unwrap_err();
+        assert!(err.contains("length") || err.contains("match"), "got: {err}");
+    }
+
+    #[test]
+    fn qa_d03_set_mask_dimension_mismatch_rejected() {
+        let state = app_state_with_depth_and_settings();
+        match set_mask_on_state(&state, 3, 3, vec![false; 9]) {
+            Err(e) => assert!(e.contains("do not match"), "got: {e}"),
+            Ok(_) => panic!("expected dimension mismatch error"),
+        }
+    }
+
+    #[test]
+    fn qa_d03_invalid_preset_json_rejected() {
+        let err = preset::Preset::parse_and_validate_json("{").unwrap_err();
+        assert!(!err.is_empty());
+    }
+
+    #[test]
+    fn qa_d03_point_cloud_generation_cap_enforced() {
+        const W: u32 = 3000;
+        const H: u32 = 3000;
+        let depth = python_bridge::DepthMapOutput {
+            width: W,
+            height: H,
+            depth: vec![0.8f32; (W * H) as usize],
+        };
+        let app_settings = settings::AppSettings {
+            blank_envelope: Some(BlankEnvelope::default()),
+            volumetric_params: Some(VolumetricParams {
+                step_x: 1,
+                step_y: 1,
+                depth_threshold: 0.0,
+            }),
+            ..Default::default()
+        };
+        let state = AppState {
+            depth: Mutex::new(Some(depth)),
+            adjustment_params: Mutex::new(DepthAdjustmentParams::default()),
+            mask: Mutex::new(None),
+            source_image_path: Mutex::new(None),
+            app_settings: Mutex::new(app_settings),
+            undo_redo: Mutex::new(UndoRedoHistory::new()),
+            last_point_cloud: Mutex::new(None),
+        };
+        let generated = generate_point_cloud_from_state(&state).expect("generate");
+        assert!(generated.point_count > MAX_POINT_CLOUD_GENERATION);
+        let err = reject_oversized_point_cloud(&generated).unwrap_err();
+        assert!(err.contains("too large"), "got: {err}");
     }
 
     /// QA-D-01: Exported PLY matches engraver charter header contract (docs/engraver-charter.md §4).

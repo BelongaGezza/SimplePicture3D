@@ -33,7 +33,7 @@ Validate engraver-compatible exports; close P0/P1 security gaps; align Tauri ACL
 | QA-D-08 | Quality Engineer | 2026-05-24 | Complete | `SPRINT_2_6_CANCELLED.md` |
 | QA-D-09 | Quality Engineer | 2026-05-24 | Complete | Three entries in `RESEARCH/GOTCHAS.md` |
 | QA-D-02 | Quality Engineer | 2026-05-24 | Complete | `QA-D-02_BENCHMARK.md`, criterion bench, ignored timing test |
-| QA-D-03 | Quality Engineer | — | Available | Pentest checklist |
+| QA-D-03 | Quality Engineer | 2026-05-24 | Partial | Automated tests + `QA-D-03_AUTOMATED_COVERAGE.md`; manual WebView/model items remain |
 | QA-B-01 | Quality Engineer | 2026-05-24 | Complete | Five export command tests in `lib.rs` |
 | CI-D-01 | Quality Engineer | 2026-05-24 | Complete | `backend-windows` CI job |
 | QA-D-05 | Quality Engineer | 2026-05-24 | Complete | `exportXyz`/`exportCsv`/`setPointCloudFormat` Vitest |
