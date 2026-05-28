@@ -6,7 +6,7 @@
  * Verifies blank preset, format selector, and export controls render.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/svelte";
+import { render, screen } from "@testing-library/svelte/svelte5";
 import ExportPanel from "../ExportPanel.svelte";
 
 const mockInvoke = vi.fn();

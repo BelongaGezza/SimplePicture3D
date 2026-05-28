@@ -6,7 +6,7 @@
  * Tests default render, loading state, error state, Load button, unsupported format on drop.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/svelte";
+import { render, screen, fireEvent } from "@testing-library/svelte/svelte5";
 import ImageImport from "../ImageImport.svelte";
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({

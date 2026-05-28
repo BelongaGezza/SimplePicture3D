@@ -6,7 +6,7 @@
  * Verifies pixel step and depth threshold controls render.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/svelte";
+import { render, screen } from "@testing-library/svelte/svelte5";
 import VolumetricParamsPanel from "../VolumetricParamsPanel.svelte";
 
 const mockInvoke = vi.fn();

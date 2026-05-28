@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: MIT
 
 import "./app.css";
+import { mount } from "svelte";
 import App from "./App.svelte";
 
-const app = document.getElementById("app");
-if (!app) throw new Error("Missing #app element");
-const mount = new App({ target: app });
-export default mount;
+const target = document.getElementById("app");
+if (!target) throw new Error("Missing #app element");
+mount(App, { target });

@@ -6,7 +6,7 @@
  * Tests disabled/enabled state, slider interaction, invert, reset, clamping, keyboard.
  */
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/svelte";
+import { render, screen, fireEvent } from "@testing-library/svelte/svelte5";
 import DepthControls from "../DepthControls.svelte";
 import type { DepthAdjustmentParams } from "$lib/tauri";
 
