@@ -1,0 +1,12 @@
+[[permission]]
+identifier = "allow-depth-adjust"
+description = "Enables in-memory depth adjustment, undo/redo, history, and reset commands (SEC-D-01)."
+commands.allow = [
+    "set_depth_adjustment_params",
+    "get_depth_adjustment_params",
+    "get_undo_redo_state",
+    "undo",
+    "redo",
+    "clear_history",
+    "reset_depth_adjustments",
+]

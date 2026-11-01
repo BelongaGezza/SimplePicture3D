@@ -4,7 +4,7 @@
 **Sprint Goal:** Validate engraver-compatible exports; complete security remediations from the 2026-05-19 review; align Tauri ACL with minimum privilege.  
 **Phase:** Post-restart Phase D (`todo.md` v4.2)  
 **Source:** `todo.md` — Sprint D; `SPRINTS/Sprint_D/SECURITY_REVIEW_2026-05.md`  
-**Last Updated:** 2026-05-19
+**Last Updated:** 2026-05-20
 
 ---
 
@@ -39,11 +39,11 @@
 | Role | Persona File | Status | Assigned Agent | Owned Tasks |
 |------|--------------|--------|----------------|-------------|
 | Security Specialist | `.agents/security-specialist.md` | Available | — | SEC-D-02, SEC-D-12, DOC-D-02, SECURITY_SIGNOFF |
-| Senior Engineer | `.agents/senior-engineer.md` | In Progress | Cursor-Orchestrator | SEC-D-03–SEC-D-11, SEC-D-01, SEC-D-06, BACK-D-01 |
-| System Architect | `.agents/system-architect.md` | Available | Wave3-Architect | ARCH-D-02 remaining |
-| Quality Engineer | `.agents/quality-engineer.md` | In Progress | Wave3-QE | QA-D-01 execution pending engraver |
-| Documentation Specialist | `.agents/documentation-specialist.md` | Available | — | DOC-D-01, DOC-D-02 (with Security) |
-| UI Designer | `.agents/ui-designer.md` | Available | — | — (no UI tasks unless IPC changes need preview tweaks) |
+| Senior Engineer | `.agents/senior-engineer.md` | In Progress | Wave5-Orchestrator | SEC-D-01, BACK-D-01 (blocked), QA-B-01 verify |
+| System Architect | `.agents/system-architect.md` | Complete | 2026-05-20 review | ARCH-D-01, ARCH-D-02; `docs/ARCHITECT_PROGRESS_REVIEW_2026-05-20.md` |
+| Quality Engineer | `.agents/quality-engineer.md` | Ready | Wave3-QE | QA-D-01 execution (XTool Studio) |
+| Documentation Specialist | `.agents/documentation-specialist.md` | In Progress | Wave5-Docs | DOC-D-01 ✅; DOC-D-02 (with Security) |
+| UI Designer | `.agents/ui-designer.md` | In Progress | UI-D-01 | F2 volume warnings (Export + Preview) |
 
 **Status values:** `Available` | `In Progress` | `Complete` | `Blocked`
 
@@ -60,6 +60,7 @@
 | BACK-D-01 | Senior Eng | Fix axis/units/metadata defects | Defects from QA-D-01 resolved or documented as engraver limitation |
 | QA-D-02 | QE | 4K image → export timing | Result vs PRD &lt;2 min target in MANUAL_TEST_REPORT |
 | DOC-D-01 | Docs | Interoperability notes | Known-good engraver settings linked from README or `docs/` |
+| UI-D-01 | UI Designer | F2 Ultra UV volume warnings | Non-blocking exceed (blank > 70×70×150 mm) and near-edge (etch within 5 mm of limit) in Export panel + Preview3D; Vitest for `f2VolumeWarnings.ts`; limits synced with `docs/engraver-charter.md` |
 
 ### Permissions & audit
 
@@ -110,6 +111,7 @@
 
 - [ ] QA-D-01: at least one engraver import validated
 - [ ] SEC-D-02 and SEC-D-03 complete (or risk-accepted in SECURITY_SIGNOFF.md)
-- [ ] SEC-D-06 + ARCH-D-02: ACL complete
+- [ ] SEC-D-06 + ARCH-D-02 + SEC-D-01: ACL complete
+- [ ] UI-D-01: F2 volume warnings committed; Vitest in `npm test` passes
 - [ ] SECURITY_SIGNOFF.md signed
 - [ ] `todo.md` Sprint D checkboxes updated

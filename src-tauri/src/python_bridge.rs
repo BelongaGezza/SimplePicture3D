@@ -21,7 +21,14 @@ use crate::file_io;
 /// Environment variable names copied into hardened Python subprocesses (SEC-D-07).
 #[cfg(windows)]
 const ALLOWED_SUBPROCESS_ENV: &[&str] = &[
-    "PATH", "PATHEXT", "SYSTEMROOT", "WINDIR", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "TEMP",
+    "PATH",
+    "PATHEXT",
+    "SYSTEMROOT",
+    "WINDIR",
+    "USERPROFILE",
+    "HOMEDRIVE",
+    "HOMEPATH",
+    "TEMP",
     "TMP",
 ];
 
@@ -46,12 +53,7 @@ pub fn apply_hardened_subprocess_env(cmd: &mut Command) {
 /// True when the parent process requests stub depth (maps to `--no-model`, not env passthrough).
 fn stub_depth_cli_flag() -> bool {
     std::env::var("SP3D_USE_STUB")
-        .map(|v| {
-            matches!(
-                v.to_lowercase().as_str(),
-                "1" | "true" | "yes"
-            )
-        })
+        .map(|v| matches!(v.to_lowercase().as_str(), "1" | "true" | "yes"))
         .unwrap_or(false)
 }
 
@@ -360,7 +362,10 @@ mod tests {
             "PATH must be present for Python discovery"
         );
         assert!(cmd.get_envs().find(|(k, _)| *k == "VIRTUAL_ENV").is_none());
-        assert!(cmd.get_envs().find(|(k, _)| *k == "DEPTH_MODEL_PATH").is_none());
+        assert!(cmd
+            .get_envs()
+            .find(|(k, _)| *k == "DEPTH_MODEL_PATH")
+            .is_none());
         assert!(cmd.get_envs().find(|(k, _)| *k == "LD_PRELOAD").is_none());
     }
 }

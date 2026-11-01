@@ -2,7 +2,8 @@
 
 **Purpose:** Reusable checklist for adding dependencies and for release; covers dependency audit and review steps.  
 **Reference:** prd.md §8 (Security & Privacy), docs/threat-model.md  
-**Use:** Before adding a crate/npm/pip package; before release; per sprint if security review is in scope.
+**Use:** Before adding a crate/npm/pip package; before release; per sprint if security review is in scope.  
+**Last Updated:** 2026-05-20 (Sprint D — DOC-D-02)
 
 ---
 
@@ -55,7 +56,20 @@ Use this as part of the **Release Checklist** (todo.md) and phase gates.
 - [ ] File I/O and export paths: path canonicalization and traversal checks in place (see threat model §2.3, §2.4). For `load_image`: canonicalize path; blocklist system dirs; allow only user-chosen file paths (SEC-101).
 - [ ] Image loading: magic-byte validation (PNG/JPEG) before decode; non-image files rejected with clear error (threat model §2.4, SEC-102).
 - [ ] **Python subprocess (SEC-201):** No user-controlled command-line args; temp file I/O only as designed (threat model §2.5). Review: (a) argv built only from fixed strings or validated paths (e.g. from `file_io`); (b) any path passed to subprocess canonicalized and under temp dir or allowlist; (c) no shell invocation with user input; (d) findings documented.
-- [x] **Model download (SEC-202):** HTTPS only (no redirect to HTTP); SHA256 checksum verified after download; expected hash from trusted source (e.g. repo/RESEARCH), not from download response (threat model §2.2). **Completed 2026-03-06 (Sprint 2.4):** SEC-202A implemented. `python/python/model_downloader.py` verifies SHA256 against `python/python/expected_model_hashes.json` after download; hashes are maintained in repo. Maintainers run `python -m python.model_downloader --write-hashes` after a trusted download to update hashes. See `SPRINTS/Sprint_2_4/SECURITY_SIGNOFF.md`. **SEC-202 review 2026-03-06:** HTTPS confirmed. Outcome SEC-202B (SHA256 not implemented; rationale and mitigations documented in RESEARCH/architecture.md ADR-003 and `SPRINTS/Sprint_2_4/SECURITY_SIGNOFF.md`).
+- [x] **Model download (SEC-202 / SEC-D-02):** HTTPS only; SHA256 verification when `expected_model_hashes.json` contains real 64-char hex digests (not `TODO:*` placeholders). **Sprint D (2026-05-20):** Stub manifest committed (`_hash_status: stub_pending_trusted_download`); `load_expected_hashes()` skips enforcement until maintainer runs `python -m python.model_downloader --write-hashes` after trusted download. See threat model §2.2 and `python/tests/test_model_downloader.py`.
+
+#### Sprint D verification (2026-05-20 — DOC-D-02)
+
+Use when signing off Phase D / Sprint D scope (`SPRINTS/Sprint_D/SECURITY_SIGNOFF.md`). Evidence: `SPRINTS/Sprint_D/SECURITY_REVIEW_2026-05.md`, `ARCH-D-02_COMMAND_AUDIT.md`.
+
+- [x] **ACL audit (SEC-D-01, SEC-D-06, ARCH-D-02):** Four depth/mask permission TOMLs (`allow-depth-inference`, `allow-depth-read`, `allow-depth-adjust`, `allow-mask`) replace coarse `allow-generate-depth-map`. `allow-settings.toml` and `allow-model.toml` grant settings/model commands. All six IDs in `src-tauri/capabilities/default.json`. 36/36 commands aligned (Rust ↔ `tauri.ts` ↔ permissions) — zero orphans.
+- [x] **IPC caps (SEC-D-04):** `MAX_IPC_POINT_CLOUD_POINTS = 1_000_000` (preview subsample); export mode omits points from IPC; `MAX_POINT_CLOUD_GENERATION = 8_000_000` hard cap (`src-tauri/src/volumetric.rs`, `lib.rs`).
+- [x] **Image pre-Python caps (SEC-D-03):** `MAX_IMAGE_FILE_BYTES = 128 MiB`, `MAX_DIMENSION = 8192` before subprocess (`src-tauri/src/image_loading.rs`); unit tests for oversize file and dimensions.
+- [x] **Path policy (SEC-D-05):** `path_security::validate_import_file_path` on `load_preset` and `load_mask_from_path`; shared `is_blocklisted()` for load/export/import (`src-tauri/src/path_security.rs`).
+- [x] **Export comment sanitization (SEC-D-12):** `sanitize_export_comment_field` in PLY/CSV export (`src-tauri/src/export.rs`); regression tests in `lib.rs`.
+- [x] **Engraver volume warnings (UI-D-01):** Informational frontend-only; `f2VolumeWarnings.ts` + Vitest; not an IPC/security boundary.
+- [ ] **Phase E deferred (SEC-D-07–SEC-D-11):** Subprocess env allowlist, `DepthAdjustmentParams` bounds, export TOCTOU/atomic write, blocklist parity sign-off, `withGlobalTauri: false` + release devtools — see threat model §2.8.
+- [ ] **SEC-D-02 maintainer follow-up:** Replace stub SHA256 placeholders with real digests after trusted model download.
 
 #### SEC-201 Review (Sprint 1.3) — Python subprocess
 
@@ -103,31 +117,5 @@ CI runs `cargo audit`, `npm audit`, and `pip-audit` on every push/PR (see .githu
 
 ---
 
----
-
-## 6. Sprint D verification (2026-05-24 hardening wave)
-
-Use when signing off Phase D security (`SPRINTS/Sprint_D/SECURITY_SIGNOFF.md`, DOC-D-02).
-
-| Task | Verify | Primary evidence |
-|------|--------|------------------|
-| SEC-D-02 | Model SHA256 manifest structure; real digests committed after trusted download | `python/python/expected_model_hashes.json`, `python/python/model_downloader.py`, `python/tests/test_model_downloader.py`; CI warning step in `.github/workflows/ci.yml` |
-| SEC-D-03 | Max file size + header dimension cap before Python | `src-tauri/src/image_loading.rs` (`MAX_IMAGE_FILE_BYTES`, `MAX_DIMENSION`) |
-| SEC-D-04 | Point cloud IPC cap + export cache | `src-tauri/src/volumetric.rs` (`MAX_IPC_POINT_CLOUD_POINTS`, `MAX_POINT_CLOUD_GENERATION`), `src-tauri/src/lib.rs` (`generate_point_cloud`) |
-| SEC-E-02 | Depth map IPC subsampling | `src-tauri/src/depth_adjust.rs` (`MAX_IPC_DEPTH_PIXELS`, `ipc_depth_dimensions`) |
-| SEC-D-05 / SEC-E-01 | Preset/mask import path policy | `src-tauri/src/path_security.rs`, `lib.rs` (`validate_import_file_path`) |
-| SEC-D-06 | Settings/model ACL permissions | `src-tauri/permissions/allow-settings.toml`, `allow-model.toml`, `capabilities/default.json` |
-| SEC-D-07 | Subprocess env allowlist | `src-tauri/src/python_bridge.rs` (`apply_hardened_subprocess_env`) |
-| SEC-D-08 | Depth adjustment param bounds | `src-tauri/src/depth_adjust.rs` (`validate_depth_adjustment_params`) |
-| SEC-D-09 | Atomic export writes | `src-tauri/src/export.rs` (`write_export_atomically`) |
-| SEC-D-10 | Linux load blocklist parity | `src-tauri/src/path_security.rs`, `image_loading.rs` tests |
-| SEC-D-11 | `withGlobalTauri` disabled | `src-tauri/tauri.conf.json` (`withGlobalTauri: false`) |
-| SEC-D-12 | Export comment sanitization | `src-tauri/src/export.rs` (`sanitize_export_comment_field`) |
-| QA-D-03 | Manual pentest checklist | `SPRINTS/Sprint_D/SECURITY_PENTEST_CHECKLIST.md` |
-
-**Strict model-hash CI (optional):** set `SP3D_ENFORCE_MODEL_HASHES=1` on the Python job to run `test_enforce_model_hashes_rejects_todo_placeholders_when_env_set` (fails until stub `TODO:REPLACE_*` values are replaced).
-
----
-
 **Document Version:** 1.4  
-**Status:** Sprint 1.1, SEC-003; image loading (Sprint 1.2); subprocess/model (Sprint 1.3); §5 Phase 2 / pip-audit (Sprint 1.11). §6 Sprint D verification matrix (2026-05-24).
+**Status:** Sprint D (DOC-D-02, 2026-05-20): §2.2 Sprint D verification bullets (ACL audit, IPC caps, path policy, SEC-D-03/04/05/12, UI-D-01). SEC-D-07–SEC-D-11 tracked as Phase E in threat model §2.8. Prior: SEC-003 (1.1), SEC-101/102 (1.2), SEC-201/202 (1.3), pip-audit CI (1.11).

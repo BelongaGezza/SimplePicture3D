@@ -1,6 +1,6 @@
 # Engraver interoperability charter
 
-**Status:** Draft — target toolchain confirmed; QA-D-01 import validation pending  
+**Status:** Draft — pending QA-D-01 validation in **XTool Studio** (xTool F2 Ultra UV)  
 **Owner:** System Architect (ARCH-D-01) / Quality Engineer (QA-D-01)  
 **Canonical algorithm:** [ADR-012](../RESEARCH/architecture.md) (surface-map point cloud)  
 **Implementation:** `src-tauri/src/volumetric.rs`, `src-tauri/src/export.rs`, `src-tauri/src/blank_envelope.rs`
@@ -34,16 +34,31 @@ SimplePicture3D exports **PLY (ASCII)** and **XYZ** point clouds for import into
 
 | Axis | Meaning in SP3D | Blank field | Default range (Standard preset) |
 |------|-----------------|-------------|----------------------------------|
-| **X** | Length of crystal (left → right in image mapping) | `length_mm` | 0 … 80 mm |
+| **X** | Length of crystal (left → right in image mapping) | `length_mm` | 0 … 50 mm |
 | **Y** | Width (top → bottom in image mapping) | `width_mm` | 0 … 50 mm |
-| **Z** | Height / depth into crystal (beam axis) | `height_mm` | 0 … 50 mm |
+| **Z** | Height / depth into crystal (beam axis) | `height_mm` | 0 … 80 mm |
 
 - **Units:** millimetres (`mm`) for all exported coordinates. No unit field in XYZ; PLY/CSV comments document mm.
 - **Origin:** Corner of the blank volume at \((0, 0, 0)\). After `fit_to_blank`, content is scaled uniformly and centred in the **interior** (inside `margin_mm` on all sides).
 - **Depth semantics (before fit):** `z = margin_mm + (1.0 - depth) × interior_height_mm` — foreground (depth → 1) near the **front** (higher Z); background near the **back** (lower Z).
-- **Engraver mapping (pending QA-D-01):** Confirm in Xtool Studio whether imported X/Y/Z match SP3D’s right-handed mm frame (§3 above) or require axis flip / scale. Record import dialog settings and which face Studio treats as “front” after first successful import.
+- **Engraver mapping:** Target validation toolchain is **XTool Studio** driving the **xTool F2 Ultra UV** internal UV laser engraver. Use **Inner Engraving → Point Cloud Engraving** mode; **PLY** is the supported point-cloud import format per [xTool inner engraving file types](https://support.xtool.com/article/2716). **XYZ** is not listed as a native import format — treat XYZ export as a secondary check (convert or compare via CloudCompare) unless Studio adds support.
+- **F2 Ultra UV work volume (engraver limit):** Maximum processing area **70 × 70 × 150 mm** (material height Z ≤ 160 mm). Engraving occurs in the **central 70 × 70 mm** XY region. Default blank **50 × 50 × 80 mm** keeps XY within 70 mm and places the 80 mm extent on Z (within 150 mm processing height).
+- **In-app warnings (UI-D-01):** While editing blank dimensions, the app shows non-blocking alerts when (1) any crystal blank side exceeds the processing volume, or (2) the etch interior (blank minus uniform margin) is within **5 mm** of a limit. Implemented in `src/lib/f2VolumeWarnings.ts` and `F2VolumeWarnings.svelte` (Export panel and 3D preview). Constants must stay aligned with this section.
+- **Handedness / front face:** QA-D-01 must record whether Studio preserves SP3D X/Y/Z handedness and which crystal face is “front”. Update this bullet after first successful import.
 
-**Default blank (QA reference):** 80 × 50 × 50 mm, 2 mm margin (`BlankEnvelope::default()` / Export panel preset “80 × 50 × 50 (standard)”).
+**Default blank (QA reference):** 50 × 50 × 80 mm, 2 mm margin (`BlankEnvelope::default()` / Export panel preset “50 × 50 × 80 (standard)”).
+
+### Target engraver (QA-D-01)
+
+| Field | Value |
+|-------|--------|
+| **Software** | XTool Studio |
+| **Hardware** | xTool F2 Ultra UV (internal UV laser) |
+| **Import mode** | Inner Engraving → Point Cloud Engraving |
+| **Primary format** | PLY (ASCII for first gate run) |
+| **Studio version** | Record in `MANUAL_TEST_REPORT.md` at test time |
+| **Work volume** | 70 × 70 × 150 mm max processing; Z ≤ 160 mm material height |
+| **Reference** | [xTool — Inner Engraving File Types for F2 Ultra UV](https://support.xtool.com/article/2716) |
 
 ---
 
@@ -51,8 +66,8 @@ SimplePicture3D exports **PLY (ASCII)** and **XYZ** point clouds for import into
 
 | Format | Primary for QA-D-01 | Specification |
 |--------|---------------------|---------------|
-| **PLY ASCII** | Yes | Stanford PLY 1.0, `format ascii 1.0`, one vertex per line `x y z` (6 decimal places) |
-| **XYZ** | Yes | One point per line: `x y z` (ASCII, 6 decimal places); no header |
+| **PLY ASCII** | **Yes (required gate)** | Stanford PLY 1.0, `format ascii 1.0`, one vertex per line `x y z` (6 decimal places). Import into XTool Studio → Inner Engraving → Point Cloud Engraving. |
+| **XYZ** | Secondary | One point per line: `x y z` (ASCII, 6 decimal places); no header. Not documented as native Studio import — use for cross-check vs PLY or pre-validate in CloudCompare. |
 | **CSV** | Optional | `#` comment lines + header row `x,y,z` |
 
 **PLY header (required elements):**
@@ -72,7 +87,7 @@ end_header
 
 **Security:** User-provided source filenames in comments are basename-only; control characters and newlines stripped (`sanitize_export_comment_field` in `export.rs`).
 
-**Binary PLY:** Supported by app (Export → uncheck “ASCII PLY”); QA-D-01 gate uses **ASCII** unless the target engraver requires binary only.
+**Binary PLY:** Supported by app (Export → uncheck “ASCII PLY”); QA-D-01 gate uses **ASCII** unless XTool Studio requires binary only (verify on first import).
 
 ---
 
@@ -93,9 +108,9 @@ Execute after export; record Pass/Fail in `MANUAL_TEST_REPORT.md`.
 
 | # | Check | Pass criterion |
 |---|--------|----------------|
-| V1 | **File opens** | PLY and XYZ import into **Xtool Studio** (or CloudCompare/MeshLab pre-check) without parse errors |
-| V2 | **Units mm** | Model size matches blank order of magnitude (~80×50×50 mm), not metres or millimetres off by 1000× |
-| V3 | **Axis orientation** | Left/right and front/back match charter §3 (or documented Xtool Studio transform) |
+| V1 | **File opens** | PLY imports into XTool Studio without parse errors; XYZ optional cross-check |
+| V2 | **Units mm** | Model size matches configured blank (mm), not metres or 1000× error; fits F2 central 70×70 mm if applicable |
+| V3 | **Axis orientation** | Left/right and front/back match charter §2 (or documented engraver transform) |
 | V4 | **Point count** | PLY `element vertex N` matches XYZ line count; N > 0; plausible vs image size and step |
 | V5 | **BBox inside blank** | All points within \([0, L] \times [0, W] \times [0, H]\) mm for configured blank; visually inside wireframe in app preview |
 | V6 | **Metadata** | PLY comments include generator and blank dimensions consistent with UI |
@@ -127,5 +142,5 @@ Sprint D gate **QA-D-01** still requires import into **Xtool Studio** for the **
 
 | Date | Change |
 |------|--------|
-| 2026-05-19 | Initial draft from ADR-012 + `export.rs` (QE procedure phase; engraver TBD) |
-| 2026-05-24 | ARCH-D-01: target toolchain **Xtool Studio** + **Xtool F2** UV laser |
+| 2026-05-19 | Target engraver: XTool Studio + F2 Ultra UV; default blank 50×50×80 mm |
+| 2026-05-19 | Initial draft from ADR-012 + `export.rs` (QE procedure phase) |

@@ -1,12 +1,12 @@
 # SimplePicture3D — Program TODO and Sprint Roadmap
 
 **Version:** 4.5  
-**Last Updated:** 2026-05-24 (sub-agent wave)  
+**Last Updated:** 2026-05-20  
 **Owner:** System Architect  
 **Latest Commit:** see git log  
 **Production path:** `ROADMAP.md`  
 **Takeover review:** `docs/ARCHITECT_REVIEW_2026-05.md`  
-**Dual-agent review (2026-05-24):** Security Specialist + Quality Engineer — findings below; sprint artefacts in `SPRINTS/Sprint_D/`
+**Sprint D progress (2026-05-20):** `docs/ARCHITECT_PROGRESS_REVIEW_2026-05-20.md`
 
 ---
 
@@ -43,34 +43,18 @@ This roadmap reflects the deliberate restart decision (2026-05-10) plus two impl
 - `tauri.conf.json` bundle description updated for 3D surface point cloud purpose.
 - Python bridge contract unchanged: Rust `--input` temp file, Python emits JSON depth + `PROGRESS`/`STAGE` on stderr.
 
-### Remaining Gaps (next work)
-- **SEC-E-01:** ✅ Fixed 2026-05-24 — `use path_security::{is_blocklisted, validate_import_file_path}` in `lib.rs`.
-- **QA-B-01:** ✅ Export command integration tests in `lib.rs` (2026-05-24).
-- **QA-C-01:** Manual full-workflow UX pass not yet recorded.
-- **Phase D:** Engraver import not executed (target software TBD in charter §2); performance benchmark pending; `SECURITY_SIGNOFF.md` unsigned.
-- **SEC-D-02:** `expected_model_hashes.json` still has `TODO:REPLACE_WITH_SHA256_*` placeholders — verification skipped at runtime.
-- **SEC-D-04 / SEC-E-02:** ✅ Point cloud + depth map IPC capped (`MAX_IPC_DEPTH_PIXELS`, subsample for `get_depth_map` / generate response).
-- **SEC-D-07–11:** ✅ Subprocess env allowlist, param validation, atomic export, blocklist parity, `withGlobalTauri: false` (2026-05-24 sub-agents).
-- **CI-D-01:** ✅ `backend-windows` job in `.github/workflows/ci.yml` (2026-05-24).
-- **Sprint artefacts:** ✅ `TEST_PLAN_D.md`, expanded `MANUAL_TEST_REPORT.md`, `SPRINT_2_6_CANCELLED.md` (QA-D-07/08/09).
-- **Mask IPC scaling:** ✅ `set_mask_region` / `set_mask` map preview coords to full-res mask (2026-05-24).
-
-### Security implementation status (2026-05-24 code review)
-
-| Task | Status | Notes |
-|------|--------|-------|
-| SEC-D-02 | ⏳ | Stub manifest only; real SHA256 pending trusted download |
-| SEC-D-03 | ✅ | `MAX_IMAGE_FILE_BYTES` + header dimension cap in `image_loading.rs` |
-| SEC-D-04 | ✅ | Point cloud + depth IPC capped (SEC-E-02) |
-| SEC-D-05 | ✅ | `path_security.rs` + imports in `lib.rs` |
-| SEC-D-06 | ✅ | `allow-settings.toml`, `allow-model.toml` |
-| SEC-D-07 | ✅ | `python_bridge` env_clear + allowlist |
-| SEC-D-08 | ✅ | `validate_depth_adjustment_params` at IPC boundary |
-| SEC-D-09 | ✅ | Atomic export writes in `export.rs` |
-| SEC-D-10 | ✅ | Blocklist parity tests in `path_security` / `image_loading` |
-| SEC-D-11 | ✅ | `withGlobalTauri: false` in `tauri.conf.json` |
-| SEC-E-02 | ✅ | `MAX_IPC_DEPTH_PIXELS` subsampling in `depth_adjust.rs` |
-| SEC-D-12 | ✅ | PLY/CSV comment sanitization in `export.rs` |
+### Remaining Gaps (next work — post Sprint D Waves 1–4)
+- **QA-D-01:** Engraver import validation — procedure ready; **execute** in XTool Studio (F2 Ultra UV); record in `MANUAL_TEST_REPORT.md`.
+- **BACK-D-01:** Blocked on QA-D-01 — axis/units/export defect fixes.
+- **SEC-D-01:** ✅ Split `allow-generate-depth-map` per `ARCH-D-02_COMMAND_AUDIT.md` (Wave 5).
+- **UI-D-01:** F2 Ultra UV volume warnings — logic + Export/Preview UI; **commit pending** (`f2VolumeWarnings.ts`, `F2VolumeWarnings.svelte`, Vitest).
+- **QA-B-01:** Eight export tests in `lib.rs` — **review**; verify via CI or Windows `cargo test` (Linux blocked: GTK/WebKit).
+- **QA-C-01 / QA-D-02 / QA-D-03:** Manual UX pass, 4K timing benchmark, pentest checklist — not started.
+- **DOC-D-01:** ✅ `docs/engraver-interop.md` + README link.
+- **DOC-D-02 / SECURITY_SIGNOFF:** Threat model sync, sign-off — Wave 5.
+- **SEC-D-02 follow-up:** Real SHA256 digests after trusted model download (stub manifest in place).
+- **SEC-D-07–SEC-D-11:** P2/P3 — Phase E unless sign-off requires earlier.
+- **Stale settings comments:** `settings.rs` still documents legacy `export_format` (stl/obj) — Phase E cleanup.
 
 ---
 
@@ -86,11 +70,17 @@ This roadmap reflects the deliberate restart decision (2026-05-10) plus two impl
    - ✅ Blank envelope controls, Three.js preview (point cloud + blank wireframe), export panel (`6bbe3da`)
    - ✅ Volumetric params panel (XY step, depth threshold, live point count estimate)
 
-5. ~~**P0: Fix Rust compile (SEC-E-01)**~~ ✅ Done 2026-05-24.
-6. **P1: Validate output with real engraver software** — ✅ Target: **Xtool Studio** / **Xtool F2**; execute QA-D-01.
-7. **P1: Security hardening (Sprint D)** — SEC-D-02 real hashes, SEC-E-02 depth IPC caps, SEC-D-07–11; honest `SECURITY_SIGNOFF.md`.
-8. **P1: QA gates** — ~~QA-B-01~~ ✅, ~~CI-D-01~~ ✅; QA-C-01 manual UX pass remaining.
-9. **P2: Defer Full 3D reconstruction (TripoSR)** — documented future option only.
+5. **P1: Validate output with real engraver software**
+   - At least one confirmed end-to-end path before claiming v1.0.
+
+6. **P1: Security hardening (Sprint D)** — Waves 1–2 **complete**; Wave 5 remainder
+   - **P0 ✅:** SEC-D-03 max image size; SEC-D-02 stub hash manifest (real digests: maintainer action).
+   - **P1 ✅:** SEC-D-04 IPC caps; SEC-D-05 path policy; SEC-D-06 settings/model ACL; SEC-D-12 export sanitization.
+   - **P1 ✅:** SEC-D-01 split coarse `allow-generate-depth-map` (ARCH-D-02).
+   - **P2/P3:** SEC-D-07–SEC-D-11 — Phase E default; see `docs/ARCHITECT_PROGRESS_REVIEW_2026-05-20.md`.
+
+7. **P2: Defer Full 3D reconstruction (TripoSR)**
+   - Keep as a documented future option; do not interleave with core stabilisation.
 
 ---
 
@@ -206,8 +196,9 @@ All sprints are 1 week unless explicitly marked.
 - **SEC-E-01:** ✅ Complete 2026-05-24 — `path_security` imports; 172 tests pass; clippy clean (also fixed `div_ceil` in `volumetric.rs`).
 
 **Engraver & performance**
-- **ARCH-D-01:** ✅ Target toolchain documented — **Xtool Studio** + **Xtool F2** UV (`docs/engraver-charter.md` §2).
-- **QA-D-01:** ⏳ Export PLY/XYZ → import into **Xtool Studio**; verify axes/units per `QA-D-01_TEST_PROCEDURE.md`.
+- **ARCH-D-01:** ✅ Document engraver charter: axis convention, units (mm), formats, F2 work volume.
+- **UI-D-01:** F2 Ultra UV volume warnings — non-blocking exceed/near-edge alerts in Export panel and Preview3D; limits 70×70×150 mm, 5 mm clearance; see `docs/ARCHITECT_PROGRESS_REVIEW_2026-05-20.md` §7. **Review** (commit pending).
+- **QA-D-01:** Export PLY and XYZ from a real image; import into target engraver software; verify axis orientation and point distribution.
 - **BACK-D-01:** Fix any compatibility defects found (axis flips, unit scaling, header metadata, decimal precision).
 - **QA-D-02:** ✅ Rust bench + `QA-D-02_BENCHMARK.md`; manual E2E timing still required in `MANUAL_TEST_REPORT.md`.
 - **DOC-D-01:** ✅ `docs/engraver-interoperability.md` — known-good table pending QA-D-01 results.
@@ -281,11 +272,17 @@ All sprints are 1 week unless explicitly marked.
 | TD-17 | ~~`load_preset` path policy~~ — active via `validate_import_file_path` | ~~Medium~~ | Closed (SEC-D-05) |
 | TD-18 | ~~`load_mask_from_path` blocklist~~ — active via `path_security` | ~~Medium~~ | Closed (SEC-D-05) |
 | TD-20 | Python subprocess inherits `VIRTUAL_ENV` / `DEPTH_MODEL_PATH` | Medium | Sprint D — SEC-D-07 |
-| TD-08 | `lib.rs` coverage gap beyond export commands | High | QA-D-04 |
-| TD-06 | ~~Export TOCTOU~~ — atomic write + canonicalize (SEC-D-09) | ~~Medium~~ | Closed |
-| TD-21 | ~~`withGlobalTauri: true`~~ — set false (SEC-D-11) | ~~Low~~ | Closed |
-| TD-23 | ~~No Windows CI~~ — **resolved** `backend-windows` job | ~~High~~ | Closed |
+| TD-08 | `lib.rs` testability/coverage gap | High | Dedicated refactor slice in Phase D |
+| TD-06 | Export path TOCTOU write-test pattern | Medium | Sprint D — SEC-D-09 |
+| TD-21 | `withGlobalTauri: true` widens webview compromise blast radius | Low | Sprint D — SEC-D-11 |
+| TD-22 | F2 warnings hard-coded to one engraver envelope | Low | UI-D-01 ships F2-only; Phase E engraver matrix / selector |
 | TD-09 | Accessibility issues in advanced controls | Medium | Post-Phase D polish |
+| TD-23 | `core2` 0.4.0 unmaintained, all versions yanked (RUSTSEC-2026-0105) — via `image` → `ravif` → `rav1e` → `bitstream-io`. Warning only. | Low | Phase E — bump `image`/`ravif`, or disable the AVIF encoder feature if unused |
+| TD-24 | `paste` 1.0.15 unmaintained (RUSTSEC-2024-0436) — via `image` → `ravif` → `rav1e`. Warning only. | Low | Phase E — same fix as TD-23 |
+| TD-25 | `fxhash` 0.2.1 unmaintained (RUSTSEC-2025-0057) — via `tauri-utils` → `kuchikiki` → `selectors`. Warning only. | Low | Phase E — resolved by a Tauri upgrade; re-check on each Tauri bump |
+| TD-26 | `unic-char-property` 0.9.0 unmaintained (RUSTSEC-2025-0081) — via `tauri-utils` → `urlpattern` → `unic-ucd-ident`. Warning only. | Low | Phase E — resolved by a Tauri upgrade |
+| TD-27 | `proc-macro-error` 1.0.4 unmaintained (RUSTSEC-2024-0370) — Linux-only GTK dependency chain. Warning only. | Low | Phase E — resolved by a Tauri/wry upgrade; Linux build only |
+| TD-28 | Full `npm audit` reports 12 dev-dependency findings (7 high: browserslist, devalue, nanoid, postcss, source-map-js, undici, vite; 3 moderate; 2 low). `npm audit --omit=dev` is clean, so shipped code is unaffected. Most have a fix available (`npm audit fix`). | Medium | Sprint D follow-up — run `npm audit fix`, re-run tests and build; the `@sveltejs/vite-plugin-svelte` and `deepmerge` findings have no fix yet, so track or risk-accept them in `SECURITY_SIGNOFF.md` |
 
 ---
 

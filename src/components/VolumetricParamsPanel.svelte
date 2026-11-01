@@ -13,9 +13,9 @@
   } from "$lib/tauri";
 
   export let hasDepth = false;
-  export let blankLengthMm = 80;
+  export let blankLengthMm = 50;
   export let blankWidthMm = 50;
-  export let blankHeightMm = 50;
+  export let blankHeightMm = 80;
   export let blankMarginMm = 2;
 
   /** Pixel stride for X and Y sampling (1 = every pixel). */

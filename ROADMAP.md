@@ -43,9 +43,9 @@ The **2026-05-10 restart** replaced the 2.5D mesh pipeline with ADR-012 surface-
 │  ✅ Algorithm      ADR-012 surface-map in volumetric.rs          │
 │  ✅ Backend API    36 Tauri commands; PLY/XYZ/CSV export         │
 │  ✅ Frontend       Blank setup, params, preview, export UI       │
-│  ⏳ Validation     Real engraver import not yet signed off       │
-│  ⏳ Security       Sprint D remediations (P0–P3)                   │
-│  ⏳ Performance    Large IPC payloads; 4K timing not benchmarked │
+│  ⏳ Validation     QA-D-01 ready; XTool Studio import not run yet  │
+│  ⏳ Security       P0/P1 done; SEC-D-01 ACL split + sign-off open  │
+│  ⏳ Performance    IPC caps shipped; QA-D-02 4K benchmark pending    │
 │  ⬜ Release        Installers, docs, cross-platform packaging    │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -79,7 +79,7 @@ Svelte 4 UI ──IPC──► Rust (Tauri 2)
 
 | Track | Key deliverables | Exit signal |
 |-------|------------------|-------------|
-| **Engraver validation** | Engraver charter (axes, units, formats); import PLY/XYZ into ≥1 target app; fix axis/scale bugs | QA-D-01 pass recorded in `SPRINTS/Sprint_D/` |
+| **Engraver validation** | Charter + **UI-D-01** F2 volume warnings; import PLY into XTool Studio; fix axis/scale bugs | QA-D-01 pass; UI-D-01 committed + Vitest green |
 | **Security P0** | Populate model SHA256 hashes; enforce max image size before Python subprocess | SEC-D-02, SEC-D-03 complete |
 | **Security P1** | IPC payload caps; preset/mask path restrictions; Tauri ACL for settings/model commands | SEC-D-04, SEC-D-05, SEC-D-06 |
 | **Integration tests** | Export command tests with temp files (QA-B-01) | `cargo test` green in CI |
@@ -96,7 +96,7 @@ Svelte 4 UI ──IPC──► Rust (Tauri 2)
 | Workstream | Tasks |
 |------------|-------|
 | **Performance** | Preview decimation (`preview_step` or max points cap); avoid returning multi-million-point arrays over IPC; benchmark 4K → export < 2 min |
-| **UX polish** | Auto-refresh or stale-preview warning when depth/blank/params change; rename Preview3D `mesh*` identifiers; wire or remove `clearHistory` |
+| **UX polish** | Auto-refresh or stale-preview warning when depth/blank/params change; rename Preview3D `mesh*` identifiers; wire or remove `clearHistory`; optional: engraver selector beyond F2 (post-v1.0) |
 | **Settings cleanup** | Deprecate unused `export_format` (stl/obj); document `target_width_mm` as depth-preview zoom only; map preset `step_x/y` to `VolumetricParams` on load |
 | **Documentation** | User guide: install → first engraving; engraver compatibility matrix; update `docs/testing.md` for point cloud workflow |
 | **Release engineering** | Versioning, CHANGELOG, signed Windows installer; `withGlobalTauri: false` in release; devtools disabled |

@@ -130,9 +130,9 @@
   let zoomScale = 1; // 1 = 100%; 0.5 = 50%, 1.5 = 150%, 2 = 200%
 
   /** Crystal blank (mm); ExportPanel and Preview3D stay in sync via bind. */
-  let blankL = 80;
+  let blankL = 50;
   let blankW = 50;
-  let blankH = 50;
+  let blankH = 80;
   let blankM = 2;
 
   /** ADR-012 surface-map sampling; synced to backend via VolumetricParamsPanel. */

@@ -36,18 +36,8 @@ pub fn is_blocklisted(canonical: &Path) -> bool {
             None => return true,
         };
         let blocked = [
-            "/System",
-            "/etc",
-            "/usr",
-            "/bin",
-            "/sbin",
-            "/boot",
-            "/lib",
-            "/lib64",
-            "/proc",
-            "/sys",
-            "/dev",
-            "/run",
+            "/System", "/etc", "/usr", "/bin", "/sbin", "/boot", "/lib", "/lib64", "/proc", "/sys",
+            "/dev", "/run",
         ];
         for prefix in &blocked {
             if s == *prefix || s.starts_with(&format!("{}/", prefix)) {
@@ -148,10 +138,7 @@ mod tests {
     #[test]
     fn validate_import_accepts_json_in_temp() {
         let dir = std::env::temp_dir();
-        let path = dir.join(format!(
-            "sp3d_path_sec_test_{}.json",
-            std::process::id()
-        ));
+        let path = dir.join(format!("sp3d_path_sec_test_{}.json", std::process::id()));
         std::fs::File::create(&path)
             .unwrap()
             .write_all(b"{}")

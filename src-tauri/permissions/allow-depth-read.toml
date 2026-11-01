@@ -1,0 +1,7 @@
+[[permission]]
+identifier = "allow-depth-read"
+description = "Enables read-only depth map and histogram retrieval (SEC-D-01)."
+commands.allow = [
+    "get_depth_map",
+    "get_depth_histogram",
+]

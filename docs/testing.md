@@ -16,7 +16,7 @@ Execute with the app running (`npm run tauri dev` or installed build).
 | 1 | **Load image** | File → Open or drag-drop PNG/JPG. Image appears in 2D view; no crash. Try small (e.g. 800×600) and large (e.g. 4K); >8K should downsample with notice. | ☐ |
 | 2 | **Generate depth** | Click Generate depth. Progress shows; depth map appears (grayscale: darker = closer). First run may trigger model download. | ☐ |
 | 3 | **Adjust depth** | Change Brightness, Contrast, Gamma, Invert; depth preview updates. Set depth range (min/max mm). Reset restores defaults. | ☐ |
-| 4 | **Set blank envelope** | In Export panel: set L×W×H mm and margin, or pick a preset (e.g. Standard 80×50×50). Values persist after restart. | ☐ |
+| 4 | **Set blank envelope** | In Export panel: set L×W×H mm and margin, or pick a preset (e.g. Standard 50×50×80). Values persist after restart. | ☐ |
 | 5 | **Set sampling params** | In Volumetric params: adjust pixel step and depth threshold; point count estimate updates. | ☐ |
 | 6 | **Generate point cloud / 3D preview** | Click "Load point cloud" in 3D preview. Points appear inside yellow blank wireframe; rotate/zoom; no crash. | ☐ |
 | 7 | **Export PLY** | Export → PLY, choose path. File created; verify in engraver software or a point cloud viewer. | ☐ |
@@ -38,7 +38,7 @@ Execute with the app running (`npm run tauri dev` or installed build).
 | 1 | **PLY ASCII / binary** | Exported PLY opens in target engraver or CloudCompare/MeshLab; point count matches estimate (± stepping). | ☐ |
 | 2 | **XYZ format** | Three columns (x y z); units in mm; points within blank envelope bounds. | ☐ |
 | 3 | **CSV format** | Header row; comma-separated coordinates; imports cleanly. | ☐ |
-| 4 | **Engraver import (Phase D gate)** | Import into target engraver software; axis orientation and scale correct for engraving. Document settings in Sprint D report. | ☐ |
+| 4 | **Engraver import (Phase D gate)** | Import PLY into **XTool Studio** (xTool F2 Ultra UV, Point Cloud Engraving); axis orientation and scale correct. Record Studio version in `SPRINTS/Sprint_D/MANUAL_TEST_REPORT.md`. | ☐ |
 | 5 | **Blank fit** | Points fit inside configured blank (L×W×H) with margin; no points outside wireframe in preview. | ☐ |
 
 ---
@@ -48,7 +48,7 @@ Execute with the app running (`npm run tauri dev` or installed build).
 | # | Step | How to verify | Pass? |
 |---|------|----------------|-------|
 | 1 | **Depth range (min/max mm)** | Adjust depth range; regenerate point cloud; Z distribution shifts as expected in preview. | ☐ |
-| 2 | **Blank presets** | Select Standard / Cube / Large / Tall; dimensions update; wireframe resizes in preview. | ☐ |
+| 2 | **Blank presets** | Select Standard / Cube / Large / Wide; dimensions update; wireframe resizes in preview. | ☐ |
 | 3 | **Custom blank dimensions** | Enter custom L×W×H; export; verify scale in external tool. | ☐ |
 | 4 | **Window/settings persist** | Resize window; change export format default; restart → settings restored. | ☐ |
 

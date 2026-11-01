@@ -1,6 +1,6 @@
 [[permission]]
 identifier = "allow-mask"
-description = "Enables mask get/set, region paint/erase, clear, and save/load to path (Sprint 2.5)."
+description = "Enables mask get/set/clear plus file-backed save/load commands (SEC-D-01)."
 commands.allow = [
     "get_mask",
     "set_mask_region",

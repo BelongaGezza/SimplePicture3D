@@ -1,10 +1,10 @@
 # QA-D-01 — Engraver import test procedure
 
 **Task:** QA-D-01 (Sprint D)  
-**Goal:** Export PLY (ASCII) and XYZ from SimplePicture3D and import into target engraver software; validate against [engraver charter](../../docs/engraver-charter.md).  
+**Goal:** Export PLY (ASCII) and XYZ from SimplePicture3D and import **PLY into XTool Studio** (xTool F2 Ultra UV, Point Cloud Engraving mode); validate against [engraver charter](../../docs/engraver-charter.md).  
 **Results:** Record in [MANUAL_TEST_REPORT.md](./MANUAL_TEST_REPORT.md) (summary + defect log).
 
-**Execution status:** Target toolchain confirmed — **Xtool Studio** controlling **Xtool F2** UV laser. Steps C1–C8 (pre-engraver) and **D (engraver import)** may proceed; record Studio version in §A.
+**Execution status:** Steps 1–8 and pre-engraver checks can run without the engraver. **Step 9 (engraver import)** uses **XTool Studio** on **xTool F2 Ultra UV** — record Studio version at test time.
 
 ---
 
@@ -21,7 +21,7 @@
 | **GPU** (optional, depth only) | |
 | **Python** | `python --version`; venv active ☐ |
 | **Stub depth** | `SP3D_USE_STUB=1` ☐ (no model download) / real model ☐ |
-| **Target engraver** | **Xtool Studio** (for **Xtool F2** UV) — Version: |
+| **Target engraver** | Software: **XTool Studio** — Hardware: **xTool F2 Ultra UV** — Studio version: |
 | **Secondary viewer** (optional) | CloudCompare / MeshLab version: |
 
 ---
@@ -62,7 +62,7 @@
 | Margin | 2 mm |
 | Interior | 76 × 46 × 46 mm |
 
-Use Export panel preset **“80 × 50 × 50 (standard)”** unless testing another preset deliberately.
+Use Export panel preset **“50 × 50 × 80 (standard)”** unless testing another preset deliberately.
 
 ### B.3 Sampling defaults (ADR-012)
 
@@ -92,25 +92,26 @@ Perform steps in order. Note **time** if also capturing QA-D-02 data.
 |------|--------|-----------------|-------|
 | **C1** | **Load image** — File → Open (or drag-drop) test image | Image in 2D view; status Loaded | ☐ |
 | **C2** | **Generate depth** — click **Generate Depth Map** (or equivalent) | Progress completes; grayscale depth visible; no crash. With `SP3D_USE_STUB=1`, deterministic gradient stub | ☐ |
-| **C3** | **Set blank** — Export panel → preset **80 × 50 × 50 (standard)** | L=80, W=50, H=50, margin=2 | ☐ |
+| **C3** | **Set blank** — Export panel → preset **50 × 50 × 80 (standard)** | L=50, W=50, H=80, margin=2 | ☐ |
+| **C3b** | **F2 volume warnings (UI-D-01)** — With standard preset, no amber/yellow warnings; temporarily set L=80 mm → amber exceed warning; restore preset | Warnings match charter limits | ☐ |
 | **C4** | **(Optional) Preview** — 3D view → **Load point cloud** | Points inside yellow wireframe; rotate/zoom OK | ☐ |
 | **C5** | **Export PLY (ASCII)** — Format PLY, **ASCII PLY** checked → **Export point cloud** → save `qa-d01-<image>.ply` | “Saved.”; file exists | ☐ |
 | **C6** | **Export XYZ** — Format XYZ → **Export point cloud** → save `qa-d01-<image>.xyz` | “Saved.”; file exists | ☐ |
 | **C7** | **Record point count** | PLY: `element vertex N` in header; XYZ: `wc -l file.xyz` → N lines; counts match | ☐ N = |
-| **C8** | **Record bbox** (pre-engraver) | CloudCompare/MeshLab: bbox ≈ within 80×50×50 mm; units mm | ☐ min: / max: |
+| **C8** | **Record bbox** (pre-engraver) | CloudCompare/MeshLab: bbox ≈ within 50×50×80 mm; units mm | ☐ min: / max: |
 
 **Note:** Each export click runs `generate_point_cloud` again; use the **same** blank/sampling settings for PLY and XYZ. If you change depth or blank between exports, note it in the report.
 
 ---
 
-## D. Procedure (engraver import) — Xtool Studio + F2
+## D. Procedure (engraver import) — XTool Studio + F2 Ultra UV
 
 | Step | Action | Expected result | Pass? |
 |------|--------|-----------------|-------|
-| **D1** | Open target engraver software | — | ☐ |
-| **D2** | **Import PLY** (`qa-d01-*.ply`) | No parse error; point cloud visible | ☐ |
-| **D3** | **Import XYZ** (`qa-d01-*.xyz`) | Same geometry as PLY (within float tolerance) | ☐ |
-| **D4** | **Units** | Extents ~80×50×50 mm (charter §2) | ☐ |
+| **D1** | Open **XTool Studio**; connect/select **F2 Ultra UV**; choose **Inner Engraving** → **Point Cloud Engraving** | 3D import mode available | ☐ |
+| **D2** | **Import PLY** (`qa-d01-*.ply`) | No parse error; point cloud visible in canvas | ☐ |
+| **D3** | **Import XYZ** (`qa-d01-*.xyz`) (if Studio supports; else skip and note) | Same geometry as PLY (within float tolerance), or N/A with reason | ☐ |
+| **D4** | **Units** | Extents match configured blank order of magnitude (mm); subject within **70 × 70 mm** central processing area if using F2 Ultra UV defaults | ☐ |
 | **D5** | **Axis orientation** | Subject left/right and front/back match expectation; document if engraver uses different axes | ☐ |
 | **D6** | **BBox inside blank** | No points outside configured blank volume in engraver view | ☐ |
 | **D7** | **Engraving path preview** (if tool supports) | Recognisable depth relief, not solid block | ☐ |
@@ -141,7 +142,7 @@ Map to [docs/engraver-charter.md](../../docs/engraver-charter.md) §5.
 |---------|----------|
 | **Pass** | D2–D7 all Pass; V1–V7 Pass; no P0/P1 defects open |
 | **Fail** | Any of D2–D7 Fail, or wrong units/scale, or points outside blank, or PLY/XYZ mismatch |
-| **Blocked** | Target engraver not available — procedure C1–C8 may still run; sprint gate not met |
+| **Blocked** | XTool Studio or F2 Ultra UV unavailable — procedure C1–C8 may still run; sprint gate not met |
 | **Partial** | Pre-engraver (C1–C8) Pass; engraver steps Blocked — document in report |
 
 ---
