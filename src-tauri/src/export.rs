@@ -27,9 +27,7 @@ pub fn canonicalize_export_target(path: &Path) -> Result<PathBuf> {
     let parent = path
         .parent()
         .context("Export path has no parent directory")?;
-    let file_name = path
-        .file_name()
-        .context("Export path has no filename")?;
+    let file_name = path.file_name().context("Export path has no filename")?;
     let canonical_parent = parent
         .canonicalize()
         .with_context(|| format!("Failed to canonicalize export directory: {:?}", parent))?;
@@ -59,9 +57,8 @@ where
     let temp_path = parent.join(format!(".sp3d_export_{}_{nanos}.tmp", std::process::id()));
 
     {
-        let file = std::fs::File::create(&temp_path).with_context(|| {
-            format!("Failed to create temporary export file: {:?}", temp_path)
-        })?;
+        let file = std::fs::File::create(&temp_path)
+            .with_context(|| format!("Failed to create temporary export file: {:?}", temp_path))?;
         let mut writer = std::io::BufWriter::new(file);
         write_body(&mut writer)?;
         writer

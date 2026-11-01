@@ -1,6 +1,6 @@
 # Depth estimator CLI (Sprint 1.3). Python 3.10+
 # Minimal for stub mode (roundtrip tests without model):
-Pillow>=10.0
+Pillow>=13.0.0
 
 # For real Depth-Anything-V2 inference (AI-204, AI-205):
 # Install PyTorch first per https://pytorch.org/get-started/locally/

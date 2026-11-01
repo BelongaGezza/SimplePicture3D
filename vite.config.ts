@@ -14,7 +14,8 @@ export default defineConfig({
   },
   resolve: {
     // Svelte 5 defaults to the server entry; component tests need client lifecycle (onDestroy, etc.).
-    conditions: ["browser", "development", "import", "module", "default"],
+    // Test-only: the "development" condition must not leak into production builds.
+    conditions: process.env.VITEST ? ["browser", "development", "import", "module", "default"] : [],
     alias: {
       $lib: path.resolve(__dirname, "./src/lib"),
     },
@@ -26,7 +27,7 @@ export default defineConfig({
   },
   envPrefix: ["VITE_", "TAURI_"],
   build: {
-    target: ["es2021", "chrome100", "safari13"],
+    target: ["es2021", "chrome100", "safari15"],
     minify: !process.env.TAURI_DEBUG ? "esbuild" : false,
     sourcemap: !!process.env.TAURI_DEBUG,
     outDir: "dist",

@@ -45,7 +45,8 @@ pub fn ipc_depth_dimensions(width: u32, height: u32) -> (u32, u32) {
     let pixels = (width as u64).saturating_mul(height as u64);
     let max_pixels = MAX_IPC_DEPTH_PIXELS as u64;
     let max_dim = MAX_IPC_DEPTH_DIMENSION as u64;
-    if pixels <= max_pixels && width <= MAX_IPC_DEPTH_DIMENSION && height <= MAX_IPC_DEPTH_DIMENSION {
+    if pixels <= max_pixels && width <= MAX_IPC_DEPTH_DIMENSION && height <= MAX_IPC_DEPTH_DIMENSION
+    {
         return (width, height);
     }
     let mut tw = width as u64;
@@ -125,9 +126,8 @@ pub fn subsample_mask_for_ipc(
     if target_width == width && target_height == height {
         return Ok(data.to_vec());
     }
-    let mut out = Vec::with_capacity(
-        (target_width as usize).saturating_mul(target_height as usize),
-    );
+    let mut out =
+        Vec::with_capacity((target_width as usize).saturating_mul(target_height as usize));
     for dy in 0..target_height {
         let sy = (dy as u64 * height as u64 / target_height as u64) as u32;
         for dx in 0..target_width {
@@ -257,16 +257,10 @@ pub fn validate_depth_adjustment_params(params: &DepthAdjustmentParams) -> Resul
         }
         for (i, p) in pts.iter().enumerate() {
             if !p.x.is_finite() || p.x < 0.0 || p.x > 1.0 {
-                return Err(format!(
-                    "curveControlPoints[{}].x must be in [0, 1]",
-                    i
-                ));
+                return Err(format!("curveControlPoints[{}].x must be in [0, 1]", i));
             }
             if !p.y.is_finite() || p.y < 0.0 || p.y > 1.0 {
-                return Err(format!(
-                    "curveControlPoints[{}].y must be in [0, 1]",
-                    i
-                ));
+                return Err(format!("curveControlPoints[{}].y must be in [0, 1]", i));
             }
         }
     }
@@ -871,7 +865,9 @@ mod tests {
     fn validate_depth_adjustment_params_rejects_bad_gamma() {
         let mut p = DepthAdjustmentParams::default();
         p.gamma = 0.05;
-        assert!(validate_depth_adjustment_params(&p).unwrap_err().contains("gamma"));
+        assert!(validate_depth_adjustment_params(&p)
+            .unwrap_err()
+            .contains("gamma"));
         p.gamma = 6.0;
         assert!(validate_depth_adjustment_params(&p).is_err());
     }

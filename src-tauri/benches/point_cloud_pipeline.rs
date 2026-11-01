@@ -13,9 +13,7 @@ use simplepicture3d_lib::volumetric::{generate_volumetric_points, VolumetricPara
 
 fn synthetic_depth(width: u32, height: u32) -> Vec<f32> {
     let len = (width as usize).saturating_mul(height as usize);
-    (0..len)
-        .map(|i| (i % 1000) as f32 / 1000.0)
-        .collect()
+    (0..len).map(|i| (i % 1000) as f32 / 1000.0).collect()
 }
 
 fn bench_generate(c: &mut Criterion, label: &str, width: u32, height: u32, step: u32) {

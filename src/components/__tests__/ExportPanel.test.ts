@@ -35,7 +35,7 @@ describe("ExportPanel", () => {
 
     expect(screen.getByText("Blank preset")).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: /Blank preset/i })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: /80 × 50 × 50 \(standard\)/i })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /50 × 50 × 80 \(standard\)/i })).toBeInTheDocument();
 
     expect(screen.getByText("Format")).toBeInTheDocument();
     const formatSelect = screen.getByRole("combobox", { name: /Format/i });

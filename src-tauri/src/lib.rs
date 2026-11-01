@@ -34,11 +34,10 @@ use path_security::{is_blocklisted, validate_import_file_path};
 use blank_envelope::BlankEnvelope;
 use depth_adjust::{
     apply_adjustments, compute_histogram, scale_mask_region_to_full, subsample_depth_for_ipc,
-    subsample_mask_for_ipc, upsample_mask_from_ipc,
-    validate_depth_adjustment_params, DepthAdjustmentParams,
+    subsample_mask_for_ipc, upsample_mask_from_ipc, validate_depth_adjustment_params,
+    DepthAdjustmentParams,
 };
 use export::ExportMetadata;
-use path_security::{is_blocklisted, validate_import_file_path};
 use preset::{get_builtin_preset, sanitize_preset_name, Preset};
 use undo::{SetDepthParamsCommand, SetMaskCommand, UndoRedoHistory, UndoableCommand};
 use volumetric::{
@@ -480,8 +479,8 @@ fn save_preset(name: String, path: Option<String>, state: State<AppState>) -> Re
 fn load_preset(name_or_path: String, state: State<AppState>) -> Result<UndoRedoState, String> {
     let preset = if std::path::Path::new(&name_or_path).is_absolute() {
         let path = validate_import_file_path(&name_or_path, "json")?;
-        let contents = std::fs::read_to_string(&path)
-            .map_err(|e| format!("Failed to read preset: {}", e))?;
+        let contents =
+            std::fs::read_to_string(&path).map_err(|e| format!("Failed to read preset: {}", e))?;
         Preset::parse_and_validate_json(&contents)?
     } else if let Some(p) = get_builtin_preset(name_or_path.trim()) {
         p
@@ -858,8 +857,9 @@ fn get_depth_map(state: State<AppState>) -> Result<Option<python_bridge::DepthMa
         &params,
         mask_guard.as_ref(),
     );
-    let (ipc_w, ipc_h, ipc_depth) = subsample_depth_for_ipc(&adjusted, original.width, original.height)
-        .map_err(|e| e.to_string())?;
+    let (ipc_w, ipc_h, ipc_depth) =
+        subsample_depth_for_ipc(&adjusted, original.width, original.height)
+            .map_err(|e| e.to_string())?;
     Ok(Some(python_bridge::DepthMapOutput {
         width: ipc_w,
         height: ipc_h,
@@ -1013,8 +1013,8 @@ fn get_mask(state: State<AppState>) -> Result<Option<MaskOut>, String> {
         Some(m) if m.dimensions_match(width, height) => m.to_bool_vec(),
         _ => mask::MaskBitmap::all_false(width, height).to_bool_vec(),
     };
-    let ipc_data =
-        subsample_mask_for_ipc(&full_data, width, height, ipc_w, ipc_h).map_err(|e| e.to_string())?;
+    let ipc_data = subsample_mask_for_ipc(&full_data, width, height, ipc_w, ipc_h)
+        .map_err(|e| e.to_string())?;
     Ok(Some(MaskOut {
         width: ipc_w,
         height: ipc_h,
@@ -1045,14 +1045,8 @@ fn set_mask_region(
         return Err("Mask dimensions do not match depth map.".to_string());
     }
     let (ipc_w, ipc_h) = depth_adjust::ipc_depth_dimensions(depth_w, depth_h);
-    let (x, y, width, height) = scale_mask_region_to_full(
-        x,
-        y,
-        width,
-        height,
-        (ipc_w, ipc_h),
-        (depth_w, depth_h),
-    );
+    let (x, y, width, height) =
+        scale_mask_region_to_full(x, y, width, height, (ipc_w, ipc_h), (depth_w, depth_h));
     let mut new_mask = previous.clone();
     new_mask.set_region(x, y, width, height, value);
     let cmd = SetMaskCommand {
@@ -1403,7 +1397,10 @@ mod tests {
     #[test]
     fn qa_d03_set_mask_wrong_buffer_length_rejected() {
         let err = mask::MaskBitmap::from_bool_vec(4, 4, &[true; 10]).unwrap_err();
-        assert!(err.contains("length") || err.contains("match"), "got: {err}");
+        assert!(
+            err.contains("length") || err.contains("match"),
+            "got: {err}"
+        );
     }
 
     #[test]
@@ -1464,7 +1461,7 @@ mod tests {
         *state.last_point_cloud.lock().unwrap() = Some(generated);
         let dir = unique_temp_export_dir();
         let path = dir.join("qa_d01_ref.ply").to_string_lossy().to_string();
-        export_ply_from_state(&state, path.clone(), false).expect("export_ply");
+        export_ply_impl(&path, false, &state).expect("export_ply");
         let content = std::fs::read_to_string(&path).expect("read PLY");
         assert!(content.starts_with("ply\n"));
         assert!(content.contains("format ascii 1.0\n"));
@@ -1474,7 +1471,10 @@ mod tests {
         assert!(content.contains("property float z\n"));
         assert!(content.contains("end_header\n"));
         let header_end = content.find("end_header\n").expect("header") + "end_header\n".len();
-        let body_lines: Vec<_> = content[header_end..].lines().filter(|l| !l.is_empty()).collect();
+        let body_lines: Vec<_> = content[header_end..]
+            .lines()
+            .filter(|l| !l.is_empty())
+            .collect();
         assert_eq!(body_lines.len(), point_count, "one vertex line per point");
         for line in &body_lines[..body_lines.len().min(3)] {
             let parts: Vec<_> = line.split_whitespace().collect();
@@ -1490,7 +1490,7 @@ mod tests {
         *state.last_point_cloud.lock().unwrap() = Some(cached_point_cloud_result());
         let dir = unique_temp_export_dir();
         let path = dir.join("out.ply").to_string_lossy().to_string();
-        export_ply_from_state(&state, path.clone(), false).expect("export_ply");
+        export_ply_impl(&path, false, &state).expect("export_ply");
         let content = std::fs::read_to_string(&path).expect("read PLY");
         assert!(content.starts_with("ply\n"));
         assert!(content.contains("element vertex 2\n"));
@@ -1504,7 +1504,7 @@ mod tests {
         *state.last_point_cloud.lock().unwrap() = Some(cached_point_cloud_result());
         let dir = unique_temp_export_dir();
         let path = dir.join("out.xyz").to_string_lossy().to_string();
-        export_xyz_from_state(&state, path.clone()).expect("export_xyz");
+        export_xyz_impl(&path, &state).expect("export_xyz");
         let content = std::fs::read_to_string(&path).expect("read XYZ");
         assert!(content.contains("1.000000 2.000000 3.000000"));
         assert_eq!(content.lines().count(), 2);
@@ -1518,7 +1518,7 @@ mod tests {
         *state.last_point_cloud.lock().unwrap() = Some(cached_point_cloud_result());
         let dir = unique_temp_export_dir();
         let path = dir.join("out.csv").to_string_lossy().to_string();
-        export_csv_from_state(&state, path.clone()).expect("export_csv");
+        export_csv_impl(&path, &state).expect("export_csv");
         let content = std::fs::read_to_string(&path).expect("read CSV");
         assert!(content.contains("x,y,z"));
         assert!(content.contains("1.000000,2.000000,3.000000"));
@@ -1534,7 +1534,7 @@ mod tests {
         *state.last_point_cloud.lock().unwrap() = Some(generated);
         let dir = unique_temp_export_dir();
         let path = dir.join("generated.ply").to_string_lossy().to_string();
-        export_ply_from_state(&state, path.clone(), false).expect("export after generate");
+        export_ply_impl(&path, false, &state).expect("export after generate");
         let meta = std::fs::metadata(&path).expect("ply exists");
         assert!(meta.len() > 0);
         let _ = std::fs::remove_dir_all(&dir);
@@ -1546,7 +1546,7 @@ mod tests {
         let state = app_state_with_depth_and_settings();
         let dir = unique_temp_export_dir();
         let path = dir.join("empty.ply").to_string_lossy().to_string();
-        let err = export_ply_from_state(&state, path, false).unwrap_err();
+        let err = export_ply_impl(&path, false, &state).unwrap_err();
         assert!(err.contains("No point cloud"));
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -1678,7 +1678,10 @@ mod tests {
         let body = std::fs::read_to_string(&path).expect("read PLY back");
         assert!(body.starts_with("ply\n"), "PLY must start with magic line");
         assert!(body.contains("format ascii 1.0\n"));
-        assert!(body.contains("element vertex 16"), "4x4 uniform => 16 points");
+        assert!(
+            body.contains("element vertex 16"),
+            "4x4 uniform => 16 points"
+        );
         assert!(body.contains("property float x\n"));
         assert!(body.contains("property float y\n"));
         assert!(body.contains("property float z\n"));
@@ -1756,8 +1759,7 @@ mod tests {
     fn export_csv_command_writes_header_and_points() {
         let dir = qa_b01_temp_dir("csv");
         let path = dir.join("cloud.csv");
-        let state =
-            qa_b01_state_with_cached_cloud(Some("/some/dir/landscape.JPG".to_string()));
+        let state = qa_b01_state_with_cached_cloud(Some("/some/dir/landscape.JPG".to_string()));
 
         export_csv_impl(path.to_string_lossy().as_ref(), &state)
             .expect("export_csv_impl should succeed");
@@ -1775,7 +1777,11 @@ mod tests {
         assert_eq!(data_lines.len(), 16, "CSV: one data row per point");
         for line in &data_lines {
             let parts: Vec<&str> = line.split(',').collect();
-            assert_eq!(parts.len(), 3, "CSV row must have 3 comma-separated values: {line}");
+            assert_eq!(
+                parts.len(),
+                3,
+                "CSV row must have 3 comma-separated values: {line}"
+            );
             for p in parts {
                 p.parse::<f32>()
                     .unwrap_or_else(|_| panic!("CSV component must parse as f32: {p}"));

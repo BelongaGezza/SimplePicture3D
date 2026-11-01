@@ -471,9 +471,7 @@ mod tests {
     fn read_image_bytes_for_depth_rejects_oversize_dimensions() {
         let (w, h) = (MAX_DIMENSION + 1, 10u32);
         let temp = std::env::temp_dir().join("sec_d_03_oversize_dims.png");
-        let img = image::ImageBuffer::from_fn(w, h, |x, _| {
-            image::Rgb([(x % 256) as u8, 0u8, 0u8])
-        });
+        let img = image::ImageBuffer::from_fn(w, h, |x, _| image::Rgb([(x % 256) as u8, 0u8, 0u8]));
         img.save(&temp).expect("write oversize-width PNG");
         let result = read_image_bytes_for_depth(&temp.to_string_lossy());
         let _ = std::fs::remove_file(&temp);

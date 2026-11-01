@@ -1,3 +1,3 @@
 # Minimal dependencies for CI stub mode (pytest without PyTorch download).
 # Full ML stack: requirements.txt (audited separately on maintainer / ML installs).
-Pillow>=10.0
+Pillow>=13.0.0

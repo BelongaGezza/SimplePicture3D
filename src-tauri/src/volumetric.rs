@@ -631,9 +631,7 @@ mod tests {
         const WIDTH: u32 = 3840;
         const HEIGHT: u32 = 2160;
         let len = (WIDTH as usize).saturating_mul(HEIGHT as usize);
-        let depth: Vec<f32> = (0..len)
-            .map(|i| (i % 1000) as f32 / 1000.0)
-            .collect();
+        let depth: Vec<f32> = (0..len).map(|i| (i % 1000) as f32 / 1000.0).collect();
         let envelope = BlankEnvelope::default();
         let params = VolumetricParams {
             step_x: 1,
@@ -642,8 +640,7 @@ mod tests {
         };
 
         let t0 = Instant::now();
-        let result =
-            generate_volumetric_points(&depth, WIDTH, HEIGHT, &params, &envelope).unwrap();
+        let result = generate_volumetric_points(&depth, WIDTH, HEIGHT, &params, &envelope).unwrap();
         let gen_ms = t0.elapsed().as_secs_f64() * 1000.0;
 
         let t1 = Instant::now();
