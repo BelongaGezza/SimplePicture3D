@@ -277,6 +277,12 @@ All sprints are 1 week unless explicitly marked.
 | TD-21 | `withGlobalTauri: true` widens webview compromise blast radius | Low | Sprint D — SEC-D-11 |
 | TD-22 | F2 warnings hard-coded to one engraver envelope | Low | UI-D-01 ships F2-only; Phase E engraver matrix / selector |
 | TD-09 | Accessibility issues in advanced controls | Medium | Post-Phase D polish |
+| TD-23 | `core2` 0.4.0 unmaintained, all versions yanked (RUSTSEC-2026-0105) — via `image` → `ravif` → `rav1e` → `bitstream-io`. Warning only. | Low | Phase E — bump `image`/`ravif`, or disable the AVIF encoder feature if unused |
+| TD-24 | `paste` 1.0.15 unmaintained (RUSTSEC-2024-0436) — via `image` → `ravif` → `rav1e`. Warning only. | Low | Phase E — same fix as TD-23 |
+| TD-25 | `fxhash` 0.2.1 unmaintained (RUSTSEC-2025-0057) — via `tauri-utils` → `kuchikiki` → `selectors`. Warning only. | Low | Phase E — resolved by a Tauri upgrade; re-check on each Tauri bump |
+| TD-26 | `unic-char-property` 0.9.0 unmaintained (RUSTSEC-2025-0081) — via `tauri-utils` → `urlpattern` → `unic-ucd-ident`. Warning only. | Low | Phase E — resolved by a Tauri upgrade |
+| TD-27 | `proc-macro-error` 1.0.4 unmaintained (RUSTSEC-2024-0370) — Linux-only GTK dependency chain. Warning only. | Low | Phase E — resolved by a Tauri/wry upgrade; Linux build only |
+| TD-28 | Full `npm audit` reports 12 dev-dependency findings (7 high: browserslist, devalue, nanoid, postcss, source-map-js, undici, vite; 3 moderate; 2 low). `npm audit --omit=dev` is clean, so shipped code is unaffected. Most have a fix available (`npm audit fix`). | Medium | Sprint D follow-up — run `npm audit fix`, re-run tests and build; the `@sveltejs/vite-plugin-svelte` and `deepmerge` findings have no fix yet, so track or risk-accept them in `SECURITY_SIGNOFF.md` |
 
 ---
 
