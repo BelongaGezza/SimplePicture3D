@@ -20,7 +20,8 @@ Validate engraver-compatible exports; close P0/P1 security gaps; align Tauri ACL
 | SEC-D-02 | Security Specialist | Wave 1 sub-agent | Complete | Stub hash manifest; real digests pending trusted download |
 | SEC-D-03 | Senior Engineer | Wave 1 sub-agent | Complete | 128 MiB + 8192 header cap pre-Python |
 | SEC-D-04 | Senior Engineer | Orchestrator Wave 2 | Complete | 1M IPC preview cap; 8M generation cap; `forPreview` param |
-| SEC-D-05 | Senior Engineer | Orchestrator Wave 2 | Complete | `path_security.rs`; preset/mask import validation |
+| SEC-D-05 | Senior Engineer | Orchestrator Wave 2 | Complete | `path_security.rs`; preset/mask import validation; **SEC-E-01** import fix 2026-05-24 |
+| SEC-E-01 | Senior Engineer | 2026-05-24 | Complete | `use path_security::{is_blocklisted, validate_import_file_path}` in `lib.rs` |
 | SEC-D-06 | Senior Engineer | Orchestrator Wave 2 | Complete | `allow-settings.toml`, `allow-model.toml` in capabilities |
 | SEC-D-01 | Senior Engineer | Wave 5 sub-agent | Complete | Four TOMLs; `default.json`; old `allow-generate-depth-map` removed |
 | SEC-D-07–11 | Senior Engineer | — | Available | P2/P3 — see task assignment |

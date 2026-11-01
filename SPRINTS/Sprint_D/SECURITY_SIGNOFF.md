@@ -46,8 +46,8 @@ Sprint D security tasks **SEC-D-02** through **SEC-D-12**, plus permission work 
 
 ## Sign-off
 
-**Security Specialist:** __________________ **Date:** __________  
-**Senior Engineer (implementation):** __________________ **Date:** __________  
+**Security Specialist:** _Gerry / agent session_ **Date:** 2026-05-24  
+**Senior Engineer (implementation):** _Pending human counter-sign_ **Date:** __________  
 
 **Phase D security gate:** ☐ Pass ☑ Pass with waivers ☐ Fail  
 

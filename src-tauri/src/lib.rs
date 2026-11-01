@@ -32,8 +32,13 @@ use tauri::State;
 use path_security::{is_blocklisted, validate_import_file_path};
 
 use blank_envelope::BlankEnvelope;
-use depth_adjust::{apply_adjustments, compute_histogram, DepthAdjustmentParams};
+use depth_adjust::{
+    apply_adjustments, compute_histogram, scale_mask_region_to_full, subsample_depth_for_ipc,
+    subsample_mask_for_ipc, upsample_mask_from_ipc,
+    validate_depth_adjustment_params, DepthAdjustmentParams,
+};
 use export::ExportMetadata;
+use path_security::{is_blocklisted, validate_import_file_path};
 use preset::{get_builtin_preset, sanitize_preset_name, Preset};
 use undo::{SetDepthParamsCommand, SetMaskCommand, UndoRedoHistory, UndoableCommand};
 use volumetric::{
@@ -324,18 +329,24 @@ fn estimate_point_cloud_count(state: State<AppState>) -> Result<Option<usize>, S
     estimate_point_cloud_count_from_state(&state)
 }
 
+fn reject_oversized_point_cloud(result: &VolumetricResult) -> Result<(), String> {
+    if result.point_count > MAX_POINT_CLOUD_GENERATION {
+        Err(format!(
+            "Point cloud too large ({} points). Increase pixel step (step_x/step_y) — maximum generation limit is {} points.",
+            result.point_count, MAX_POINT_CLOUD_GENERATION
+        ))
+    } else {
+        Ok(())
+    }
+}
+
 #[tauri::command]
 fn generate_point_cloud(
     for_preview: Option<bool>,
     state: State<AppState>,
 ) -> Result<VolumetricResult, String> {
     let result = generate_point_cloud_from_state(&state)?;
-    if result.point_count > MAX_POINT_CLOUD_GENERATION {
-        return Err(format!(
-            "Point cloud too large ({} points). Increase pixel step (step_x/step_y) — maximum generation limit is {} points.",
-            result.point_count, MAX_POINT_CLOUD_GENERATION
-        ));
-    }
+    reject_oversized_point_cloud(&result)?;
     *state.last_point_cloud.lock().map_err(|e| e.to_string())? = Some(result.clone());
     let preview = for_preview.unwrap_or(false);
     if preview && result.point_count > MAX_IPC_POINT_CLOUD_POINTS {
@@ -776,11 +787,13 @@ fn generate_depth_map(
     // Leave adjustment_params unchanged (user may have presets); reset is explicit (BACK-405).
     let params = state.adjustment_params.lock().map_err(|e| e.to_string())?;
     let adjusted = apply_adjustments(&depth.depth, &params);
+    let (ipc_w, ipc_h, ipc_depth) =
+        subsample_depth_for_ipc(&adjusted, depth.width, depth.height).map_err(|e| e.to_string())?;
     let stages = python_bridge::stages_from_stderr(&stderr_lines);
     Ok(GenerateDepthMapResponse {
-        width: depth.width,
-        height: depth.height,
-        depth: adjusted,
+        width: ipc_w,
+        height: ipc_h,
+        depth: ipc_depth,
         progress: 100,
         stages,
     })
@@ -845,10 +858,12 @@ fn get_depth_map(state: State<AppState>) -> Result<Option<python_bridge::DepthMa
         &params,
         mask_guard.as_ref(),
     );
+    let (ipc_w, ipc_h, ipc_depth) = subsample_depth_for_ipc(&adjusted, original.width, original.height)
+        .map_err(|e| e.to_string())?;
     Ok(Some(python_bridge::DepthMapOutput {
-        width: original.width,
-        height: original.height,
-        depth: adjusted,
+        width: ipc_w,
+        height: ipc_h,
+        depth: ipc_depth,
     }))
 }
 
@@ -859,6 +874,7 @@ fn set_depth_adjustment_params(
     params: DepthAdjustmentParams,
     state: State<AppState>,
 ) -> Result<UndoRedoState, String> {
+    validate_depth_adjustment_params(&params)?;
     let previous = state
         .adjustment_params
         .lock()
@@ -900,9 +916,7 @@ fn get_depth_adjustment_params(state: State<AppState>) -> Result<DepthAdjustment
         .map(|guard| guard.clone())
 }
 
-/// Returns undo/redo state for UI (can_undo, can_redo, current params). Use after load or to sync buttons.
-#[tauri::command]
-fn get_undo_redo_state(state: State<AppState>) -> Result<UndoRedoState, String> {
+fn undo_redo_snapshot(state: &AppState) -> Result<UndoRedoState, String> {
     let params = state
         .adjustment_params
         .lock()
@@ -914,6 +928,12 @@ fn get_undo_redo_state(state: State<AppState>) -> Result<UndoRedoState, String> 
         can_redo: hist.can_redo(),
         params,
     })
+}
+
+/// Returns undo/redo state for UI (can_undo, can_redo, current params). Use after load or to sync buttons.
+#[tauri::command]
+fn get_undo_redo_state(state: State<AppState>) -> Result<UndoRedoState, String> {
+    undo_redo_snapshot(&state)
 }
 
 /// Undo last action (depth or mask) (BACK-1404, ARCH-502). Restores previous state; returns new state for UI.
@@ -988,19 +1008,18 @@ fn get_mask(state: State<AppState>) -> Result<Option<MaskOut>, String> {
     };
     drop(guard);
     let mask_guard = state.mask.lock().map_err(|e| e.to_string())?;
-    let out = match mask_guard.as_ref() {
-        Some(m) if m.dimensions_match(width, height) => MaskOut {
-            width,
-            height,
-            data: m.to_bool_vec(),
-        },
-        _ => MaskOut {
-            width,
-            height,
-            data: mask::MaskBitmap::all_false(width, height).to_bool_vec(),
-        },
+    let (ipc_w, ipc_h) = depth_adjust::ipc_depth_dimensions(width, height);
+    let full_data = match mask_guard.as_ref() {
+        Some(m) if m.dimensions_match(width, height) => m.to_bool_vec(),
+        _ => mask::MaskBitmap::all_false(width, height).to_bool_vec(),
     };
-    Ok(Some(out))
+    let ipc_data =
+        subsample_mask_for_ipc(&full_data, width, height, ipc_w, ipc_h).map_err(|e| e.to_string())?;
+    Ok(Some(MaskOut {
+        width: ipc_w,
+        height: ipc_h,
+        data: ipc_data,
+    }))
 }
 
 /// Set a rectangular region of the mask (BACK-1201). Creates mask if none; pushes to undo stack.
@@ -1025,6 +1044,15 @@ fn set_mask_region(
     if !previous.dimensions_match(depth_w, depth_h) {
         return Err("Mask dimensions do not match depth map.".to_string());
     }
+    let (ipc_w, ipc_h) = depth_adjust::ipc_depth_dimensions(depth_w, depth_h);
+    let (x, y, width, height) = scale_mask_region_to_full(
+        x,
+        y,
+        width,
+        height,
+        (ipc_w, ipc_h),
+        (depth_w, depth_h),
+    );
     let mut new_mask = previous.clone();
     new_mask.set_region(x, y, width, height, value);
     let cmd = SetMaskCommand {
@@ -1098,12 +1126,11 @@ fn reset_depth_adjustments(state: State<AppState>) -> Result<UndoRedoState, Stri
 }
 
 /// Set the full mask from row-major bool data (JR1-1203 load, JR1-1202 lasso fill). Pushes to undo stack.
-#[tauri::command]
-fn set_mask(
+fn set_mask_on_state(
+    state: &AppState,
     width: u32,
     height: u32,
     data: Vec<bool>,
-    state: State<AppState>,
 ) -> Result<UndoRedoState, String> {
     let (depth_w, depth_h) = {
         let guard = state.depth.lock().map_err(|e| e.to_string())?;
@@ -1112,14 +1139,19 @@ fn set_mask(
             .ok_or_else(|| "No depth map loaded. Generate a depth map first.".to_string())?;
         (d.width, d.height)
     };
-    if width != depth_w || height != depth_h {
+    let (ipc_w, ipc_h) = depth_adjust::ipc_depth_dimensions(depth_w, depth_h);
+    let full_data = if width == depth_w && height == depth_h {
+        data
+    } else if width == ipc_w && height == ipc_h {
+        upsample_mask_from_ipc(&data, ipc_w, ipc_h, depth_w, depth_h)?
+    } else {
         return Err(format!(
-            "Mask dimensions {}x{} do not match depth map {}x{}.",
-            width, height, depth_w, depth_h
+            "Mask dimensions {}x{} do not match depth map {}x{} or preview {}x{}.",
+            width, height, depth_w, depth_h, ipc_w, ipc_h
         ));
-    }
+    };
     let new_mask =
-        mask::MaskBitmap::from_bool_vec(width, height, &data).map_err(|e| e.to_string())?;
+        mask::MaskBitmap::from_bool_vec(depth_w, depth_h, &full_data).map_err(|e| e.to_string())?;
     let previous = state.mask.lock().map_err(|e| e.to_string())?.clone();
     let previous = previous.unwrap_or_else(|| mask::MaskBitmap::all_false(depth_w, depth_h));
     let cmd = SetMaskCommand {
@@ -1131,7 +1163,17 @@ fn set_mask(
         let mut hist = state.undo_redo.lock().map_err(|e| e.to_string())?;
         hist.push(UndoableCommand::Mask(cmd));
     }
-    get_undo_redo_state(state)
+    undo_redo_snapshot(state)
+}
+
+#[tauri::command]
+fn set_mask(
+    width: u32,
+    height: u32,
+    data: Vec<bool>,
+    state: State<AppState>,
+) -> Result<UndoRedoState, String> {
+    set_mask_on_state(&state, width, height, data)
 }
 
 /// Mask file format (JR1-1203). JSON: { "width", "height", "data": boolean[] } row-major.
@@ -1277,8 +1319,237 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::blank_envelope::FitResult;
     use std::fs::File;
     use std::io::Write;
+    use std::path::PathBuf;
+
+    fn unique_temp_export_dir() -> PathBuf {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let dir = std::env::temp_dir().join(format!("sp3d_qa_b01_export_{stamp}"));
+        std::fs::create_dir_all(&dir).expect("create temp export dir");
+        dir
+    }
+
+    fn app_state_with_depth_and_settings() -> AppState {
+        let depth = python_bridge::DepthMapOutput {
+            width: 4,
+            height: 4,
+            depth: vec![0.5f32; 16],
+        };
+        let app_settings = settings::AppSettings {
+            blank_envelope: Some(BlankEnvelope::default()),
+            volumetric_params: Some(VolumetricParams {
+                step_x: 1,
+                step_y: 1,
+                depth_threshold: 0.0,
+            }),
+            ..Default::default()
+        };
+        AppState {
+            depth: Mutex::new(Some(depth)),
+            adjustment_params: Mutex::new(DepthAdjustmentParams::default()),
+            mask: Mutex::new(None),
+            source_image_path: Mutex::new(Some("fixture.png".to_string())),
+            app_settings: Mutex::new(app_settings),
+            undo_redo: Mutex::new(UndoRedoHistory::new()),
+            last_point_cloud: Mutex::new(None),
+        }
+    }
+
+    fn cached_point_cloud_result() -> VolumetricResult {
+        VolumetricResult {
+            points: vec![[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]],
+            point_count: 2,
+            fit_result: FitResult {
+                scale: 1.0,
+                translation: [0.0, 0.0, 0.0],
+                point_count: 2,
+                outliers: 0,
+            },
+            memory_bytes: 24,
+        }
+    }
+
+    // --- QA-D-03: Automated coverage for SECURITY_PENTEST_CHECKLIST.md ---
+
+    #[test]
+    fn qa_d03_export_empty_path_rejected() {
+        let err = validate_export_path("", "ply").unwrap_err();
+        assert!(err.contains("non-empty"), "got: {err}");
+    }
+
+    #[test]
+    fn qa_d03_export_blocklisted_system_path_rejected() {
+        let err = validate_export_path("/etc/sp3d_evil.ply", "ply").unwrap_err();
+        assert!(
+            err.contains("system") || err.contains("accessible"),
+            "got: {err}"
+        );
+    }
+
+    #[test]
+    fn qa_d03_preset_import_blocklisted_path_rejected() {
+        let err = validate_import_file_path("/etc/evil_preset.json", "json").unwrap_err();
+        assert!(
+            err.contains("system") || err.contains("Cannot") || err.contains("accessible"),
+            "got: {err}"
+        );
+    }
+
+    #[test]
+    fn qa_d03_set_mask_wrong_buffer_length_rejected() {
+        let err = mask::MaskBitmap::from_bool_vec(4, 4, &[true; 10]).unwrap_err();
+        assert!(err.contains("length") || err.contains("match"), "got: {err}");
+    }
+
+    #[test]
+    fn qa_d03_set_mask_dimension_mismatch_rejected() {
+        let state = app_state_with_depth_and_settings();
+        match set_mask_on_state(&state, 3, 3, vec![false; 9]) {
+            Err(e) => assert!(e.contains("do not match"), "got: {e}"),
+            Ok(_) => panic!("expected dimension mismatch error"),
+        }
+    }
+
+    #[test]
+    fn qa_d03_invalid_preset_json_rejected() {
+        let err = preset::Preset::parse_and_validate_json("{").unwrap_err();
+        assert!(!err.is_empty());
+    }
+
+    #[test]
+    fn qa_d03_point_cloud_generation_cap_enforced() {
+        const W: u32 = 3000;
+        const H: u32 = 3000;
+        let depth = python_bridge::DepthMapOutput {
+            width: W,
+            height: H,
+            depth: vec![0.8f32; (W * H) as usize],
+        };
+        let app_settings = settings::AppSettings {
+            blank_envelope: Some(BlankEnvelope::default()),
+            volumetric_params: Some(VolumetricParams {
+                step_x: 1,
+                step_y: 1,
+                depth_threshold: 0.0,
+            }),
+            ..Default::default()
+        };
+        let state = AppState {
+            depth: Mutex::new(Some(depth)),
+            adjustment_params: Mutex::new(DepthAdjustmentParams::default()),
+            mask: Mutex::new(None),
+            source_image_path: Mutex::new(None),
+            app_settings: Mutex::new(app_settings),
+            undo_redo: Mutex::new(UndoRedoHistory::new()),
+            last_point_cloud: Mutex::new(None),
+        };
+        let generated = generate_point_cloud_from_state(&state).expect("generate");
+        assert!(generated.point_count > MAX_POINT_CLOUD_GENERATION);
+        let err = reject_oversized_point_cloud(&generated).unwrap_err();
+        assert!(err.contains("too large"), "got: {err}");
+    }
+
+    /// QA-D-01: Exported PLY matches engraver charter header contract (docs/engraver-charter.md §4).
+    #[test]
+    fn qa_d01_ply_header_matches_engraver_charter() {
+        let state = app_state_with_depth_and_settings();
+        let generated = generate_point_cloud_from_state(&state).expect("generate");
+        let point_count = generated.point_count;
+        assert!(point_count > 0);
+        *state.last_point_cloud.lock().unwrap() = Some(generated);
+        let dir = unique_temp_export_dir();
+        let path = dir.join("qa_d01_ref.ply").to_string_lossy().to_string();
+        export_ply_from_state(&state, path.clone(), false).expect("export_ply");
+        let content = std::fs::read_to_string(&path).expect("read PLY");
+        assert!(content.starts_with("ply\n"));
+        assert!(content.contains("format ascii 1.0\n"));
+        assert!(content.contains("comment Generated by SimplePicture3D\n"));
+        assert!(content.contains("property float x\n"));
+        assert!(content.contains("property float y\n"));
+        assert!(content.contains("property float z\n"));
+        assert!(content.contains("end_header\n"));
+        let header_end = content.find("end_header\n").expect("header") + "end_header\n".len();
+        let body_lines: Vec<_> = content[header_end..].lines().filter(|l| !l.is_empty()).collect();
+        assert_eq!(body_lines.len(), point_count, "one vertex line per point");
+        for line in &body_lines[..body_lines.len().min(3)] {
+            let parts: Vec<_> = line.split_whitespace().collect();
+            assert_eq!(parts.len(), 3, "x y z per charter");
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// QA-B-01: export_ply command path — validate path, read cache, write PLY on disk.
+    #[test]
+    fn export_ply_command_path_writes_file() {
+        let state = app_state_with_depth_and_settings();
+        *state.last_point_cloud.lock().unwrap() = Some(cached_point_cloud_result());
+        let dir = unique_temp_export_dir();
+        let path = dir.join("out.ply").to_string_lossy().to_string();
+        export_ply_from_state(&state, path.clone(), false).expect("export_ply");
+        let content = std::fs::read_to_string(&path).expect("read PLY");
+        assert!(content.starts_with("ply\n"));
+        assert!(content.contains("element vertex 2\n"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// QA-B-01: export_xyz command path.
+    #[test]
+    fn export_xyz_command_path_writes_file() {
+        let state = app_state_with_depth_and_settings();
+        *state.last_point_cloud.lock().unwrap() = Some(cached_point_cloud_result());
+        let dir = unique_temp_export_dir();
+        let path = dir.join("out.xyz").to_string_lossy().to_string();
+        export_xyz_from_state(&state, path.clone()).expect("export_xyz");
+        let content = std::fs::read_to_string(&path).expect("read XYZ");
+        assert!(content.contains("1.000000 2.000000 3.000000"));
+        assert_eq!(content.lines().count(), 2);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// QA-B-01: export_csv command path.
+    #[test]
+    fn export_csv_command_path_writes_file() {
+        let state = app_state_with_depth_and_settings();
+        *state.last_point_cloud.lock().unwrap() = Some(cached_point_cloud_result());
+        let dir = unique_temp_export_dir();
+        let path = dir.join("out.csv").to_string_lossy().to_string();
+        export_csv_from_state(&state, path.clone()).expect("export_csv");
+        let content = std::fs::read_to_string(&path).expect("read CSV");
+        assert!(content.contains("x,y,z"));
+        assert!(content.contains("1.000000,2.000000,3.000000"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// QA-B-01: generate then export end-to-end through AppState helpers.
+    #[test]
+    fn export_after_generate_point_cloud_writes_ply() {
+        let state = app_state_with_depth_and_settings();
+        let generated = generate_point_cloud_from_state(&state).expect("generate");
+        assert!(generated.point_count > 0);
+        *state.last_point_cloud.lock().unwrap() = Some(generated);
+        let dir = unique_temp_export_dir();
+        let path = dir.join("generated.ply").to_string_lossy().to_string();
+        export_ply_from_state(&state, path.clone(), false).expect("export after generate");
+        let meta = std::fs::metadata(&path).expect("ply exists");
+        assert!(meta.len() > 0);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// QA-B-01: export commands reject missing cache.
+    #[test]
+    fn export_ply_errors_without_cached_point_cloud() {
+        let state = app_state_with_depth_and_settings();
+        let dir = unique_temp_export_dir();
+        let path = dir.join("empty.ply").to_string_lossy().to_string();
+        let err = export_ply_from_state(&state, path, false).unwrap_err();
+        assert!(err.contains("No point cloud"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn point_cloud_estimate_none_without_depth_map() {
@@ -2011,5 +2282,42 @@ mod tests {
         assert!((out[0] - 0.0).abs() < 1e-6, "unmasked stays 0");
         assert!((out[1] - 0.7).abs() < 1e-5, "masked 0.5+0.2=0.7");
         assert!((out[2] - 1.0).abs() < 1e-6, "unmasked stays 1");
+    }
+
+    /// SEC-E-02: Mask paint in IPC preview coords maps to full-resolution mask bitmap.
+    #[test]
+    fn mask_region_scaling_paints_full_res_center() {
+        use depth_adjust::ipc_depth_dimensions;
+        let depth_w = 2048u32;
+        let depth_h = 2048u32;
+        let (ipc_w, ipc_h) = ipc_depth_dimensions(depth_w, depth_h);
+        let cx = ipc_w / 2;
+        let cy = ipc_h / 2;
+        let (x, y, w, h) =
+            scale_mask_region_to_full(cx, cy, 2, 2, (ipc_w, ipc_h), (depth_w, depth_h));
+        let mut mask = mask::MaskBitmap::all_false(depth_w, depth_h);
+        mask.set_region(x, y, w, h, true);
+        let full_cx = (cx as u64 * depth_w as u64 / ipc_w as u64) as u32;
+        let full_cy = (cy as u64 * depth_h as u64 / ipc_h as u64) as u32;
+        assert!(
+            mask.get(full_cx, full_cy),
+            "center IPC stamp should set full-res mask near image centre"
+        );
+    }
+
+    /// SEC-E-02: Large depth maps are downsampled for IPC while full resolution stays in state.
+    #[test]
+    fn ipc_depth_subsample_caps_4k_payload() {
+        use depth_adjust::{ipc_depth_dimensions, MAX_IPC_DEPTH_PIXELS};
+        let width = 4096u32;
+        let height = 4096u32;
+        let depth: Vec<f32> = vec![0.5; (width * height) as usize];
+        let (ipc_w, ipc_h, ipc_depth) =
+            depth_adjust::subsample_depth_for_ipc(&depth, width, height).unwrap();
+        assert_eq!(ipc_depth.len(), (ipc_w as usize) * (ipc_h as usize));
+        assert!((ipc_w as usize) * (ipc_h as usize) <= MAX_IPC_DEPTH_PIXELS);
+        assert!(ipc_w < width || ipc_h < height);
+        let (tw, th) = ipc_depth_dimensions(width, height);
+        assert_eq!((ipc_w, ipc_h), (tw, th));
     }
 }

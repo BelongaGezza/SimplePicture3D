@@ -387,22 +387,10 @@
       "description": "Permission identifier",
       "oneOf": [
         {
-          "description": "Enables the export_stl command.",
+          "description": "Enables depth map generation, retrieval, histogram, adjustment, undo/redo, and reset. Mask commands are in allow-mask.toml.",
           "type": "string",
-          "const": "allow-export-stl",
-          "markdownDescription": "Enables the export_stl command."
-        },
-        {
-          "description": "Enables depth map generation, retrieval, adjustment, undo/redo, and mesh generation commands.",
-          "type": "string",
-          "const": "allow-generate-depth-map",
-          "markdownDescription": "Enables depth map generation, retrieval, adjustment, undo/redo, and mesh generation commands."
-        },
-        {
-          "description": "Enables the get_export_defaults command.",
-          "type": "string",
-          "const": "allow-get-export-defaults",
-          "markdownDescription": "Enables the get_export_defaults command."
+          "const": "allow-depth-map",
+          "markdownDescription": "Enables depth map generation, retrieval, histogram, adjustment, undo/redo, and reset. Mask commands are in allow-mask.toml."
         },
         {
           "description": "Enables the load_image command.",
@@ -411,10 +399,34 @@
           "markdownDescription": "Enables the load_image command."
         },
         {
+          "description": "Enables mask get/set, region paint/erase, clear, and save/load to path (Sprint 2.5).",
+          "type": "string",
+          "const": "allow-mask",
+          "markdownDescription": "Enables mask get/set, region paint/erase, clear, and save/load to path (Sprint 2.5)."
+        },
+        {
+          "description": "Enables AI model check, info, and download commands (SEC-D-06).",
+          "type": "string",
+          "const": "allow-model",
+          "markdownDescription": "Enables AI model check, info, and download commands (SEC-D-06)."
+        },
+        {
+          "description": "Enables crystal blank envelope, volumetric parameters, point cloud generation (ADR-012), and PLY/XYZ/CSV export commands.",
+          "type": "string",
+          "const": "allow-point-cloud",
+          "markdownDescription": "Enables crystal blank envelope, volumetric parameters, point cloud generation (ADR-012), and PLY/XYZ/CSV export commands."
+        },
+        {
           "description": "Enables preset save, load, and list commands (Sprint 2.3).",
           "type": "string",
           "const": "allow-presets",
           "markdownDescription": "Enables preset save, load, and list commands (Sprint 2.3)."
+        },
+        {
+          "description": "Enables get_settings and save_settings (SEC-D-06).",
+          "type": "string",
+          "const": "allow-settings",
+          "markdownDescription": "Enables get_settings and save_settings (SEC-D-06)."
         },
         {
           "description": "Default core plugins set.\n#### This default permission set includes:\n\n- `core:path:default`\n- `core:event:default`\n- `core:window:default`\n- `core:webview:default`\n- `core:app:default`\n- `core:image:default`\n- `core:resources:default`\n- `core:menu:default`\n- `core:tray:default`",

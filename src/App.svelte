@@ -41,6 +41,7 @@
     MaskData,
     UndoRedoState,
   } from "$lib/tauri";
+  import { onMount, onDestroy } from "svelte";
 
   let status = "Ready";
   let loadPath = "";
@@ -50,7 +51,6 @@
 
   /** Show first-run wizard if model is not installed (UI-901). */
   let showWizard = false;
-  import { onMount, onDestroy } from "svelte";
   onMount(async () => {
     try {
       const modelStatus = await checkModel();

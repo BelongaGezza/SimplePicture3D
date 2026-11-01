@@ -8,10 +8,75 @@
 
 use anyhow::{Context, Result};
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use crate::blank_envelope::BlankEnvelope;
+use crate::path_security;
+
+/// Resolves an export target to a canonical path (SEC-D-09, extends TD-06).
+///
+/// Existing files are canonicalized in full. New files canonicalize the parent directory
+/// and join the filename so symlink components in the parent are resolved.
+pub fn canonicalize_export_target(path: &Path) -> Result<PathBuf> {
+    if path.exists() {
+        return path
+            .canonicalize()
+            .with_context(|| format!("Failed to canonicalize export path: {:?}", path));
+    }
+    let parent = path
+        .parent()
+        .context("Export path has no parent directory")?;
+    let file_name = path
+        .file_name()
+        .context("Export path has no filename")?;
+    let canonical_parent = parent
+        .canonicalize()
+        .with_context(|| format!("Failed to canonicalize export directory: {:?}", parent))?;
+    Ok(canonical_parent.join(file_name))
+}
+
+/// Writes export output atomically: temp file in the target directory, then rename (SEC-D-09).
+///
+/// On Unix, `rename` replacing an existing file is atomic. On Windows, `std::fs::rename`
+/// overwrites the destination when present; readers on local NTFS typically see the full
+/// new file or the previous file, not a partial write. Network shares may differ.
+fn write_export_atomically<F>(path: &Path, write_body: F) -> Result<()>
+where
+    F: FnOnce(&mut std::io::BufWriter<std::fs::File>) -> Result<()>,
+{
+    let target = canonicalize_export_target(path)?;
+    if path_security::is_blocklisted(&target) {
+        anyhow::bail!("Cannot export to system directories");
+    }
+    let parent = target
+        .parent()
+        .context("Export path has no parent directory")?;
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let temp_path = parent.join(format!(".sp3d_export_{}_{nanos}.tmp", std::process::id()));
+
+    {
+        let file = std::fs::File::create(&temp_path).with_context(|| {
+            format!("Failed to create temporary export file: {:?}", temp_path)
+        })?;
+        let mut writer = std::io::BufWriter::new(file);
+        write_body(&mut writer)?;
+        writer
+            .flush()
+            .context("Failed to flush temporary export file")?;
+    }
+
+    std::fs::rename(&temp_path, &target).with_context(|| {
+        format!(
+            "Failed to finalize export (rename {:?} -> {:?})",
+            temp_path, target
+        )
+    })?;
+    Ok(())
+}
 
 /// Export format options.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -195,18 +260,13 @@ pub fn export_ply(
     metadata: &ExportMetadata,
     binary: bool,
 ) -> Result<()> {
-    let file = std::fs::File::create(path)
-        .with_context(|| format!("Failed to create PLY file: {:?}", path))?;
-    let mut writer = std::io::BufWriter::new(file);
-
-    if binary {
-        write_ply_binary(&mut writer, points, metadata)?;
-    } else {
-        write_ply_ascii(&mut writer, points, metadata)?;
-    }
-
-    writer.flush()?;
-    Ok(())
+    write_export_atomically(path, |writer| {
+        if binary {
+            write_ply_binary(writer, points, metadata)
+        } else {
+            write_ply_ascii(writer, points, metadata)
+        }
+    })
 }
 
 // ============================================================================
@@ -226,14 +286,7 @@ pub fn write_xyz<W: Write>(writer: &mut W, points: &[[f32; 3]]) -> Result<()> {
 
 /// Export points to XYZ file.
 pub fn export_xyz(path: &Path, points: &[[f32; 3]]) -> Result<()> {
-    let file = std::fs::File::create(path)
-        .with_context(|| format!("Failed to create XYZ file: {:?}", path))?;
-    let mut writer = std::io::BufWriter::new(file);
-
-    write_xyz(&mut writer, points)?;
-
-    writer.flush()?;
-    Ok(())
+    write_export_atomically(path, |writer| write_xyz(writer, points))
 }
 
 // ============================================================================
@@ -280,14 +333,7 @@ pub fn write_csv<W: Write>(
 
 /// Export points to CSV file.
 pub fn export_csv(path: &Path, points: &[[f32; 3]], metadata: &ExportMetadata) -> Result<()> {
-    let file = std::fs::File::create(path)
-        .with_context(|| format!("Failed to create CSV file: {:?}", path))?;
-    let mut writer = std::io::BufWriter::new(file);
-
-    write_csv(&mut writer, points, metadata)?;
-
-    writer.flush()?;
-    Ok(())
+    write_export_atomically(path, |writer| write_csv(writer, points, metadata))
 }
 
 // ============================================================================
@@ -482,6 +528,41 @@ mod tests {
         write_ply_ascii(&mut output, &points, &metadata).unwrap();
         let result = String::from_utf8(output.into_inner()).unwrap();
         assert!(result.contains("element vertex 0"));
+    }
+
+    /// SEC-D-09: export uses temp file + rename; full path is canonicalized.
+    #[test]
+    fn export_atomic_write_and_canonicalize_target() {
+        let points = sample_points();
+        let metadata = sample_metadata();
+        let stamp = std::process::id();
+        let dir = std::env::temp_dir().join(format!("sp3d_sec_d09_export_{stamp}"));
+        std::fs::create_dir_all(&dir).expect("temp export dir");
+
+        let target = dir.join("output.ply");
+        export_ply(&target, &points, &metadata, false).expect("atomic PLY export");
+        assert!(target.is_file(), "export must create final file");
+        let canonical = canonicalize_export_target(&target).expect("canonicalize");
+        assert_eq!(canonical, target.canonicalize().expect("path canonical"));
+
+        let ply = std::fs::read_to_string(&target).expect("read PLY");
+        assert!(ply.contains("element vertex 3"));
+
+        let temp_leftover: Vec<_> = std::fs::read_dir(&dir)
+            .expect("read dir")
+            .filter_map(Result::ok)
+            .filter(|e| {
+                e.file_name()
+                    .to_str()
+                    .is_some_and(|n| n.starts_with(".sp3d_export_"))
+            })
+            .collect();
+        assert!(
+            temp_leftover.is_empty(),
+            "temp export files must be renamed away"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// QA-D-01 fixture: write 3-point PLY/XYZ to disk and assert on-disk header format.

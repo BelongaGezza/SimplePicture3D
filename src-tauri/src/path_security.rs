@@ -43,14 +43,37 @@ pub fn is_blocklisted(canonical: &Path) -> bool {
             "/sbin",
             "/boot",
             "/lib",
+            "/lib64",
             "/proc",
             "/sys",
+            "/dev",
+            "/run",
         ];
         for prefix in &blocked {
             if s == *prefix || s.starts_with(&format!("{}/", prefix)) {
                 return true;
             }
         }
+        // [PLATFORM: macOS] ─── begin ─────────────────────────────────────────
+        // Canonicalize resolves /etc → /private/etc; mirror blocklist prefixes.
+        #[cfg(target_os = "macos")]
+        {
+            let private_mirrors = [
+                "/private/etc",
+                "/private/bin",
+                "/private/sbin",
+                "/private/usr",
+                "/private/dev",
+                "/private/proc",
+                "/private/sys",
+            ];
+            for prefix in &private_mirrors {
+                if s == *prefix || s.starts_with(&format!("{}/", prefix)) {
+                    return true;
+                }
+            }
+        }
+        // [PLATFORM: macOS] ─── end ───────────────────────────────────────────
         false
     }
     #[cfg(not(any(windows, unix)))]
@@ -104,6 +127,22 @@ mod tests {
         let err = validate_import_file_path(path.to_str().unwrap(), "json").unwrap_err();
         assert!(err.contains("json"));
         let _ = std::fs::remove_file(path);
+    }
+
+    /// SEC-D-10: Unix blocklist matches export policy (load_image + export share this helper).
+    #[cfg(unix)]
+    #[test]
+    fn is_blocklisted_rejects_unix_system_prefixes() {
+        assert!(is_blocklisted(Path::new("/etc/passwd")));
+        assert!(is_blocklisted(Path::new("/bin/sh")));
+        assert!(is_blocklisted(Path::new("/sbin/init")));
+        assert!(is_blocklisted(Path::new("/proc/self/cmdline")));
+        assert!(is_blocklisted(Path::new("/sys/class")));
+        assert!(is_blocklisted(Path::new("/dev/null")));
+        assert!(is_blocklisted(Path::new("/run/systemd")));
+        #[cfg(target_os = "macos")]
+        assert!(is_blocklisted(Path::new("/private/etc/hosts")));
+        assert!(!is_blocklisted(Path::new("/tmp/sp3d_test.png")));
     }
 
     #[test]

@@ -501,6 +501,19 @@ mod tests {
         assert_eq!((w, h), (8, 8));
     }
 
+    /// SEC-D-10: blocklisted system paths are rejected before read (shared `path_security` policy).
+    #[cfg(unix)]
+    #[test]
+    fn load_image_impl_rejects_blocklisted_system_path() {
+        let result = load_image_impl("/etc/hosts".to_string());
+        let err = result.expect_err("/etc/hosts must be blocklisted");
+        let msg = err.to_string().to_lowercase();
+        assert!(
+            msg.contains("system") || msg.contains("not allowed"),
+            "expected blocklist error, got: {err}"
+        );
+    }
+
     /// `read_image_bytes_for_depth` rejects oversized files via the metadata-based size cap,
     /// **before** any bytes are read into RAM. Uses a sparse file so disk usage is negligible.
     #[test]

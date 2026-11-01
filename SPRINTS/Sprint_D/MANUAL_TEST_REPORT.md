@@ -6,7 +6,87 @@
 **OS:** _Windows | macOS | Linux_  
 **Date:** _TBD_
 
-**Related procedures:** [QA-D-01_TEST_PROCEDURE.md](./QA-D-01_TEST_PROCEDURE.md) · [docs/engraver-charter.md](../../docs/engraver-charter.md)
+**Related procedures:** [QA-D-01_TEST_PROCEDURE.md](./QA-D-01_TEST_PROCEDURE.md) · [docs/testing.md](../../docs/testing.md) · [docs/engraver-charter.md](../../docs/engraver-charter.md) · [TEST_PLAN_D.md](./TEST_PLAN_D.md)
+
+---
+
+## QA-C-01 — Core workflow (`docs/testing.md` §1)
+
+**Task:** QA-C-01 · **Status:** Not run — structure only (QA-D-07)  
+**Checklist source:** [docs/testing.md](../../docs/testing.md) §1 — Core workflow (every sprint / before release)
+
+### Environment (fill on execution)
+
+| Field | Value |
+|-------|--------|
+| Git commit | |
+| Build | `tauri dev` ☐ / release build ☐ |
+| OS + version | |
+| Stub depth (`SP3D_USE_STUB=1`) | Yes ☐ / No ☐ |
+| Test images used | e.g. small PNG, 4K sample |
+
+### §1 Core workflow results
+
+| # | Step | How to verify (summary) | Pass? | Notes |
+|---|------|-------------------------|-------|-------|
+| 1 | Load image | PNG/JPG in 2D view; >8K downsamples with notice | ☐ | |
+| 2 | Generate depth | Progress; grayscale depth map | ☐ | |
+| 3 | Adjust depth | Brightness/contrast/gamma/invert; depth range mm | ☐ | |
+| 4 | Set blank envelope | L×W×H mm + margin; preset or custom | ☐ | |
+| 5 | Set sampling params | Pixel step, depth threshold; point estimate updates | ☐ | |
+| 6 | Generate point cloud / 3D preview | Points in blank wireframe; rotate/zoom | ☐ | |
+| 7 | Export PLY | File created; viewer or engraver pre-check | ☐ | |
+| 8 | Export XYZ / CSV | Files created; column layout correct | ☐ | |
+| 9 | Settings persistence | Restart restores blank, format, depth range | ☐ | |
+
+### §1 Edge cases (optional)
+
+| Case | Expected | Pass? | Notes |
+|------|----------|-------|-------|
+| Invalid/corrupt file | Error, no crash | ☐ | |
+| Unusual aspect ratio | Depth + point cloud + export succeed | ☐ | |
+| Cancel depth mid-run (if supported) | App recovers | ☐ | |
+
+### QA-C-01 §1 summary
+
+| Outcome | Select when |
+|---------|-------------|
+| ☐ **Pass** | All required §1 rows pass |
+| ☐ **Fail** | Any required step fails |
+| ☐ **Partial** | Core path works; edge cases deferred |
+
+**Defects (BACK-D-01 / UI):** _Add rows below during execution._
+
+| ID | Step # | Symptom | Expected | Actual | Evidence |
+|----|--------|---------|----------|--------|----------|
+| | | | | | |
+
+---
+
+## QA-C-01 — Export verification (`docs/testing.md` §2)
+
+**Task:** QA-C-01 · **Status:** Not run — structure only  
+**Checklist source:** [docs/testing.md](../../docs/testing.md) §2 — Export verification
+
+### §2 Export verification results
+
+| # | Step | How to verify (summary) | Pass? | Notes |
+|---|------|-------------------------|-------|-------|
+| 1 | PLY ASCII / binary | Opens in viewer/engraver; point count ≈ estimate | ☐ | |
+| 2 | XYZ format | Three columns; mm units; within blank bounds | ☐ | |
+| 3 | CSV format | Header row; comma-separated; imports cleanly | ☐ | |
+| 4 | Engraver import (Phase D gate) | **Xtool Studio** → **Xtool F2**; axis + scale | ☐ | See § QA-D-01 below |
+| 5 | Blank fit | Points inside wireframe / envelope with margin | ☐ | |
+
+### QA-C-01 §2 summary
+
+| Outcome | Select when |
+|---------|-------------|
+| ☐ **Pass** | §2 rows 1–3 and 5 pass; row 4 Pass or tracked in QA-D-01 |
+| ☐ **Fail** | Export format or blank-fit failure |
+| ☐ **Blocked** | §2 row 4 only — Xtool Studio/F2 not available this session |
+
+**Overall QA-C-01 (§1 + §2):** ☐ Pass ☐ Fail ☐ Partial — **Date:** ___________
 
 ---
 
@@ -88,27 +168,29 @@ _Add rows from [QA-D-01_TEST_PROCEDURE.md](./QA-D-01_TEST_PROCEDURE.md) § G dur
 
 ## QA-D-02 — Performance (4K image)
 
+**Automated Rust slice (dev reference, 2026-05-24):** `cargo test qa_d02_4k_rust_pipeline_timing --manifest-path src-tauri/Cargo.toml -- --ignored --nocapture` — synthetic 3840×2160 depth, step 1: ~0.6 s generate, ~3.0 s PLY export (~233 MB file). See `QA-D-02_BENCHMARK.md`.
+
 | Step | Time | Notes |
 |------|------|-------|
 | Load image | | |
 | Generate depth | | |
 | Generate point cloud | | |
 | Export PLY | | |
-| **Total** | | Target: &lt; 2 min (PRD) |
+| **Total** | | Target: &lt; 2 min (PRD) E2E including Python |
 
 ---
 
 ## QA-D-03 — Security pentest checklist
 
-See `SECURITY_PENTEST_CHECKLIST.md` — copy Pass/Fail column here or attach summary:
+**Automated (2026-05-24):** `cargo test qa_d03 --manifest-path src-tauri/Cargo.toml` — see `QA-D-03_AUTOMATED_COVERAGE.md` for mapping to checklist #1–18.
 
-| Section | Pass | Fail | Skipped |
-|---------|------|------|---------|
-| IPC fuzzing | | | |
-| Filesystem | | | |
-| Model & subprocess | | | |
-| WebView / ACL | | | |
-| DoS (lab) | | | |
+| Section | Pass | Fail | Skipped | Notes |
+|---------|------|------|---------|-------|
+| IPC fuzzing | Auto | | Manual UI | Tests #1–7 |
+| Filesystem | Auto | | #9 symlink | Tests #8, #10 |
+| Model & subprocess | | | Manual | #11–13 |
+| WebView / ACL | | | Manual | #14–16 release build |
+| DoS (lab) | Auto | | #18 E2E | #17–18 partial |
 
 ### Security pentest (QA-D-03 — static review)
 

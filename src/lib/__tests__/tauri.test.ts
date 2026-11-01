@@ -23,6 +23,9 @@ import {
   estimatePointCloudCount,
   generatePointCloud,
   exportPly,
+  exportXyz,
+  exportCsv,
+  setPointCloudFormat,
   type DepthAdjustmentParams,
   type LoadImageResult,
   type DepthMapResult,
@@ -243,6 +246,24 @@ describe("tauri IPC", () => {
       mockInvoke.mockResolvedValue(undefined);
       await exportPly("/tmp/out.ply", true);
       expect(mockInvoke).toHaveBeenCalledWith("export_ply", { path: "/tmp/out.ply", binary: true });
+    });
+
+    it("exportXyz calls export_xyz with path", async () => {
+      mockInvoke.mockResolvedValue(undefined);
+      await exportXyz("/tmp/out.xyz");
+      expect(mockInvoke).toHaveBeenCalledWith("export_xyz", { path: "/tmp/out.xyz" });
+    });
+
+    it("exportCsv calls export_csv with path", async () => {
+      mockInvoke.mockResolvedValue(undefined);
+      await exportCsv("/tmp/out.csv");
+      expect(mockInvoke).toHaveBeenCalledWith("export_csv", { path: "/tmp/out.csv" });
+    });
+
+    it("setPointCloudFormat calls set_point_cloud_format", async () => {
+      mockInvoke.mockResolvedValue(undefined);
+      await setPointCloudFormat("xyz");
+      expect(mockInvoke).toHaveBeenCalledWith("set_point_cloud_format", { format: "xyz" });
     });
   });
 

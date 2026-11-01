@@ -67,6 +67,8 @@
 
 **SEC-201 completed 2026-02-03:** `src-tauri/src/python_bridge.rs` reviewed. No user input in argv; path from `file_io::write_temp_file` and `validate_input_path` (canonicalized, under temp dir); no shell. See `docs/security-checklist.md` §2.2 (SEC-201 Review).
 
+**SEC-D-07 (Sprint D, 2026-05-24):** `apply_hardened_subprocess_env()` calls `Command::env_clear()` then copies only an allowlisted set of variables (`ALLOWED_SUBPROCESS_ENV` in `python_bridge.rs`): on Unix `PATH` and `HOME`; on Windows `PATH`, `PATHEXT`, `SYSTEMROOT`, `WINDIR`, `USERPROFILE`, `HOMEDRIVE`, `HOMEPATH`, `TEMP`, `TMP`. **`VIRTUAL_ENV`**, **`DEPTH_MODEL_PATH`**, and other parent env are **not** passed through. Stub depth uses explicit `--no-model` via `stub_depth_cli_flag()` (parent `SP3D_USE_STUB` mapped at spawn time), not subprocess env inheritance.
+
 ### 2.6 IPC (Tauri commands) surface
 
 | Threat | Mitigation |

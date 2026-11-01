@@ -17,7 +17,20 @@ This document defines what SimplePicture3D **commits to** in exported point clou
 
 ---
 
-## 2. Coordinate system and units
+## 2. Target engraver toolchain (ARCH-D-01)
+
+| Field | Value |
+|-------|--------|
+| **Control software** | [Xtool Studio](https://www.xtool.com/) (import / job setup) |
+| **Hardware** | **Xtool F2** — UV laser engraver (internal crystal / glass / acrylic) |
+| **Primary platform** | Windows (Phase 1+2 shipping target) |
+| **Software version** | Record exact build in `SPRINTS/Sprint_D/MANUAL_TEST_REPORT.md` at QA-D-01 |
+
+SimplePicture3D exports **PLY (ASCII)** and **XYZ** point clouds for import into Xtool Studio. Accepted import formats in Studio must be confirmed during QA-D-01 (try PLY first, then XYZ).
+
+---
+
+## 3. Coordinate system and units
 
 | Axis | Meaning in SP3D | Blank field | Default range (Standard preset) |
 |------|-----------------|-------------|----------------------------------|
@@ -49,7 +62,7 @@ This document defines what SimplePicture3D **commits to** in exported point clou
 
 ---
 
-## 3. Export formats
+## 4. Export formats
 
 | Format | Primary for QA-D-01 | Specification |
 |--------|---------------------|---------------|
@@ -78,7 +91,7 @@ end_header
 
 ---
 
-## 4. Point cloud content (ADR-012)
+## 5. Point cloud content (ADR-012)
 
 - **One point per sampled** \((x,y)\) where depth ≥ `depth_threshold` (default `0.05`).
 - **Density:** Controlled by `step_x` / `step_y` (default `1` = full resolution).
@@ -89,7 +102,7 @@ end_header
 
 ---
 
-## 5. Verification checklist (QA-D-01)
+## 6. Verification checklist (QA-D-01)
 
 Execute after export; record Pass/Fail in `MANUAL_TEST_REPORT.md`.
 
@@ -105,18 +118,18 @@ Execute after export; record Pass/Fail in `MANUAL_TEST_REPORT.md`.
 
 ---
 
-## 6. Known-good secondary tools (pre-engraver)
+## 7. Known-good secondary tools (pre-engraver)
 
 If target engraver software is unavailable, use for **format-only** checks (does not satisfy sprint gate):
 
 - [CloudCompare](https://www.cloudcompare.org/) — PLY/XYZ import, bbox, units
 - [MeshLab](https://www.meshlab.net/) — PLY import
 
-Sprint D gate **QA-D-01** still requires at least one **target engraver** import (see `SPRINT_D_Task_Assignment.md`).
+Sprint D gate **QA-D-01** still requires import into **Xtool Studio** for the **Xtool F2** workflow (see `SPRINT_D_Task_Assignment.md`).
 
 ---
 
-## 7. References
+## 8. References
 
 - `RESEARCH/architecture.md` — ADR-012
 - `docs/testing.md` — Core workflow checklist

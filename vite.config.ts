@@ -13,6 +13,8 @@ export default defineConfig({
     include: ["src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
   },
   resolve: {
+    // Svelte 5 defaults to the server entry; component tests need client lifecycle (onDestroy, etc.).
+    conditions: ["browser", "development", "import", "module", "default"],
     alias: {
       $lib: path.resolve(__dirname, "./src/lib"),
     },

@@ -1,10 +1,14 @@
 // Copyright (c) 2026 SimplePicture3D Contributors
 // SPDX-License-Identifier: MIT
 
-//! Persistent application settings (BACK-706).
+//! Persistent application settings (BACK-706, ADR-012).
 //!
 //! Settings are stored as JSON at `~/.simplepicture3d/settings.json`.
-//! Loaded on startup; saved after each export to remember last export directory.
+//! Loaded on startup; saved after export and other session changes.
+//!
+//! **Export preference:** `point_cloud_format` (`"ply"`, `"xyz"`, or `"csv"`) is the
+//! active format persisted for point cloud export. Legacy `export_format` (`"stl"` /
+//! `"obj"`) is read-only for backward compatibility with pre–ADR-012 settings files.
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -21,8 +25,9 @@ pub struct AppSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_export_dir: Option<String>,
 
-    /// Legacy field from mesh era ("stl" / "obj"). Prefer `point_cloud_format`.
-    /// Kept for settings file backward compatibility; not used by export commands.
+    /// Legacy mesh-era export preference (`"stl"` / `"obj"`). Deserialised from old
+    /// `settings.json` only; not written on save and not used by export commands.
+    /// Use `point_cloud_format` for PLY / XYZ / CSV (ADR-012).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub export_format: Option<String>,
 
@@ -63,7 +68,8 @@ pub struct AppSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub blank_envelope: Option<BlankEnvelope>,
 
-    /// Preferred point cloud export format: "ply", "xyz", or "csv" (ADR-012).
+    /// Active point cloud export format preference: `"ply"`, `"xyz"`, or `"csv"`.
+    /// Set via `set_point_cloud_format` and restored on startup (ADR-012).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub point_cloud_format: Option<String>,
 

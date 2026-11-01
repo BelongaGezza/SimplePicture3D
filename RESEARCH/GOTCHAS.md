@@ -139,3 +139,28 @@ These capture recurring cross-cutting rules that apply to all sprints. Unlike th
 **Symptom:** Tests for `to_soft_mask` (feather) or `apply_adjustments_with_mask` fail when asserting that the blended value at the centre is "large" (e.g. > 0.5 or near 1.0).  
 **Cause:** Box-blur with radius r averages over (2r+1)² pixels. A single masked pixel with r=1 gives centre weight 1/9, not 1.0. Similarly, a 3×1 strip with only the centre masked gives weight 1/3 at centre, so blended depth is 2/3 original + 1/3 adjusted.  
 **Fix:** Assert "feather produces partial values" (e.g. centre > 0 and has mid-range values), not "centre ≈ 1.0". For blend tests, assert "blended toward adjusted" (e.g. output at centre > 0.5) rather than "nearly full adjusted". See `src-tauri/src/mask.rs` and lib tests `apply_adjustments_with_mask_*`.
+
+### 2026-05-24 — Rust / Linux — Local `cargo test` fails without GTK/WebKit dev libs
+**Symptom:** On Linux (and some fresh dev machines), `cargo test --manifest-path src-tauri/Cargo.toml` or `cargo build` fails with pkg-config errors for `gtk+-3.0`, `webkit2gtk-4.1`, or `libsoup-3.0` (e.g. `The system library libsoup-3.0 required by crate soup3-sys was not found`).  
+**Cause:** Tauri links against GTK3 and WebKit2GTK at build time; unit tests compile the same crate graph. CI installs these via apt; Windows `backend-windows` does not need them for tests.  
+**Fix:** Install system packages per `SETUP_NOTES.md` (Linux section): `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `libsoup-3.0-dev`, and related deps. Verify with `pkg-config --exists gtk+-3.0 webkit2gtk-4.1`. **Note:** macOS dev machines with full Tauri deps may pass without extra steps; do not assume Linux CI behaviour on an unprovisioned laptop.
+
+### 2026-05-24 — Python / Security — `expected_model_hashes.json` TODO placeholders skip SHA256 verification
+**Symptom:** Model download succeeds but checksum mismatch never fails; SEC-D-02 appears implemented yet hashes are not enforced.  
+**Cause:** `python/python/expected_model_hashes.json` contains `TODO:REPLACE_WITH_SHA256_*` (or other non–64-char hex) values. `load_expected_hashes()` in `model_downloader.py` treats invalid/placeholder entries as “no hashes configured” and **silently skips** `verify_model_sha256`.  
+**Fix:** After a **trusted** Hugging Face download, run `python -m python.model_downloader --write-hashes` and commit real 64-character SHA256 digests. Until then, document stub status in security sign-off (`SPRINTS/Sprint_D/SECURITY_REVIEW_2026-05.md`, SEC-D-02). Tests in `python/tests/test_model_downloader.py` cover loader behaviour with temp manifests.
+
+### 2026-05-24 — Svelte 5 — Blank white window on `tauri dev` / `npm run dev`
+**Symptom:** Tauri window or browser tab opens but shows only a white screen; no UI.  
+**Cause:** `package.json` uses **Svelte 5** but `src/main.ts` still used the Svelte 4 constructor (`new App({ target })`), which does not mount components in Svelte 5.  
+**Fix:** Use `import { mount } from "svelte"` and `mount(App, { target })`. Keep `compilerOptions.compatibility.componentApi: 4` in `svelte.config.js` while components still use `export let`. Open DevTools (WebView inspector) to confirm — uncaught errors often mention `component_api_invalid_new`.
+
+### 2026-05-24 — Mask / IPC — Brush paint on 4K depth preview did not affect full-resolution mask
+**Symptom:** Mask brush, lasso, and selection appear to do nothing (or only affect a tiny corner) when the depth map is larger than the IPC preview cap (~1024×1024 or 1M pixels).  
+**Cause:** The UI paints in **IPC preview coordinates** (`get_depth_map` / `generate_depth_map` return subsampled width/height), but `set_mask_region` and `set_mask` previously wrote directly to the **full-resolution** mask in backend state without scaling.  
+**Fix:** `scale_mask_region_to_full` and `upsample_mask_from_ipc` in `depth_adjust.rs`; `set_mask_region` scales rectangles before `set_region`; `set_mask` accepts IPC-sized buffers and upsamples when dimensions match `ipc_depth_dimensions(full_w, full_h)`. `get_mask` already subsamples for overlay (unchanged).
+
+### 2026-05-24 — Rust / Tauri — Test Tauri commands via `*_from_state` helpers, not IPC
+**Symptom:** Adding `#[test]` that calls Tauri `#[tauri::command]` handlers directly is awkward (needs `AppHandle`, runtime, or mocking).  
+**Cause:** Command functions are thin wrappers around stateful logic; integration tests should exercise the same body as production without spinning Tauri.  
+**Fix:** Extract command body into `fn export_ply_from_state(state: &AppState, path: String, binary: bool) -> Result<(), String>` (and `export_xyz_from_state`, `export_csv_from_state`). Register commands that delegate to these helpers. In `lib.rs` `#[cfg(test)]` module, build `AppState`, run generate/cache helpers, then call `export_*_from_state` — see **QA-B-01** (Sprint D, 2026-05-24): five tests for PLY/XYZ/CSV paths, generate→export, and empty-cache error. Reuse this pattern for new commands (settings, depth, point cloud) instead of `invoke()` in Rust tests.
